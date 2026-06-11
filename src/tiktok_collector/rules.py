@@ -6,6 +6,7 @@ from typing import Callable, Optional
 
 from ._rules_parts import similar_excluded as _similar_excluded
 from ._rules_parts import underage_pair as _underage_pair
+from ._rules_parts import mass_produced as _mass_produced
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -356,26 +357,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 量産系 — ノイズタグ多数 + Bio 同一/空
+    # → src/tiktok_collector/_rules_parts/mass_produced.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    _cs_generic_hit = None
-    _cs_noise_count = 0
-    for _w in ['capcut', 'tiktok流行りダンス', '流行りダンス', '流行りdance', '落書き', 'fyp', 'fypシ', 'おすすめ', 'バズれ', 'バズりたい', 'テンプレ', 'この歌', 'この音源', '歌詞', '音源', 'ダンス']:
-        _ws = str(_w or "").strip()
-        if _ws and _ws.lower() in _cs_low:
-            _cs_noise_count += 1
-            if _cs_generic_hit is None:
-                _cs_generic_hit = _ws
-
-    if re.search(r"(?:08|09)$", _cs_uid_s) and _cs_bio_empty_or_emoji and _cs_generic_hit:
-        return f"未成年/量産系NG(08/09末尾ID+短文Bio+{_cs_generic_hit})"
-
-    if _cs_bio_empty_or_emoji and _cs_noise_count >= 2:
-        return "量産系NG(短文Bio+ノイズタグ複数)"
-
-    _cs_tags_norm = re.sub(r"\s+", "", _cs_tags.lower())
-    _cs_bio_norm = re.sub(r"\s+", "", _cs_bio_s.lower())
-    if _cs_tags_norm and _cs_tags_norm == _cs_bio_norm and _cs_generic_hit:
-        return "量産系NG(ハッシュタグとBio同一)"
+    if (r := _mass_produced.check(_cs_low, _cs_uid_s, _cs_bio_empty_or_emoji, _cs_tags, _cs_bio_s)) is not None:
+        return r
 
 
     # 追加NG: 学校行事・学年・未成年年齢表記
