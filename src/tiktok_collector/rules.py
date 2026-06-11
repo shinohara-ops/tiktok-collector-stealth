@@ -9,6 +9,7 @@ from ._rules_parts import underage_pair as _underage_pair
 from ._rules_parts import mass_produced as _mass_produced
 from ._rules_parts import underage_school_age as _underage_school_age
 from ._rules_parts import colored_excluded_ids as _colored_excluded_ids
+from ._rules_parts import underage_tail_id as _underage_tail_id
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -387,91 +388,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 未成年系 — 08/09 末尾ID + 絵文字 Bio + テンプレ歌
+    # → src/tiktok_collector/_rules_parts/underage_tail_id.py に抽出済
     # ────────────────────────────────────────────────────────────────
-
-    # 追加除外: 08/09末尾ID + 絵文字Bio + テンプレ/歌系タグ
-    try:
-        _ts_uid = (
-            _get(candidate, "unique_id", None)
-            or _get(candidate, "user_id", None)
-            or _get(candidate, "id", None)
-            or ""
-        )
-        _ts_name = (
-            _get(candidate, "display_name", None)
-            or _get(candidate, "nickname", None)
-            or _get(candidate, "name", None)
-            or ""
-        )
-        _ts_bio = (
-            _get(candidate, "profile_bio", None)
-            or _get(candidate, "bio", None)
-            or _get(candidate, "signature", None)
-            or _get(candidate, "profile_text", None)
-            or _get(candidate, "description", None)
-            or _get(candidate, "desc", None)
-            or ""
-        )
-        _ts_tags_raw = (
-            _get(candidate, "hashtags", None)
-            or _get(candidate, "hashtag", None)
-            or _get(candidate, "tags", None)
-            or _get(candidate, "tag_text", None)
-            or _get(candidate, "hashtag_text", None)
-            or ""
-        )
-    except Exception:
-        _ts_uid = (
-            getattr(candidate, "unique_id", None)
-            or getattr(candidate, "user_id", None)
-            or getattr(candidate, "id", None)
-            or ""
-        )
-        _ts_name = (
-            getattr(candidate, "display_name", None)
-            or getattr(candidate, "nickname", None)
-            or getattr(candidate, "name", None)
-            or ""
-        )
-        _ts_bio = (
-            getattr(candidate, "profile_bio", None)
-            or getattr(candidate, "bio", None)
-            or getattr(candidate, "signature", None)
-            or getattr(candidate, "profile_text", None)
-            or getattr(candidate, "description", None)
-            or getattr(candidate, "desc", None)
-            or ""
-        )
-        _ts_tags_raw = (
-            getattr(candidate, "hashtags", None)
-            or getattr(candidate, "hashtag", None)
-            or getattr(candidate, "tags", None)
-            or getattr(candidate, "tag_text", None)
-            or getattr(candidate, "hashtag_text", None)
-            or ""
-        )
-
-    if isinstance(_ts_tags_raw, (list, tuple, set)):
-        _ts_tags = " ".join([str(x) for x in _ts_tags_raw]).strip()
-    else:
-        _ts_tags = str(_ts_tags_raw or "").strip()
-
-    _ts_uid_s = str(_ts_uid or "").strip().replace("@", "")
-    _ts_bio_s = str(_ts_bio or "").strip()
-    _ts_full = " ".join([_ts_uid_s, str(_ts_name or ""), _ts_tags, _ts_bio_s])
-    _ts_low = _ts_full.lower()
-
-    for _w in ['テンプレートお借りしました', 'テンプレお借りしました', 'この歌好き', '黒毛和牛上塩タン焼680円', '黒毛和牛上塩タン焼', '村谷はるな', 'はるち']:
-        _ws = str(_w or "").strip()
-        if _ws and _ws.lower() in _ts_low:
-            return f"NGワード({_ws})"
-
-    # 08/09末尾ID + 絵文字のみ/短すぎるBio + テンプレ/歌/流行り系タグは未成年・量産ノイズとして除外
-    _ts_bio_without_symbols = re.sub(r"[\W_\s]+", "", _ts_bio_s, flags=re.UNICODE)
-    _ts_emoji_or_too_short_bio = (_ts_bio_s == "") or (len(_ts_bio_without_symbols) == 0) or (len(_ts_bio_s) <= 2)
-    _ts_template_song_like = re.search(r"(テンプレ|お借りしました|この歌|歌好き|流行り|流行|capcut|落書き)", _ts_full, flags=re.I) is not None
-    if re.search(r"(?:08|09)$", _ts_uid_s) and _ts_emoji_or_too_short_bio and _ts_template_song_like:
-        return "未成年/量産系NG(08/09末尾ID+短文Bio+テンプレ歌系)"
+    if (r := _underage_tail_id.check(_cs_uid_s, _cs_name_s, _cs_bio_s, _cs_tags)) is not None:
+        return r
 
 
 
