@@ -16,43 +16,68 @@ HEADERS = [
     "プロフィール紹介文", "可愛さ点数", "理由", "使用モデル", "プロフURL", "投稿URL", "スクショパス",
 ]
 
-# 列順: A=カテゴリ B=ワード C=有効 D=適用範囲 E=Bio空必須 F=メモ
-# メモは可変長(複数行など)なので一番右に置く。判定に使う列(カテゴリ/ワード/有効/scope/bio_empty)
-# を左に集めることで Sheets を横スクロールせず編集できる。
-NG_KEYWORDS_HEADERS = ["カテゴリ", "ワード", "有効", "適用範囲", "Bio空必須", "メモ"]
+# 列順: A=カテゴリ B=ワード C=適用範囲 D=Bio空必須 E=有効 F=メモ
+# 「有効」を右から二つ目に置き、メモを一番右(自由入力)に。
+# 判定に使う 4 列(カテゴリ/ワード/scope/bio_empty)が左に集まる。
+NG_KEYWORDS_HEADERS = ["カテゴリ", "ワード", "適用範囲", "Bio空必須", "有効", "メモ"]
 NG_KEYWORDS_TAB_KEY = "ng_keywords"
 NG_KEYWORDS_DEFAULT_TTL_SEC = 600
 
-# 列インデックス(0-based)。データ読み込みでも使う。
 NG_COL_CATEGORY = 0
 NG_COL_WORD = 1
-NG_COL_ENABLED = 2
-NG_COL_SCOPE = 3
-NG_COL_BIO_EMPTY = 4
+NG_COL_SCOPE = 2
+NG_COL_BIO_EMPTY = 3
+NG_COL_ENABLED = 4
 NG_COL_MEMO = 5
 
-# プルダウン選択肢(ワードとメモは自由入力)
-NG_DROPDOWN_CATEGORIES = ["general", "ng", "ad", "official", "agency", "live", "music", "game", "pet", "food"]
-NG_DROPDOWN_BOOLEAN = ["TRUE", "FALSE"]
-NG_DROPDOWN_SCOPE = ["all", "hashtag", "bio"]
-# 列ごとに (0-based column index, 選択肢, strict)
+# プルダウン候補(日本語)。strict=False にしているので旧英語値(general / TRUE 等)
+# が残っていてもエラーにならない。新規入力は日本語ラベルから選ぶ。
+NG_DROPDOWN_CATEGORIES = ["汎用", "NG", "広告", "公式", "事務所", "配信", "音楽", "ゲーム", "ペット", "食べ物"]
+NG_DROPDOWN_SCOPE = ["全体", "ハッシュタグ", "Bio"]
+NG_DROPDOWN_BIO_EMPTY = ["必須", "不要"]
+NG_DROPDOWN_ENABLED = ["有効", "無効"]
 NG_DROPDOWN_SPECS: list[tuple[int, list[str], bool]] = [
-    (NG_COL_CATEGORY, NG_DROPDOWN_CATEGORIES, True),
-    (NG_COL_ENABLED, NG_DROPDOWN_BOOLEAN, True),
-    (NG_COL_SCOPE, NG_DROPDOWN_SCOPE, True),
-    (NG_COL_BIO_EMPTY, NG_DROPDOWN_BOOLEAN, True),
+    (NG_COL_CATEGORY, NG_DROPDOWN_CATEGORIES, False),
+    (NG_COL_SCOPE, NG_DROPDOWN_SCOPE, False),
+    (NG_COL_BIO_EMPTY, NG_DROPDOWN_BIO_EMPTY, False),
+    (NG_COL_ENABLED, NG_DROPDOWN_ENABLED, False),
 ]
-NG_DROPDOWN_ROWS = 5000  # 何行目までプルダウンを掛けるか(余裕を持って多めに)
+NG_DROPDOWN_ROWS = 5000
+
+# 日本語ラベル ↔ 内部表現の対応。
+NG_CATEGORY_JA_TO_EN = {
+    "汎用": "general",
+    "NG": "ng", "ng": "ng",
+    "広告": "ad",
+    "公式": "official",
+    "事務所": "agency",
+    "配信": "live",
+    "音楽": "music",
+    "ゲーム": "game",
+    "ペット": "pet",
+    "食べ物": "food",
+}
+NG_SCOPE_JA_TO_EN = {
+    "全体": "all", "all": "all",
+    "ハッシュタグ": "hashtag", "hashtag": "hashtag",
+    "Bio": "bio", "bio": "bio",
+}
+# どちらの列でも「ON」「TRUE」相当はここ、「OFF」「FALSE」相当はその下にまとめる。
+_NG_TRUTHY_LOWER = {"有効", "必須", "true", "1", "yes", "on"}
+_NG_FALSEY_LOWER = {"無効", "不要", "false", "0", "no", "off"}
 
 # 適用範囲(E列)の値: all = bio + hashtags + display_name など全部を結合した text に部分一致(現状互換)
 #                    hashtag = ハッシュタグだけに部分一致
 #                    bio = Bio だけに部分一致
 NG_SCOPE_VALUES = {"all", "hashtag", "bio"}
 
-# 「有効」「Bio空必須」列で FALSE 扱いする文字列
-_NG_FALSEY_TOKENS = {"FALSE", "0", "NO", "OFF", "無効", "false", "off", "no"}
-# 「Bio空必須」列で TRUE 扱いする文字列
-_NG_TRUTHY_TOKENS = {"TRUE", "1", "YES", "ON", "有効", "true", "on", "yes"}
+
+def _ng_is_truthy(s: str) -> bool:
+    return s.strip().lower() in _NG_TRUTHY_LOWER or s.strip() in _NG_TRUTHY_LOWER
+
+
+def _ng_is_falsey(s: str) -> bool:
+    return s.strip().lower() in _NG_FALSEY_LOWER or s.strip() in _NG_FALSEY_LOWER
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
@@ -434,19 +459,22 @@ class SheetsClient:
         for row in rows:
             if len(row) <= NG_COL_WORD:
                 continue
-            category = _cell(row, NG_COL_CATEGORY).lower()
+            category_raw = _cell(row, NG_COL_CATEGORY)
+            # 日本語表示("汎用")も英語値("general")も同じ内部キーに正規化
+            category = NG_CATEGORY_JA_TO_EN.get(category_raw, category_raw.lower())
             word = _cell(row, NG_COL_WORD)
             if not category or not word:
                 continue
             enabled_raw = _cell(row, NG_COL_ENABLED)
-            if enabled_raw and enabled_raw.upper() in _NG_FALSEY_TOKENS:
+            if enabled_raw and _ng_is_falsey(enabled_raw):
                 continue
 
-            scope_raw = _cell(row, NG_COL_SCOPE).lower()
-            scope = scope_raw if scope_raw in NG_SCOPE_VALUES else "all"
+            scope_raw = _cell(row, NG_COL_SCOPE)
+            scope_norm = NG_SCOPE_JA_TO_EN.get(scope_raw, scope_raw.lower())
+            scope = scope_norm if scope_norm in NG_SCOPE_VALUES else "all"
 
             bio_empty_raw = _cell(row, NG_COL_BIO_EMPTY)
-            bio_empty_required = bio_empty_raw.upper() in _NG_TRUTHY_TOKENS
+            bio_empty_required = _ng_is_truthy(bio_empty_raw)
 
             flat.setdefault(category, []).append(word)
             meta.setdefault(category, []).append({
