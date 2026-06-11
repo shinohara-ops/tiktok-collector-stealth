@@ -7,3 +7,4 @@ data/*.log
 .DS_Store
 credentials/
 chrome_profile_tiktok/
+.collector_name

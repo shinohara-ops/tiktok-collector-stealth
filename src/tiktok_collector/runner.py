@@ -354,6 +354,37 @@ class TikTokRunner:
         # stealth like の状態
         self._last_like_ts = 0.0
         self._liked_uids: set[str] = set()
+        # 過去採用 uid マップ refresh 用
+        self._uid_map_last_refresh_ts = 0.0
+
+    def _maybe_refresh_uid_map(self) -> None:
+        """過去採用 uid マップを定期的に Sheets から再取得する。
+        複数 PC 運用時、別 PC が新規採用した uid をこの PC の早期 skip にも乗せる。
+        書き込み二重防止は別途 _fresh_existing_uids_all_tabs が担保しているので、
+        ここは「無駄に AI を回さない」最適化目的。失敗時は静かに継続。
+        """
+        algo_st = getattr(self.cfg, "algorithm_stealth", None)
+        interval = float(getattr(algo_st, "uid_map_refresh_sec", 600.0) or 600.0)
+        if interval <= 0:
+            return
+        now = time.time()
+        if (now - self._uid_map_last_refresh_ts) < interval:
+            return
+        if not hasattr(self.sheets, "get_unique_id_status_map"):
+            self._uid_map_last_refresh_ts = now
+            return
+        try:
+            new_map = self.sheets.get_unique_id_status_map() or {}
+            added = len(set(new_map.keys()) - self.sheet_seen_ids)
+            self.sheet_status_by_id = new_map
+            self.sheet_seen_ids = set(new_map.keys())
+            self._uid_map_last_refresh_ts = now
+            if added:
+                print(f"過去採用uidマップ更新: 新規 {added}件 / 合計 {len(self.sheet_seen_ids)}件", flush=True)
+        except Exception as e:
+            print(f"uidマップ更新失敗(stale 継続): {str(e)[:160]}", flush=True)
+            # 失敗しても次の周期まで待つ。リトライ嵐を避ける。
+            self._uid_map_last_refresh_ts = now
 
     def _stop_requested(self) -> bool:
         return Path("data/STOP_REQUESTED").exists()
@@ -392,6 +423,7 @@ class TikTokRunner:
             else:
                 self.sheet_seen_ids = self.sheets.get_all_unique_ids()
                 self.sheet_status_by_id = {uid: "seen" for uid in self.sheet_seen_ids}
+            self._uid_map_last_refresh_ts = time.time()
             print(f"過去記載済みIDを読み込みました: {len(self.sheet_seen_ids)}件", flush=True)
         except Exception as e:
             print(f"過去記載済みIDの読み込みに失敗: {e}", flush=True)
@@ -449,6 +481,8 @@ class TikTokRunner:
                 if (time.time() - start_ts) > self.cfg.browser.max_runtime_minutes * 60:
                     self.notifier.send("最大稼働時間に到達したため停止")
                     break
+
+                self._maybe_refresh_uid_map()
 
                 try:
                     await asyncio.wait_for(self._process_one(page), timeout=90)

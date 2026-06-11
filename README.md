@@ -1,10 +1,10 @@
-# TikTokCollectorStealth (検証フェーズ)
+# TikTokCollectorStealth
 
-既存 TikTokCollector が「Wi-Fi #1だと 3〜4スワイプでフィードが死ぬ」問題を、
-**実Chrome+CDP接続+マウスホイール化** で回避できるか確認するための最小検証ツール。
+既存 TikTokCollector の **検知耐性版**。実Chrome + CDP接続 + マウスホイール化で
+「Wi-Fi #1 だと 3〜4 スワイプでフィードが死ぬ」問題を解消した本体版。
 
-判定ロジック (rules / AI / Sheets) はまだ載せていない。
-**まずフィードが生き続けるかどうか**を確かめてから載せる。
+検証フェーズ(probe.py)で 60/60 完走を確認したあと、本体パイプライン
+(rules / 黒帯 / AI / Sheets 書込み)もすべて CDP モードに統合済み。
 
 ---
 
@@ -14,9 +14,11 @@
 |---|---|
 | `0_setup_mac.command` | 初回セットアップ (venv + Playwright) |
 | `1_launch_chrome.command` | 専用プロファイルで実Chromeを起動 (CDPポート 9222) |
-| `2_run_probe.command` | Pythonで CDP に接続して検証ループ |
-| `probe.py` | 本体 |
-| `data/probe.jsonl` | 実行ログ (1スワイプ1行) |
+| `2_run_probe.command` | 検証ループ(挙動と健康度確認用) |
+| `3_run_collector.command` | **本体 collector**(Sheets書込みあり) |
+| `probe.py` | 検証用 |
+| `main.py` / `src/tiktok_collector/` | 本体パイプライン |
+| `data/probe.jsonl` | probe 実行ログ |
 
 ---
 
@@ -80,8 +82,56 @@ warn_feed_stuck
 
 ---
 
+## 本体 collector の使い方
+
+1. `1_launch_chrome.command` で Chrome を CDP 9222 で起動 → TikTok にログイン → おすすめフィード表示
+2. 別ターミナルで `3_run_collector.command`
+   - 初回は記入者名(Sheets B列に入る名前)を聞かれる → 入力すると `.collector_name` に保存され、次回からは自動読み込み
+   - `.env` の `OPENAI_API_KEY` が必要
+3. AI 判定が走り、`recommended` / `blackband` / `pending` / `skipped` のいずれかのタブに追記される
+
+stealth 改造の中身:
+- ブラウザ起動を `launch_persistent_context` → `connect_over_cdp` に変更
+- スワイプを `ArrowDown` → `mouse.wheel`(失敗時 chevron click)に変更
+- 動画ごとに「過去採用 uid + フォロワー < `rules.max_followers`」で候補性を判定し、
+  非候補は screenshot/AI を回さず早期 skip
+- 候補のうち 5% で `like` を間隔ガード付き(デフォ 90 秒)で発火
+- `follow` は実装しない(my-page に痕跡が残る = 検知リスク)
+
+---
+
+## 複数 PC 並行運用
+
+| リソース | 共有/PC別 | 配布方法 |
+|---|---|---|
+| `credentials/oauth_client.json` | 全PC共通 | 1Password 等で安全配布(git管理外) |
+| `credentials/token.json` | **PC ごと別** | 各 PC で初回起動時に OAuth フロー → 自動生成 |
+| `.env` (OPENAI_API_KEY) | 全PC共通(同じキーでOK) | 1Password 等で配布 |
+| `.collector_name` | **PC ごと別** | `3_run_collector.command` 起動時に対話入力 → 自動生成 |
+| Chrome プロファイル | PC ごと別 | `1_launch_chrome.command` が初回作成、TikTokログインも各PCで実施 |
+| `data/tiktok_collector.sqlite3` | PC ごと別 | 自動作成 |
+
+### 衝突防止
+
+- **書き込み二重防止**:`sheets.append` は **書き込み直前に Sheets 全タブの uid 列を実 fetch** して dedupe。
+  別 PC が直前に同じ uid を書いていれば、こちらの書き込みは `[PRE_APPEND_DUPLICATE_SKIP]` でスキップされる。
+- **無駄な AI コール削減**:過去採用 uid マップを `algorithm_stealth.uid_map_refresh_sec`(デフォ 600 秒)
+  ごとに Sheets から再取得。別 PC が新規採用した uid はこちら側でも `stealth_candidacy:past_adopted`
+  で早期 skip され、AI を回さずに済む。
+- **記入者の識別**:Sheets B 列に `.collector_name` の値が入るので、どの PC が書いたかが分かる。
+
+### 推奨運用
+
+- TikTok アカウントは PC ごとに別を用意(同一アカウントを複数 IP で同時操作するとアカウント側で警戒される)
+- `.collector_name` は PC が分かる名前にする(例:`篠原-Mac1` / `篠原-Studio` / `篠原-Mini`)
+- `1_launch_chrome.command` 起動後の Chrome ウィンドウは閉じない(CDP セッションが切れる)
+- ダッシュボード等で進捗を見るときは Sheets の B 列で PC ごとの記入量を集計できる
+
+---
+
 ## 注意
 
-- このChromeウィンドウは閉じない。閉じるとCDPセッションも切れる
-- 普段使いのChromeとは**別プロファイル** (`~/Library/Application Support/TikTokCollectorStealth`)
-- 同じポート9222 が既に使われてると `1_launch_chrome.command` は何もしないで終わる
+- Chrome ウィンドウは閉じない。閉じると CDP セッションも切れる
+- 普段使いの Chrome とは **別プロファイル** (`~/Library/Application Support/TikTokCollectorStealth`)
+- 同じポート 9222 が既に使われてると `1_launch_chrome.command` は何もしないで終わる
+- `credentials/` と `.env`、`.collector_name` は `.gitignore` 済み。git にコミットされない

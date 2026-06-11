@@ -92,6 +92,10 @@ class AlgorithmStealthConfig:
     enable_like: bool = True
     like_probability: float = 0.05
     like_min_interval_sec: float = 90.0
+    # 過去採用 uid マップ再取得の間隔(秒)。複数 PC 運用で別 PC の追記を取り込む用。
+    # 書き込み二重防止は別途 _fresh_existing_uids_all_tabs で担保されているので、
+    # ここは「無駄に AI を回さない」ための最適化目的。
+    uid_map_refresh_sec: float = 600.0
 
 
 @dataclass

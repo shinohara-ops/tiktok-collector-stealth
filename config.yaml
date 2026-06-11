@@ -103,3 +103,5 @@ algorithm_stealth:
   like_probability: 0.05
   # 連続 like を避けるための最小間隔(秒)
   like_min_interval_sec: 90
+  # 過去採用 uid マップを Sheets から再取得する間隔(秒)。複数PC運用時、他PCの追記を取り込む。
+  uid_map_refresh_sec: 600
