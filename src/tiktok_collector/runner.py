@@ -54,30 +54,28 @@ class RateLimiter:
 
 
 async def _start_pause_guard(page):
-    """
-    判定前の一時停止用。TikTokが再生を再開しても250msごとに止める。
-    対象になった時だけ _watch_complete_and_visit_profile 内で解除して再生する。
-    """
+    """判定前に中央の動画を 1 回だけ pause する。
+    元 collector では setInterval(250ms) で TikTok の自動再生再開を片端から止めて
+    いたが、stealth モード(CDP で画面が見える状態)では「再生/一時停止アイコン」
+    が秒 4 回切り替わって不自然な見た目になる + TikTok アルゴから見ても普通の
+    視聴者の挙動ではない。
+    1 回だけ pause して、TikTok が再生再開したらそのまま視聴を許容する方針に変更。
+    視聴時間がやや増えるが、検知耐性は probe (60/60 完走) で実証済み。"""
     try:
         await page.evaluate("""
         () => {
-          if (window.__tiktokPauseGuardMinimal) return;
-          window.__tiktokPauseGuardMinimal = setInterval(() => {
-            try {
-              const vw = innerWidth, vh = innerHeight;
-              const videos = Array.from(document.querySelectorAll('video'))
-                .map(v => {
-                  const r = v.getBoundingClientRect();
-                  const visibleW = Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0));
-                  const visibleH = Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0));
-                  return {video: v, area: visibleW * visibleH};
-                })
-                .filter(x => x.area > 5000)
-                .sort((a,b) => b.area - a.area);
-              const v = videos[0]?.video;
-              if (v && !v.paused) v.pause();
-            } catch(e) {}
-          }, 250);
+          const vw = innerWidth, vh = innerHeight;
+          const videos = Array.from(document.querySelectorAll('video'))
+            .map(v => {
+              const r = v.getBoundingClientRect();
+              const visibleW = Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0));
+              const visibleH = Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0));
+              return {video: v, area: visibleW * visibleH};
+            })
+            .filter(x => x.area > 5000)
+            .sort((a,b) => b.area - a.area);
+          const v = videos[0]?.video;
+          if (v && !v.paused) v.pause();
         }
         """)
     except Exception:
