@@ -89,3 +89,13 @@ algorithm_feedback:
   negative_feedback_once_per_account: true
   target_only_previous_excluded: true
   negative_feedback_min_interval_sec: 20
+
+# stealth probe 用のアルゴ操作。候補性判定とlikeのみ。followはしない。
+algorithm_stealth:
+  # 候補性判定: 過去採用済みでない & フォロワー数 < rules.max_followers のときだけ候補
+  enable_candidacy_check: true
+  # 候補のうち like_probability で like を発火(0.0〜1.0)
+  enable_like: true
+  like_probability: 0.05
+  # 連続 like を避けるための最小間隔(秒)
+  like_min_interval_sec: 90
