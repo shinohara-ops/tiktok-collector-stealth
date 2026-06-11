@@ -10,6 +10,7 @@ from ._rules_parts import mass_produced as _mass_produced
 from ._rules_parts import underage_school_age as _underage_school_age
 from ._rules_parts import colored_excluded_ids as _colored_excluded_ids
 from ._rules_parts import underage_tail_id as _underage_tail_id
+from ._rules_parts import underage_v2_band as _underage_v2_band
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -397,98 +398,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 未成年系 — 09-08 ペア / シャドバン / CapCut
+    # → src/tiktok_collector/_rules_parts/underage_v2_band.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # 追加除外: 09-08系 + シャドバン + CapCut流行りダンス系
-    try:
-        _tp_uid = (
-            _get(candidate, "unique_id", None)
-            or _get(candidate, "user_id", None)
-            or _get(candidate, "id", None)
-            or ""
-        )
-        _tp_name = (
-            _get(candidate, "display_name", None)
-            or _get(candidate, "nickname", None)
-            or _get(candidate, "name", None)
-            or ""
-        )
-        _tp_bio = (
-            _get(candidate, "profile_bio", None)
-            or _get(candidate, "bio", None)
-            or _get(candidate, "signature", None)
-            or _get(candidate, "profile_text", None)
-            or _get(candidate, "description", None)
-            or _get(candidate, "desc", None)
-            or ""
-        )
-        _tp_tags_raw = (
-            _get(candidate, "hashtags", None)
-            or _get(candidate, "hashtag", None)
-            or _get(candidate, "tags", None)
-            or _get(candidate, "tag_text", None)
-            or _get(candidate, "hashtag_text", None)
-            or ""
-        )
-    except Exception:
-        _tp_uid = (
-            getattr(candidate, "unique_id", None)
-            or getattr(candidate, "user_id", None)
-            or getattr(candidate, "id", None)
-            or ""
-        )
-        _tp_name = (
-            getattr(candidate, "display_name", None)
-            or getattr(candidate, "nickname", None)
-            or getattr(candidate, "name", None)
-            or ""
-        )
-        _tp_bio = (
-            getattr(candidate, "profile_bio", None)
-            or getattr(candidate, "bio", None)
-            or getattr(candidate, "signature", None)
-            or getattr(candidate, "profile_text", None)
-            or getattr(candidate, "description", None)
-            or getattr(candidate, "desc", None)
-            or ""
-        )
-        _tp_tags_raw = (
-            getattr(candidate, "hashtags", None)
-            or getattr(candidate, "hashtag", None)
-            or getattr(candidate, "tags", None)
-            or getattr(candidate, "tag_text", None)
-            or getattr(candidate, "hashtag_text", None)
-            or ""
-        )
-
-    if isinstance(_tp_tags_raw, (list, tuple, set)):
-        _tp_tags = " ".join([str(x) for x in _tp_tags_raw]).strip()
-    else:
-        _tp_tags = str(_tp_tags_raw or "").strip()
-
-    _tp_full = " ".join([
-        str(_tp_uid or ""),
-        str(_tp_name or ""),
-        _tp_tags,
-        str(_tp_bio or "")
-    ])
-    _tp_low = _tp_full.lower()
-
-    for _w in ['シャドバン', 'シャドウバン', 'げろげろぴー', 'capcut', 'tiktok流行りダンス', '流行りダンス', '流行りdance', 'unsunghero', 'runaar']:
-        _ws = str(_w or "").strip()
-        if _ws and _ws.lower() in _tp_low:
-            return f"NGワード({_ws})"
-
-    # 09♡08 / 08♡09 / 09・08 / 08/09 など、未成年年度ペアっぽい表記を除外
-    _tp_digit_text = _tp_full.translate(str.maketrans("０１２３４５６７８９", "0123456789"))
-    if re.search(r"(?<!\d)(?:08|09)\s*[♡❤♥💕💖/／・,，、.．\-－_\s]+\s*(?:08|09)(?!\d)", _tp_digit_text):
-        return "未成年系NG(08/09ペア表記)"
-
-    # bioやタグ内に 08 / 09 が記号付きで単体出現するケースも除外
-    _tp_tokens = [t for t in re.split(r"[#＃\s,，、/／｜|・.．。:_\-－ー♡❤♥💕💖]+", _tp_digit_text) if t]
-    if "08" in _tp_tokens:
-        return "未成年系NG(08)"
-    if "09" in _tp_tokens:
-        return "未成年系NG(09)"
+    if (r := _underage_v2_band.check(_cs_uid_s, _cs_name_s, _cs_bio_s, _cs_tags)) is not None:
+        return r
 
 
     # 追加NGワード: No bio yet
