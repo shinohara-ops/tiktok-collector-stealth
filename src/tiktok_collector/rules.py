@@ -8,6 +8,7 @@ from ._rules_parts import similar_excluded as _similar_excluded
 from ._rules_parts import underage_pair as _underage_pair
 from ._rules_parts import mass_produced as _mass_produced
 from ._rules_parts import underage_school_age as _underage_school_age
+from ._rules_parts import colored_excluded_ids as _colored_excluded_ids
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -378,25 +379,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 色付き除外 ID 群(2764 行スナップショット)
+    # → src/tiktok_collector/_rules_parts/colored_excluded_ids.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    _colored_excluded_ids_2764 = ['na_.xl72', 'm3i.64', 'o8_kko7', 'qxlyg', 'antowanett_88', 'naru13595', '14376_', '_________0.00', 'q_r__zx', 'parurun_chan1', 'sfffed55', 'o____12m', 'kuu_86369']
-    try:
-        _candidate_uid_2764 = (
-            _get(candidate, "unique_id", None)
-            or _get(candidate, "user_id", None)
-            or _get(candidate, "id", None)
-            or ""
-        )
-    except Exception:
-        _candidate_uid_2764 = (
-            getattr(candidate, "unique_id", None)
-            or getattr(candidate, "user_id", None)
-            or getattr(candidate, "id", None)
-            or ""
-        )
-    _candidate_uid_2764 = str(_candidate_uid_2764 or "").strip().replace("@", "")
-    if _candidate_uid_2764 in _colored_excluded_ids_2764:
-        return f"色付き除外ID({_candidate_uid_2764})"
+    if (r := _colored_excluded_ids.check_2764(_cs_uid_s)) is not None:
+        return r
 
 
     # ────────────────────────────────────────────────────────────────
