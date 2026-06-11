@@ -20,6 +20,21 @@ NG_KEYWORDS_HEADERS = ["カテゴリ", "ワード", "有効", "メモ", "適用�
 NG_KEYWORDS_TAB_KEY = "ng_keywords"
 NG_KEYWORDS_DEFAULT_TTL_SEC = 600
 
+# NGワードタブのレイアウト:
+#   1 行目 = 使い方の説明(運用者向け)
+#   2 行目 = ヘッダー(NG_KEYWORDS_HEADERS)
+#   3 行目以降 = データ
+NG_KEYWORDS_GUIDE_ROW = 1
+NG_KEYWORDS_HEADER_ROW = 2
+NG_KEYWORDS_DATA_START_ROW = 3
+NG_KEYWORDS_GUIDE_TEXT = (
+    "【NGワード設定 - 使い方】"
+    "2行目=ヘッダー / 3行目以降=判定ワード。"
+    "A=カテゴリ(general推奨)、B=ワード、C=有効(FALSEで無効化)、D=メモ、"
+    "E=適用範囲(空欄=text全体 / hashtag / bio)、F=Bio空必須(TRUEのときBioが空の場合だけNG)。"
+    "編集は約10分で反映されます。"
+)
+
 # 適用範囲(E列)の値: all = bio + hashtags + display_name など全部を結合した text に部分一致(現状互換)
 #                    hashtag = ハッシュタグだけに部分一致
 #                    bio = Bio だけに部分一致
@@ -114,11 +129,12 @@ class SheetsClient:
     def _ensure_header(self, tab: str):
         ng_tab = self.tabs.get(NG_KEYWORDS_TAB_KEY)
         if ng_tab and tab == ng_tab:
-            header_cols = NG_KEYWORDS_HEADERS
-            col_end = chr(ord("A") + len(header_cols) - 1)
-        else:
-            header_cols = HEADERS
-            col_end = "M"
+            # NG タブは 1 行目=説明、2 行目=ヘッダー、3 行目以降=データ。
+            self._ensure_ng_header_with_guide(tab)
+            return
+
+        header_cols = HEADERS
+        col_end = "M"
         rng = f"{tab}!A1:{col_end}1"
         resp = self.service.spreadsheets().values().get(
             spreadsheetId=self.spreadsheet_id,
@@ -127,7 +143,6 @@ class SheetsClient:
         values = resp.get("values", [])
         existing = values[0] if values else []
         if not existing:
-            # 新規タブ: ヘッダーをフル書き込み
             self.service.spreadsheets().values().update(
                 spreadsheetId=self.spreadsheet_id,
                 range=rng,
@@ -135,9 +150,6 @@ class SheetsClient:
                 body={"values": [header_cols]},
             ).execute()
             return
-        # 既存ヘッダーが期待より列数が少なければ、不足分だけ後ろに書き足す。
-        # 既存セル(A1〜)は誤って上書きしない。NGワードタブを 4 → 6 列にする
-        # ような後方拡張に対応する。
         if len(existing) < len(header_cols):
             missing_start = len(existing)
             missing_cols = header_cols[missing_start:]
@@ -149,6 +161,132 @@ class SheetsClient:
                 range=missing_rng,
                 valueInputOption="RAW",
                 body={"values": [missing_cols]},
+            ).execute()
+
+    def _ensure_ng_header_with_guide(self, tab: str) -> None:
+        """NG タブのレイアウト:
+            1 行目 = 使い方の説明(A1 に NG_KEYWORDS_GUIDE_TEXT)
+            2 行目 = ヘッダー(NG_KEYWORDS_HEADERS)
+            3 行目以降 = データ
+        既にこの形になっていれば何もしない。旧レイアウト(1 行目=ヘッダー)を
+        検知したら、1 行目に空行を insert してヘッダーを 2 行目に押し下げ、
+        1 行目 A1 に説明文を書く(自動マイグレーション)。
+        """
+        col_end = chr(ord("A") + len(NG_KEYWORDS_HEADERS) - 1)
+        resp = self.service.spreadsheets().values().get(
+            spreadsheetId=self.spreadsheet_id,
+            range=f"{tab}!A1:{col_end}2",
+        ).execute()
+        rows = resp.get("values", []) or []
+        row1 = rows[0] if len(rows) >= 1 else []
+        row2 = rows[1] if len(rows) >= 2 else []
+
+        def _is_header(r: list) -> bool:
+            return bool(r) and "カテゴリ" in str(r[0] or "") and "ワード" in (str(r[1] or "") if len(r) > 1 else "")
+
+        if _is_header(row2):
+            # 既にレイアウト通り。説明文だけ最新に差し替えて終了(差分なければ no-op)。
+            current_guide = str(row1[0]) if row1 else ""
+            if current_guide != NG_KEYWORDS_GUIDE_TEXT:
+                self.service.spreadsheets().values().update(
+                    spreadsheetId=self.spreadsheet_id,
+                    range=f"{tab}!A1",
+                    valueInputOption="RAW",
+                    body={"values": [[NG_KEYWORDS_GUIDE_TEXT]]},
+                ).execute()
+            return
+
+        sheet_id = self._sheet_id_by_title().get(tab)
+        if _is_header(row1):
+            # 旧レイアウト: ヘッダーが 1 行目にある。1 行 insert して押し下げる。
+            print(f"NGワードタブを新レイアウト(1行目=説明)にマイグレーション中...", flush=True)
+            if sheet_id is not None:
+                self.service.spreadsheets().batchUpdate(
+                    spreadsheetId=self.spreadsheet_id,
+                    body={
+                        "requests": [{
+                            "insertDimension": {
+                                "range": {
+                                    "sheetId": sheet_id,
+                                    "dimension": "ROWS",
+                                    "startIndex": 0,
+                                    "endIndex": 1,
+                                },
+                                "inheritFromBefore": False,
+                            },
+                        }],
+                    },
+                ).execute()
+            # 1 行目 A1 に説明を書く
+            self.service.spreadsheets().values().update(
+                spreadsheetId=self.spreadsheet_id,
+                range=f"{tab}!A1",
+                valueInputOption="RAW",
+                body={"values": [[NG_KEYWORDS_GUIDE_TEXT]]},
+            ).execute()
+            # A1 を太字 + 折り返し
+            if sheet_id is not None:
+                self.service.spreadsheets().batchUpdate(
+                    spreadsheetId=self.spreadsheet_id,
+                    body={
+                        "requests": [{
+                            "repeatCell": {
+                                "range": {
+                                    "sheetId": sheet_id,
+                                    "startRowIndex": 0,
+                                    "endRowIndex": 1,
+                                    "startColumnIndex": 0,
+                                    "endColumnIndex": len(NG_KEYWORDS_HEADERS),
+                                },
+                                "cell": {
+                                    "userEnteredFormat": {
+                                        "textFormat": {"bold": True},
+                                        "wrapStrategy": "WRAP",
+                                        "backgroundColor": {"red": 1.0, "green": 0.95, "blue": 0.8},
+                                    },
+                                },
+                                "fields": "userEnteredFormat(textFormat,wrapStrategy,backgroundColor)",
+                            },
+                        }],
+                    },
+                ).execute()
+            return
+
+        # 何もない or 不明状態: 新規セットアップとして書き直す
+        print(f"NGワードタブを新規セットアップ(1行目=説明、2行目=ヘッダー)...", flush=True)
+        self.service.spreadsheets().values().update(
+            spreadsheetId=self.spreadsheet_id,
+            range=f"{tab}!A1:{col_end}2",
+            valueInputOption="RAW",
+            body={"values": [
+                [NG_KEYWORDS_GUIDE_TEXT] + [""] * (len(NG_KEYWORDS_HEADERS) - 1),
+                NG_KEYWORDS_HEADERS,
+            ]},
+        ).execute()
+        if sheet_id is not None:
+            self.service.spreadsheets().batchUpdate(
+                spreadsheetId=self.spreadsheet_id,
+                body={
+                    "requests": [{
+                        "repeatCell": {
+                            "range": {
+                                "sheetId": sheet_id,
+                                "startRowIndex": 0,
+                                "endRowIndex": 1,
+                                "startColumnIndex": 0,
+                                "endColumnIndex": len(NG_KEYWORDS_HEADERS),
+                            },
+                            "cell": {
+                                "userEnteredFormat": {
+                                    "textFormat": {"bold": True},
+                                    "wrapStrategy": "WRAP",
+                                    "backgroundColor": {"red": 1.0, "green": 0.95, "blue": 0.8},
+                                },
+                            },
+                            "fields": "userEnteredFormat(textFormat,wrapStrategy,backgroundColor)",
+                        },
+                    }],
+                },
             ).execute()
 
     def _format_tabs(self):
@@ -341,7 +479,7 @@ class SheetsClient:
         try:
             resp = self.service.spreadsheets().values().get(
                 spreadsheetId=self.spreadsheet_id,
-                range=f"{tab}!A2:F",
+                range=f"{tab}!A{NG_KEYWORDS_DATA_START_ROW}:F",
             ).execute()
         except Exception as e:
             # 読込失敗時は前回キャッシュにフォールバック。
