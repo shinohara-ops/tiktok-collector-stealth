@@ -921,4 +921,7 @@ const isAd = /広告|スポンサー|Sponsored|Promoted|プロモーション|PR
 
 
     async def next_post(self, page: Page):
-        await page.keyboard.press("ArrowDown")
+        # stealth 化: ArrowDown ではなく CDP マウスホイール(失敗時 chevron クリック、
+        # それも失敗時のみ ArrowDown)を使う。probe.py で 60/60 完走済みの方式。
+        from ._stealth import human_swipe
+        await human_swipe(page)

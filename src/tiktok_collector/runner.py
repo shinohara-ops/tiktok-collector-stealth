@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import random
 import time
 from pathlib import Path
 from collections import deque
 from playwright.async_api import async_playwright
 from .scraper import TikTokScraper
 from .rules import local_skip_reason, detect_blackband
+from ._stealth import STEALTH_INIT_JS, fire_like as _stealth_fire_like
 
 
 
@@ -349,6 +351,9 @@ class TikTokRunner:
         self.last_health = time.time()
         self.sheet_seen_ids = set()
         self.sheet_status_by_id = {}
+        # stealth like の状態
+        self._last_like_ts = 0.0
+        self._liked_uids: set[str] = set()
 
     def _stop_requested(self) -> bool:
         return Path("data/STOP_REQUESTED").exists()
@@ -394,33 +399,50 @@ class TikTokRunner:
             self.sheet_status_by_id = {}
 
         async with async_playwright() as p:
-            print("Playwright起動OK。専用Chromeプロファイルを開きます...", flush=True)
-            context = await p.chromium.launch_persistent_context(
-                user_data_dir=self.cfg.browser.user_data_dir,
-                headless=self.cfg.browser.headless,
-                viewport={"width": self.cfg.browser.viewport_width, "height": self.cfg.browser.viewport_height},
-                args=["--disable-blink-features=AutomationControlled", "--no-first-run", "--disable-dev-shm-usage"],
-            )
-            page = context.pages[0] if context.pages else await context.new_page()
-            print("専用Chromeを開きました。TikTokへ移動します...", flush=True)
+            # stealth 版: launch_persistent_context ではなく、1_launch_chrome.command で
+            # 立ち上げてある実Chromeに CDP 接続する。検知耐性は probe.py で 60/60 完走済み。
+            cdp_url = getattr(self.cfg.browser_stealth, "cdp_url", "http://localhost:9222")
+            print(f"既存Chrome(CDP {cdp_url})に接続します...", flush=True)
+            print("先に 1_launch_chrome.command を起動して、TikTokおすすめフィードを開いておいてください。", flush=True)
             try:
-                try:
-                    self.scraper.attach_follower_response_cache(page)
-                except Exception:
-                    pass
-
-                await page.goto(self.cfg.browser.start_url, wait_until="domcontentloaded", timeout=20000)
+                browser = await p.chromium.connect_over_cdp(cdp_url)
             except Exception as e:
-                print("TikTokの自動遷移でエラーが出ましたが、処理は止めません。", flush=True)
-                print("Chromeが開いている場合は、アドレスバーに https://www.tiktok.com/ を手入力してください。", flush=True)
-                print("おすすめフィードが表示されたら、この黒い画面に戻ってEnterを押してください。", flush=True)
-                print(f"遷移エラー: {str(e)[:180]}", flush=True)
+                print(f"CDP接続失敗: {str(e)[:200]}", flush=True)
+                print("1_launch_chrome.command が起動していません。", flush=True)
+                self.notifier.send("CDP接続失敗で停止")
+                return
+            context = browser.contexts[0] if browser.contexts else await browser.new_context()
+            # Page Visibility 偽装などを以降の全ページに注入
+            try:
+                await context.add_init_script(STEALTH_INIT_JS)
+            except Exception:
+                pass
+
+            page = None
+            for pg in context.pages:
+                if "tiktok.com" in (pg.url or ""):
+                    page = pg
+                    break
+            if page is None:
+                page = context.pages[0] if context.pages else await context.new_page()
+            # 既存タブには init script が後乗りなので手動で 1 回注入
+            try:
+                await page.evaluate(STEALTH_INIT_JS)
+            except Exception:
+                pass
+
+            try:
+                self.scraper.attach_follower_response_cache(page)
+            except Exception:
+                pass
+
+            if "tiktok.com" not in (page.url or ""):
                 try:
-                    await page.goto("about:blank", wait_until="domcontentloaded", timeout=5000)
-                except Exception:
-                    pass
-                await asyncio.to_thread(input, "TikTokおすすめフィードを表示したらEnter: ")
-            print("TikTokを開きました。ログインが必要なら手動でログインしてください。", flush=True)
+                    await page.goto(self.cfg.browser.start_url, wait_until="domcontentloaded", timeout=20000)
+                except Exception as e:
+                    print(f"TikTok遷移エラー(続行): {str(e)[:180]}", flush=True)
+
+            print(f"CDP接続OK / page={page.url}", flush=True)
             await asyncio.sleep(self.cfg.browser.startup_wait_sec)
 
             while True:
@@ -777,6 +799,47 @@ class TikTokRunner:
                 pass
 
 
+
+        # === stealth: 候補性判定 + like ≤5% ===
+        # 過去採用 uid もしくはフォロワー数が閾値以上なら、ここで早期 skip。
+        # screenshot も AI も走らないのでコスト/検知耐性の両面で効く。
+        # follower_count / sheet_status_by_id は上で取得済み。
+        algo_st = getattr(self.cfg, "algorithm_stealth", None)
+        if algo_st and getattr(algo_st, "enable_candidacy_check", True):
+            fc = follower_count if isinstance(follower_count, int) else None
+            is_past_adopted = self.sheet_status_by_id.get(candidate.unique_id) == "recommended"
+            max_followers_threshold = int(getattr(self.cfg.rules, "max_followers", 2000) or 2000)
+            if is_past_adopted or fc is None or fc >= max_followers_threshold:
+                if is_past_adopted:
+                    reason = "stealth_candidacy:past_adopted"
+                elif fc is None:
+                    reason = "stealth_candidacy:follower_unknown"
+                else:
+                    reason = f"stealth_candidacy:follower>={max_followers_threshold}"
+                print(f"stealth候補外: {candidate.unique_id} / {reason}", flush=True)
+                self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
+                self.sheet_seen_ids.add(candidate.unique_id)
+                await self._force_advance_after_skip(page, candidate.unique_id)
+                return
+
+            # 候補=True のときだけ like ≤5% を間隔ガード付きで発火。follow はしない。
+            if getattr(algo_st, "enable_like", True):
+                like_prob = float(getattr(algo_st, "like_probability", 0.05))
+                like_interval = float(getattr(algo_st, "like_min_interval_sec", 90))
+                now_mono = time.monotonic()
+                if (
+                    candidate.unique_id not in self._liked_uids
+                    and random.random() < like_prob
+                    and (now_mono - self._last_like_ts) >= like_interval
+                ):
+                    try:
+                        like_result = await _stealth_fire_like(page)
+                        print(f"stealth like: {candidate.unique_id} / {like_result}", flush=True)
+                        if like_result.get("ok"):
+                            self._last_like_ts = now_mono
+                            self._liked_uids.add(candidate.unique_id)
+                    except Exception as e:
+                        print(f"stealth like error: {str(e)[:120]}", flush=True)
 
         # minimal pause before judgement: 判定前に動画を停止し、対象外視聴を増やさない
 

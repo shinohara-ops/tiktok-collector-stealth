@@ -86,6 +86,21 @@ class AlgorithmFeedbackConfig:
 
 
 @dataclass
+class AlgorithmStealthConfig:
+    # stealth 版アルゴ。検知耐性を壊さない範囲で 2 シグナルだけ追加する。
+    enable_candidacy_check: bool = True
+    enable_like: bool = True
+    like_probability: float = 0.05
+    like_min_interval_sec: float = 90.0
+
+
+@dataclass
+class BrowserStealthConfig:
+    # CDP モードの設定。1_launch_chrome.command が --remote-debugging-port=9222 で立ち上げる前提。
+    cdp_url: str = "http://localhost:9222"
+
+
+@dataclass
 class AppConfig:
     collector_name: str
     browser: BrowserConfig
@@ -97,6 +112,8 @@ class AppConfig:
     blackband: BlackbandConfig
     logging: LoggingConfig
     algorithm_feedback: AlgorithmFeedbackConfig
+    algorithm_stealth: AlgorithmStealthConfig
+    browser_stealth: BrowserStealthConfig
 
 
 def _get(d: dict[str, Any], path: str, default: Any = None) -> Any:
@@ -139,6 +156,8 @@ def load_config(path: str = "config.yaml") -> AppConfig:
         blackband=BlackbandConfig(**raw.get("blackband", {})),
         logging=LoggingConfig(**raw.get("logging", {})),
         algorithm_feedback=AlgorithmFeedbackConfig(**raw.get("algorithm_feedback", {})),
+        algorithm_stealth=AlgorithmStealthConfig(**raw.get("algorithm_stealth", {})),
+        browser_stealth=BrowserStealthConfig(**raw.get("browser_stealth", {})),
     )
 
     Path(cfg.logging.screenshot_dir).mkdir(parents=True, exist_ok=True)

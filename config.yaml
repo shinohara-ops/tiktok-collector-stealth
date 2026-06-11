@@ -90,7 +90,11 @@ algorithm_feedback:
   target_only_previous_excluded: true
   negative_feedback_min_interval_sec: 20
 
-# stealth probe 用のアルゴ操作。候補性判定とlikeのみ。followはしない。
+browser_stealth:
+  # 1_launch_chrome.command が --remote-debugging-port=9222 で起動した実Chromeに接続する
+  cdp_url: http://localhost:9222
+
+# stealth 版アルゴ。候補性判定と like のみ。follow はしない。
 algorithm_stealth:
   # 候補性判定: 過去採用済みでない & フォロワー数 < rules.max_followers のときだけ候補
   enable_candidacy_check: true
