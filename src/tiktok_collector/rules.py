@@ -261,11 +261,19 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     _cs_bio_without_symbols = re.sub(r"[\W_\s]+", "", _cs_bio_s, flags=re.UNICODE)
     _cs_bio_empty_or_emoji = (_cs_bio_s == "") or (len(_cs_bio_without_symbols) == 0) or (len(_cs_bio_s) <= 2)
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 類似アカウントの hardcoded ワード(テンプレ/音楽系)
+    # ────────────────────────────────────────────────────────────────
     for _w in ['テンプレートお借りしました', 'テンプレお借りしました', 'お借りしました', 'この歌好き', 'この音源好き', '音源好き', '黒毛和牛上塩タン焼680円', '黒毛和牛上塩タン焼', 'シャドバン', 'シャドウバン', 'シャドバン解除', 'げろげろぴー', 'unsunghero', 'runaar', '村谷はるな', 'はるち']:
         _ws = str(_w or "").strip()
         if _ws and _ws.lower() in _cs_low:
             return f"類似除外({_ws})"
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 未成年系 — 08/09 ペア表記の判定
+    # ────────────────────────────────────────────────────────────────
     if re.search(r"(?<!\d)(?:08|09)\s*[♡❤♥💕💖/／・,，、.．\-－_\s]+\s*(?:08|09)(?!\d)", _cs_digit_text):
         return "未成年系NG(08/09ペア表記)"
 
@@ -275,6 +283,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     if "09" in _cs_tokens:
         return "未成年系NG(09)"
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 量産系 — ノイズタグ多数 + Bio 同一/空
+    # ────────────────────────────────────────────────────────────────
     _cs_generic_hit = None
     _cs_noise_count = 0
     for _w in ['capcut', 'tiktok流行りダンス', '流行りダンス', '流行りdance', '落書き', 'fyp', 'fypシ', 'おすすめ', 'バズれ', 'バズりたい', 'テンプレ', 'この歌', 'この音源', '歌詞', '音源', 'ダンス']:
@@ -297,6 +309,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
 
     # 追加NG: 学校行事・学年・未成年年齢表記
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 未成年系 — 学校行事/学年/年齢正規表現
+    # ────────────────────────────────────────────────────────────────
     _school_age_ng_words = ['文化祭', '体育祭', '修学旅行', '高二', '高一', '中三', '中二', '中一', '17歳', '17才', '17サイ', '17❤︎', '17❤', '17♡', '17♥', '16歳', '16才', '16サイ', '16❤︎', '16❤', '16♡', '16♥', '15歳', '15才', '15サイ', '15❤︎', '15❤', '15♡', '15♥', '14歳', '14才', '14サイ', '14❤︎', '14❤', '14♡', '14♥', '13歳', '13才', '13サイ', '13❤︎', '13❤', '13♡', '13♥', 'えふじぇーしー', 'えすじぇーしー', 'えるじぇーしー', 'えすじぇーけー', 'えふじぇーけー', '11y', '12y', '13y', '14y', '15y', '16y', '17y']
     _school_age_text = str(text or "")
     _school_age_norm = _school_age_text.translate(str.maketrans("０１２３４５６７８９", "0123456789"))
@@ -321,6 +337,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
 
     # 2764行目以降の色付きアカウントID除外
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 色付き除外 ID 群(2764 行スナップショット)
+    # ────────────────────────────────────────────────────────────────
     _colored_excluded_ids_2764 = ['na_.xl72', 'm3i.64', 'o8_kko7', 'qxlyg', 'antowanett_88', 'naru13595', '14376_', '_________0.00', 'q_r__zx', 'parurun_chan1', 'sfffed55', 'o____12m', 'kuu_86369']
     try:
         _candidate_uid_2764 = (
@@ -340,6 +360,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     if _candidate_uid_2764 in _colored_excluded_ids_2764:
         return f"色付き除外ID({_candidate_uid_2764})"
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 未成年系 — 08/09 末尾ID + 絵文字 Bio + テンプレ歌
+    # ────────────────────────────────────────────────────────────────
 
     # 追加除外: 08/09末尾ID + 絵文字Bio + テンプレ/歌系タグ
     try:
@@ -426,6 +450,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
         return "未成年/量産系NG(08/09末尾ID+短文Bio+テンプレ歌系)"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 未成年系 — 09-08 ペア / シャドバン / CapCut
+    # ────────────────────────────────────────────────────────────────
     # 追加除外: 09-08系 + シャドバン + CapCut流行りダンス系
     try:
         _tp_uid = (
@@ -520,10 +548,18 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
 
     # 追加NGワード: No bio yet
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: NGワード — "No bio yet"
+    # ────────────────────────────────────────────────────────────────
     if "no bio yet" in text.lower():
         return "NGワード(No bio yet)"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 色付き除外 ID 群(1650 行スナップショット)
+    # ────────────────────────────────────────────────────────────────
     # 1650行目以降の色付きアカウントID除外
     _colored_excluded_ids_1650 = ['ngminhchi335', 'muxi6699', 'osakana1225', '_ll.s10', 'hozonyoudesu0', 'neko22momo', '_n0zk', 'maya181526', 'xrbdwqgoceh', 'umebosi_05', 'mio0403018', 'uu1313.t', '26zixy', 'minpuri330']
     try:
@@ -545,6 +581,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
         return f"色付き除外ID({_candidate_uid_1650})"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 汎用 色付き除外 v2(リンク/未成年/外国語/ランダムID/fyp/中文/反復ASCII)
+    # ────────────────────────────────────────────────────────────────
     # 色付き行の類似アカウントを落とす汎用除外パッチ v2
     try:
         _gc_uid = (
@@ -690,6 +730,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
         return "ハッシュタグNG(同一英字連続)"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 外国語/海外アカウント — ベトナム/中文/韓国語/英文
+    # ────────────────────────────────────────────────────────────────
     # 追加除外: 日本以外の海外アカウント除外強化
     try:
         _nj_uid = (
@@ -824,6 +868,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
         return "外国語/海外(韓国語Bio)"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: ノイズ/アイドル/音楽系タグ(daun muda / onephony / 反復ASCII)
+    # ────────────────────────────────────────────────────────────────
     # 追加除外: 量産タグ/アイドル系/海外音楽系
     try:
         _noise_uid = (
@@ -918,6 +966,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
         return "アイドル/ファン系タグ(プロフィール紹介文空欄)"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: ベトナム/affiliate/Instagram/メンションのみ Bio + K-POP タグ
+    # ────────────────────────────────────────────────────────────────
     # 追加除外: ベトナム系ローマ字タグ/インスタ誘導/短すぎるメンションBio
     try:
         _vn_uid = (
@@ -1025,6 +1077,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
             return f"海外/ノイズタグ({_ws})"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: インドネシア語/マレー語系タグワード
+    # ────────────────────────────────────────────────────────────────
     # 追加除外: インドネシア語/マレー語系タグ・プロフィール
     try:
         _indo_uid = (
@@ -1106,6 +1162,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
             return f"外国語/海外({_iws})"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: ライブ配信/08/09 ハッシュタグトークン
+    # ────────────────────────────────────────────────────────────────
     # 追加除外: ハッシュタグ08/09 + 配信系
     try:
         _stream_uid = (
@@ -1195,6 +1255,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
         return "ハッシュタグNG(09)"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 非日本語スクリプト + 絵文字のみ Bio + ASCII タグ
+    # ────────────────────────────────────────────────────────────────
     # 追加除外: 外国文字/着替えフェチ/shit/絵文字のみBio
     try:
         _extra_uid = (
@@ -1292,6 +1356,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
             return "プロフィール紹介文が絵文字のみ/英字タグ"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 類似アカウント v1(外部リンク/アダルト/コスプレ/空 Bio + ASCII タグ/ランダム ID)
+    # ────────────────────────────────────────────────────────────────
     # 類似アカウント除外v1: 1〜5 ※follow/いいね稼ぎ系は未実装
     try:
         _sim_uid = (
@@ -1412,6 +1480,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
         return "ランダムID/プロフィール紹介文空欄"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 色付き除外 ID 群(1539 行スナップショット)
+    # ────────────────────────────────────────────────────────────────
     # 1539行目以降の色付きアカウントID除外
     _colored_excluded_ids_1539 = ['erishinn', 'layna0930', 'olehistrinya43', 'kata_kata_hati_yo', 'nasyacuw3k', 'una____1116', 'uutkyds2189166932', '5dfgegd', 'zella_matcha']
     try:
@@ -1433,6 +1505,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
         return f"色付き除外ID({_candidate_uid_1539})"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 色付き漏れ v2 — ワードリスト + タグコンボ
+    # ────────────────────────────────────────────────────────────────
     # 色付き漏れ行対策v2: 追加NG/海外/スパム系ワード ※litlinkは除外しない
     _colored_leak_ng_words_v2 = ['Doublefedora', 'mafioso', 'forsaken', 'ベトナムフェスティバル', 'ウエノデコリアンフェスタ', 'コリアンフェスタ', 'カリブラテンアメリカストリート', 'ラテンアメリカ', '日比谷音楽祭', 'アウトドアシネマ', 'スタンダップコメディ', 'standupcomedy', 'crowdwork', 'ほんまやでダンス', 'newmusic', 'いいねください', 'fypツ', 'smail', 'facebook.com', 'mibextid', '可愛い女の子', '毎日 可愛い女の子', '宝鐘マリン', 'くださいませチャレンジ', '愛くださいませ', '成熟した女性', '成熟', 'cosplay', 'cosplayer', 'neongenesisevangelion', 'アスカ', 'lingerie', 'gorgeous', 'MagneticBeauty', 'SelfLoveVibes', 'GlamAndGrow', 'ConfidenceIsKey', 'PR エバーカラー', 'エバーカラー', 'カラコン', 'ROWfreelove', 'rowlove', 'rowbuzz', 'charlesandsylvia', 'wolfieandsylvia', 'couplescomedy', 'じゅんな', 'ゆうな']
     _colored_leak_text_lower_v2 = text.lower()
@@ -1512,6 +1588,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
         return "ハッシュタグNG(可愛い女の子)"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 色付き漏れ v1 — ワードリスト + タグコンボ(v2 と部分重複)
+    # ────────────────────────────────────────────────────────────────
     # 色付き漏れ行対策: 追加NG/海外/スパム系ワード
     _colored_leak_ng_words = ['Doublefedora', 'mafioso', 'forsaken', 'ベトナムフェスティバル', 'ウエノデコリアンフェスタ', 'コリアンフェスタ', 'カリブラテンアメリカストリート', 'ラテンアメリカ', '日比谷音楽祭', 'アウトドアシネマ', 'スタンダップコメディ', 'standupcomedy', 'crowdwork', 'ほんまやでダンス', 'newmusic', 'いいねください', 'fypツ', 'smail', 'facebook.com', 'mibextid', '可愛い女の子', '毎日 可愛い女の子', '宝鐘マリン', 'くださいませチャレンジ', '愛くださいませ', '成熟した女性', '成熟', 'cosplay', 'cosplayer', 'neongenesisevangelion', 'アスカ', 'lingerie', 'gorgeous', 'MagneticBeauty', 'SelfLoveVibes', 'GlamAndGrow', 'ConfidenceIsKey', 'PR エバーカラー', 'エバーカラー', 'カラコン', 'ROWfreelove', 'rowlove', 'rowbuzz', 'charlesandsylvia', 'wolfieandsylvia', 'couplescomedy', 'じゅんな', 'ゆうな']
     _colored_leak_text_lower = text.lower()
@@ -1582,6 +1662,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
         return "ハッシュタグNG(可愛い女の子)"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: v5 外国語キーワード + 中文スパム + ベトナム発音記号 + 繁体字
+    # ────────────────────────────────────────────────────────────────
     # V5共有前保証: 海外/外国語アカウント除外
     _v5_foreign_text = text.lower()
     _v5_foreign_keywords = [
@@ -1624,6 +1708,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
         return "外国語/海外(繁体字)"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 追加 NG ワード 1(teamwork/ダンス/推し/アダルト/ファッション)
+    # ────────────────────────────────────────────────────────────────
     # 追加NGワード: teamwork
     if "teamwork" in text.lower():
         return "NGワード(teamwork)"
@@ -1688,6 +1776,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
             return f"NGワード({_extra_ng})"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 外国語/ベトナム語キーワードリスト + 中文スパム(再掲)
+    # ────────────────────────────────────────────────────────────────
     # 海外/ベトナム系アカウント判定強化: xuhuong / gaixinh / Vietnamese spam系
     _foreign_vn_text = text.lower()
 
@@ -1721,6 +1813,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
             return f"外国語/海外({_kw})"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 追加 NG ワード 2(sexy/感謝/メンションスパム/推し/bot/nidone)
+    # ────────────────────────────────────────────────────────────────
     # 追加NGワード: sexy / Japanese
     for _extra_ng in ["sexy", "japanese"]:
         if _extra_ng in text.lower():
@@ -1771,6 +1867,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
             return f"NGワード({_extra_ng})"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: フォロワー数チェック(min_followers)
+    # ────────────────────────────────────────────────────────────────
     # フォロワー数が取れていない場合は、おすすめに入れない。
     # runner側でこの理由を検知したらリロードする。
     try:
@@ -1780,6 +1880,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     if fc_required is None or str(fc_required).strip() == "":
         return "フォロワー数未取得"
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: AI 生成 ID 形式 + user 接頭辞 + フォロー中 + 広告フラグ + 認証バッジ
+    # ────────────────────────────────────────────────────────────────
 
     # AI生成系ID除外: ai_ / ai- / _ai / -ai のように ai が区切り語として入るIDだけ除外
     try:
@@ -1806,6 +1910,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     if _verified_flag(candidate):
         return "認証/青チェック"
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: フォロワー上限超過 + 広告系キーワード
+    # ────────────────────────────────────────────────────────────────
     # フォロワー上限。プロフィール取得済みの場合のみ効く
     max_followers = _get(rules, "max_followers", 2000)
     try:
@@ -1832,6 +1940,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     if hit:
         return "広告/PR"
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 公式/法人系キーワード
+    # ────────────────────────────────────────────────────────────────
     # 公式/企業/ブランド/メディア/店舗/採用/団体っぽいアカウント
     # inc/tv/ai/運営/グループ単体は誤爆が多いため入れない
     official_words = [
@@ -1859,6 +1971,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     if hit:
         return "公式/企業系(" + hit + ")"
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 年齢 + 外国語 + 事務所系ワード
+    # ────────────────────────────────────────────────────────────────
     # 年齢/学生
     r = _age_ng(text)
     if r:
@@ -1879,6 +1995,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     if hit:
         return "他事務所/所属系(" + hit + ")"
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: Live / Music(2000+ アーティスト) / Game / Pet / Food / general NG
+    # ────────────────────────────────────────────────────────────────
     # 配信/LIVE/既存ライバー系
     live_words = [
         "配信中", "配信者", "配信垢", "配信アカウント", "ライブ配信", "live配信",
@@ -2119,6 +2239,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
         return "NGワード(" + hit + ")"
 
 
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: v5 ハッシュコンボ + 数字のみタグ + 空 Bio/タグ
+    # ────────────────────────────────────────────────────────────────
     # V5共有前保証: ハッシュタグ 美人 + モデル + かわいい の3点セット除外
     try:
         _v5_combo_tags_raw = (
@@ -2234,6 +2358,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
         _v5_empty_tags = str(_v5_empty_tags_raw or "").strip()
     if str(_v5_empty_bio).strip() == "" and _v5_empty_tags == "":
         return "ハッシュタグ/プロフィール紹介文空欄"
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 全てパスした → return None
+    # ────────────────────────────────────────────────────────────────
     return None
 
 
