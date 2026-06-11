@@ -34,6 +34,16 @@ async def main():
                 return []
         rules_module.set_ng_keyword_provider(_ng_provider)
 
+        # メタ付き(scope=hashtag/bio/all、Bio空必須)のプロバイダ。
+        # シートの E/F 列が空欄の行は scope=all / bio_empty_required=False のデフォルトになり、
+        # 既存 _ng_provider と等価な挙動を示す(scoped 判定は付加情報)。
+        def _ng_meta_provider(category: str) -> list[dict]:
+            try:
+                return sheets.get_ng_keywords_with_meta().get(category, [])
+            except Exception:
+                return []
+        rules_module.set_ng_keyword_meta_provider(_ng_meta_provider)
+
         print("4/6 Slack通知準備中...", flush=True)
         notifier = Notifier(cfg.slack)
 

@@ -10,10 +10,83 @@ from typing import Callable, Optional
 # config.yaml と固定リストのみで動作。
 _ng_keyword_provider: Optional[Callable[[str], list[str]]] = None
 
+# Sheets の「適用範囲」「Bio空必須」列を活かしたメタ付き判定用フック。
+# 各エントリは {"word": str, "scope": "all"|"hashtag"|"bio",
+#               "bio_empty_required": bool, "category": str}
+_ng_keyword_meta_provider: Optional[Callable[[str], list[dict]]] = None
+
 
 def set_ng_keyword_provider(provider: Optional[Callable[[str], list[str]]]) -> None:
     global _ng_keyword_provider
     _ng_keyword_provider = provider
+
+
+def set_ng_keyword_meta_provider(provider: Optional[Callable[[str], list[dict]]]) -> None:
+    """Sheets 由来のメタ付き NG ワード(scope / bio_empty_required)を供給するフック。
+    set_ng_keyword_provider と独立で、両方登録できる。未登録なら scoped 判定は無効。"""
+    global _ng_keyword_meta_provider
+    _ng_keyword_meta_provider = provider
+
+
+def _check_scoped_ng_words(candidate, category: str) -> Optional[str]:
+    """Sheets メタプロバイダから category のワードリストを引き、scope/bio_empty_required を満たすかチェック。
+    最初にヒットしたものを reason 文字列にして返す。何も該当しなければ None。
+
+    - scope=all      : 既存の get_ng_keywords と同じ広い text に部分一致(_load_extra_words 経路で
+                       すでに評価されているケースが多いので、ここでは noop 扱いにしない=重複検査は
+                       許容する。誤検知より取りこぼし防止)。
+    - scope=hashtag  : ハッシュタグだけに部分一致。
+    - scope=bio      : Bio(signature / bio / profile_bio)だけに部分一致。
+    - bio_empty_required=True : 上記に加えて Bio が完全に空のときだけ NG とする。
+    """
+    if _ng_keyword_meta_provider is None:
+        return None
+    try:
+        entries = _ng_keyword_meta_provider(category) or []
+    except Exception:
+        return None
+    if not entries:
+        return None
+
+    hashtags_raw = _get(candidate, "hashtags", "") or ""
+    if isinstance(hashtags_raw, (list, tuple, set)):
+        hashtags_text = " ".join(str(x) for x in hashtags_raw)
+    else:
+        hashtags_text = str(hashtags_raw or "")
+    hashtags_lower = hashtags_text.lower()
+
+    bio_text = str(
+        _get(candidate, "signature", "")
+        or _get(candidate, "bio", "")
+        or _get(candidate, "profile_bio", "")
+        or _get(candidate, "profile_text", "")
+        or ""
+    )
+    bio_lower = bio_text.lower()
+    bio_is_empty = bio_text.strip() == ""
+
+    full_text = _candidate_text(candidate)  # 既に lower 済み
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        word = str(entry.get("word", "") or "").strip()
+        if not word:
+            continue
+        if entry.get("bio_empty_required") and not bio_is_empty:
+            continue
+        scope = str(entry.get("scope", "all") or "all").lower()
+        word_l = word.lower()
+        hit = False
+        if scope == "hashtag":
+            hit = word_l in hashtags_lower
+        elif scope == "bio":
+            hit = word_l in bio_lower
+        else:  # all
+            hit = word_l in full_text
+        if hit:
+            return f"NGワード({word})"
+    return None
 
 
 def _get(obj, name, default=None):
@@ -1586,6 +1659,12 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     if "可愛い" in _colored_tags and "女の子" in _colored_tags:
         return "ハッシュタグNG(可愛い女の子)"
+
+    # Sheets 由来のメタ付き NG ワード(scope=hashtag/bio/all + bio_empty_required)。
+    # Sheets が空ならここは何もしない=既存ハードコード判定の挙動と完全一致。
+    _scoped_hit = _check_scoped_ng_words(candidate, "general")
+    if _scoped_hit:
+        return _scoped_hit
 
 
 

@@ -16,9 +16,19 @@ HEADERS = [
     "プロフィール紹介文", "可愛さ点数", "理由", "使用モデル", "プロフURL", "投稿URL", "スクショパス",
 ]
 
-NG_KEYWORDS_HEADERS = ["カテゴリ", "ワード", "有効", "メモ"]
+NG_KEYWORDS_HEADERS = ["カテゴリ", "ワード", "有効", "メモ", "適用範囲", "Bio空必須"]
 NG_KEYWORDS_TAB_KEY = "ng_keywords"
 NG_KEYWORDS_DEFAULT_TTL_SEC = 600
+
+# 適用範囲(E列)の値: all = bio + hashtags + display_name など全部を結合した text に部分一致(現状互換)
+#                    hashtag = ハッシュタグだけに部分一致
+#                    bio = Bio だけに部分一致
+NG_SCOPE_VALUES = {"all", "hashtag", "bio"}
+
+# 「有効」「Bio空必須」列で FALSE 扱いする文字列
+_NG_FALSEY_TOKENS = {"FALSE", "0", "NO", "OFF", "無効", "false", "off", "no"}
+# 「Bio空必須」列で TRUE 扱いする文字列
+_NG_TRUTHY_TOKENS = {"TRUE", "1", "YES", "ON", "有効", "true", "on", "yes"}
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
@@ -31,6 +41,7 @@ class SheetsClient:
         self.spreadsheet_id = cfg.spreadsheet_id
         self.tabs = cfg.tabs
         self._ng_cache: dict[str, list[str]] = {}
+        self._ng_meta_cache: dict[str, list[dict]] = {}
         self._ng_cache_ts: float = 0.0
         self._ng_cache_ttl: float = float(getattr(cfg, "ng_keywords_cache_ttl_sec", NG_KEYWORDS_DEFAULT_TTL_SEC) or NG_KEYWORDS_DEFAULT_TTL_SEC)
         self._ensure_tabs()
@@ -292,37 +303,38 @@ class SheetsClient:
         ).execute()
         return result
 
-    def get_ng_keywords(self) -> dict[str, list[str]]:
-        """
-        「NGワード」タブを読み込んで、カテゴリ別の単語リストを返す。
-        列構成: A=カテゴリ, B=ワード, C=有効(TRUE/FALSE), D=メモ
-        有効列が FALSE/NO/OFF/0/無効 の行はスキップ。
-        TTL キャッシュで Sheets API を頻繁に叩かない。失敗時は直前キャッシュを返す(無ければ空 dict)。
+    def _refresh_ng_caches(self) -> None:
+        """Sheets「NGワード」タブを1回 fetch して _ng_cache と _ng_meta_cache を同時に更新。
+        失敗時は直前キャッシュを保持(ts を更新しないので次回再試行できる)。
+        列: A=カテゴリ, B=ワード, C=有効, D=メモ, E=適用範囲, F=Bio空必須
+        E/F が空欄なら all / FALSE のデフォルト(=現状互換)。
         """
         now = time.time()
         if self._ng_cache_ts and (now - self._ng_cache_ts) < self._ng_cache_ttl:
-            return self._ng_cache
+            return
 
         tab = self.tabs.get(NG_KEYWORDS_TAB_KEY)
         if not tab:
             self._ng_cache = {}
+            self._ng_meta_cache = {}
             self._ng_cache_ts = now
-            return self._ng_cache
+            return
 
         try:
             resp = self.service.spreadsheets().values().get(
                 spreadsheetId=self.spreadsheet_id,
-                range=f"{tab}!A2:D",
+                range=f"{tab}!A2:F",
             ).execute()
         except Exception as e:
             # 読込失敗時は前回キャッシュにフォールバック。
-            # 起動直後でキャッシュが無ければ空 dict を返し、固定リストだけで継続。
+            # 起動直後でキャッシュが無ければ空 dict のままで継続。
             print(f"NGワード読込失敗(キャッシュ流用): {str(e)[:160]}", flush=True)
-            return self._ng_cache or {}
+            return
 
         rows = resp.get("values", []) or []
-        result: dict[str, list[str]] = {}
-        disabled_tokens = {"FALSE", "0", "NO", "OFF", "無効", "false", "off", "no"}
+        flat: dict[str, list[str]] = {}
+        meta: dict[str, list[dict]] = {}
+
         for row in rows:
             if len(row) < 2:
                 continue
@@ -331,12 +343,39 @@ class SheetsClient:
             if not category or not word:
                 continue
             enabled_raw = str(row[2]).strip() if len(row) >= 3 and row[2] is not None else ""
-            if enabled_raw and enabled_raw.upper() in disabled_tokens:
+            if enabled_raw and enabled_raw.upper() in _NG_FALSEY_TOKENS:
                 continue
-            result.setdefault(category, []).append(word)
 
-        self._ng_cache = result
+            scope_raw = str(row[4]).strip().lower() if len(row) >= 5 and row[4] is not None else ""
+            scope = scope_raw if scope_raw in NG_SCOPE_VALUES else "all"
+
+            bio_empty_raw = str(row[5]).strip() if len(row) >= 6 and row[5] is not None else ""
+            bio_empty_required = bio_empty_raw.upper() in _NG_TRUTHY_TOKENS
+
+            flat.setdefault(category, []).append(word)
+            meta.setdefault(category, []).append({
+                "word": word,
+                "scope": scope,
+                "bio_empty_required": bio_empty_required,
+                "category": category,
+            })
+
+        self._ng_cache = flat
+        self._ng_meta_cache = meta
         self._ng_cache_ts = now
-        return result
+
+    def get_ng_keywords(self) -> dict[str, list[str]]:
+        """カテゴリ別の単語リストを返す(後方互換 API)。
+        メタ情報(scope / bio_empty_required)が必要なら get_ng_keywords_with_meta を使う。"""
+        self._refresh_ng_caches()
+        return self._ng_cache
+
+    def get_ng_keywords_with_meta(self) -> dict[str, list[dict]]:
+        """カテゴリ別のメタ付きワードリストを返す。各エントリ:
+            {"word": str, "scope": "all"|"hashtag"|"bio",
+             "bio_empty_required": bool, "category": str}
+        """
+        self._refresh_ng_caches()
+        return self._ng_meta_cache
 
 
