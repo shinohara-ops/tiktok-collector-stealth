@@ -166,17 +166,35 @@ class SheetsClient:
     def _ensure_ng_dropdowns(self, tab: str) -> None:
         """NG タブの A/C/E/F 列にプルダウン(データ検証)を設定する。
         ワード(B)とメモ(D)は自由入力のままにする。
-        既に同等のルールが入っていても上書きで張り直す(idempotent)。"""
+
+        Sheets のデータ検証は行挿入/削除で範囲が一緒にずれる挙動があるので、
+        idempotent にするためにまず該当 4 列の **全範囲のデータ検証をクリア** し、
+        そのうえで 2 行目以降にだけ再設定する。これでヘッダー行に古いルールが
+        残るケースを確実に潰せる。
+        """
         sheet_id = self._sheet_id_by_title().get(tab)
         if sheet_id is None:
             return
-        requests = []
+        clear_requests = []
+        apply_requests = []
         for col_index, options, strict in NG_DROPDOWN_SPECS:
-            requests.append({
+            clear_requests.append({
                 "setDataValidation": {
                     "range": {
                         "sheetId": sheet_id,
-                        "startRowIndex": 1,  # 1 行目(ヘッダー)はスキップ。2 行目から
+                        "startRowIndex": 0,
+                        "endRowIndex": NG_DROPDOWN_ROWS,
+                        "startColumnIndex": col_index,
+                        "endColumnIndex": col_index + 1,
+                    },
+                    # rule を省略 = データ検証クリア
+                },
+            })
+            apply_requests.append({
+                "setDataValidation": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "startRowIndex": 1,  # 0-based: 2 行目から
                         "endRowIndex": NG_DROPDOWN_ROWS,
                         "startColumnIndex": col_index,
                         "endColumnIndex": col_index + 1,
@@ -191,10 +209,10 @@ class SheetsClient:
                     },
                 },
             })
-        if requests:
+        if clear_requests or apply_requests:
             self.service.spreadsheets().batchUpdate(
                 spreadsheetId=self.spreadsheet_id,
-                body={"requests": requests},
+                body={"requests": clear_requests + apply_requests},
             ).execute()
 
     def _format_tabs(self):
