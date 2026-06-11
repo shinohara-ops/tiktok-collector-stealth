@@ -7,6 +7,7 @@ from typing import Callable, Optional
 from ._rules_parts import similar_excluded as _similar_excluded
 from ._rules_parts import underage_pair as _underage_pair
 from ._rules_parts import mass_produced as _mass_produced
+from ._rules_parts import underage_school_age as _underage_school_age
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -367,28 +368,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 未成年系 — 学校行事/学年/年齢正規表現
+    # → src/tiktok_collector/_rules_parts/underage_school_age.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    _school_age_ng_words = ['文化祭', '体育祭', '修学旅行', '高二', '高一', '中三', '中二', '中一', '17歳', '17才', '17サイ', '17❤︎', '17❤', '17♡', '17♥', '16歳', '16才', '16サイ', '16❤︎', '16❤', '16♡', '16♥', '15歳', '15才', '15サイ', '15❤︎', '15❤', '15♡', '15♥', '14歳', '14才', '14サイ', '14❤︎', '14❤', '14♡', '14♥', '13歳', '13才', '13サイ', '13❤︎', '13❤', '13♡', '13♥', 'えふじぇーしー', 'えすじぇーしー', 'えるじぇーしー', 'えすじぇーけー', 'えふじぇーけー', '11y', '12y', '13y', '14y', '15y', '16y', '17y']
-    _school_age_text = str(text or "")
-    _school_age_norm = _school_age_text.translate(str.maketrans("０１２３４５６７８９", "0123456789"))
-    _school_age_low = _school_age_norm.lower()
-
-    for _school_age_w in _school_age_ng_words:
-        _school_age_ws = str(_school_age_w or "").strip()
-        if _school_age_ws and _school_age_ws.lower() in _school_age_low:
-            return f"NGワード({_school_age_ws})"
-
-    # (11)〜(17)、（11）〜（17）
-    if re.search(r"[\(（]\s*(?:11|12|13|14|15|16|17)\s*[\)）]", _school_age_norm):
-        return "未成年系NG(括弧年齢表記)"
-
-    # 11y〜17y。英単語の一部誤爆を避けるため前後を英数字以外に限定
-    if re.search(r"(?<![a-zA-Z0-9])(?:11|12|13|14|15|16|17)\s*y(?![a-zA-Z0-9])", _school_age_low):
-        return "未成年系NG(11y-17y)"
-
-    # 13〜17 + ハート/装飾。17❤︎などの表記揺れも拾う
-    if re.search(r"(?<!\d)(?:13|14|15|16|17)\s*[❤♡♥💕💖💗💓💞]", _school_age_norm):
-        return "未成年系NG(年齢+ハート表記)"
+    if (r := _underage_school_age.check(text)) is not None:
+        return r
 
 
     # 2764行目以降の色付きアカウントID除外
