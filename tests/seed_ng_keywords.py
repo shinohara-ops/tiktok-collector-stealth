@@ -81,7 +81,7 @@ def _read_existing(client: SheetsClient) -> set[tuple[str, str]]:
     tab = client.tabs.get("ng_keywords")
     resp = client.service.spreadsheets().values().get(
         spreadsheetId=client.spreadsheet_id,
-        range=f"{tab}!A3:B",  # 1行目=説明、2行目=ヘッダー、3行目以降=データ
+        range=f"{tab}!A2:B",
     ).execute()
     existing = set()
     for row in resp.get("values", []) or []:
