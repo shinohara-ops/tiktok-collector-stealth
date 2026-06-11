@@ -13,6 +13,7 @@ from ._rules_parts import underage_tail_id as _underage_tail_id
 from ._rules_parts import underage_v2_band as _underage_v2_band
 from ._rules_parts import ng_no_bio_yet as _ng_no_bio_yet
 from ._rules_parts import colored_leak_v2 as _colored_leak_v2
+from ._rules_parts import foreign_account as _foreign_account
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -437,139 +438,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 外国語/海外アカウント — ベトナム/中文/韓国語/英文
+    # → src/tiktok_collector/_rules_parts/foreign_account.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # 追加除外: 日本以外の海外アカウント除外強化
-    try:
-        _nj_uid = (
-            _get(candidate, "unique_id", None)
-            or _get(candidate, "user_id", None)
-            or _get(candidate, "id", None)
-            or ""
-        )
-        _nj_name = (
-            _get(candidate, "display_name", None)
-            or _get(candidate, "nickname", None)
-            or _get(candidate, "name", None)
-            or ""
-        )
-        _nj_bio = (
-            _get(candidate, "profile_bio", None)
-            or _get(candidate, "bio", None)
-            or _get(candidate, "signature", None)
-            or _get(candidate, "profile_text", None)
-            or _get(candidate, "description", None)
-            or _get(candidate, "desc", None)
-            or ""
-        )
-        _nj_tags_raw = (
-            _get(candidate, "hashtags", None)
-            or _get(candidate, "hashtag", None)
-            or _get(candidate, "tags", None)
-            or _get(candidate, "tag_text", None)
-            or _get(candidate, "hashtag_text", None)
-            or ""
-        )
-    except Exception:
-        _nj_uid = (
-            getattr(candidate, "unique_id", None)
-            or getattr(candidate, "user_id", None)
-            or getattr(candidate, "id", None)
-            or ""
-        )
-        _nj_name = (
-            getattr(candidate, "display_name", None)
-            or getattr(candidate, "nickname", None)
-            or getattr(candidate, "name", None)
-            or ""
-        )
-        _nj_bio = (
-            getattr(candidate, "profile_bio", None)
-            or getattr(candidate, "bio", None)
-            or getattr(candidate, "signature", None)
-            or getattr(candidate, "profile_text", None)
-            or getattr(candidate, "description", None)
-            or getattr(candidate, "desc", None)
-            or ""
-        )
-        _nj_tags_raw = (
-            getattr(candidate, "hashtags", None)
-            or getattr(candidate, "hashtag", None)
-            or getattr(candidate, "tags", None)
-            or getattr(candidate, "tag_text", None)
-            or getattr(candidate, "hashtag_text", None)
-            or ""
-        )
-
-    if isinstance(_nj_tags_raw, (list, tuple, set)):
-        _nj_tags = " ".join([str(x) for x in _nj_tags_raw]).strip()
-    else:
-        _nj_tags = str(_nj_tags_raw or "").strip()
-
-    _nj_uid_s = str(_nj_uid or "").strip().replace("@", "")
-    _nj_name_s = str(_nj_name or "").strip()
-    _nj_bio_s = str(_nj_bio or "").strip()
-    _nj_full = " ".join([_nj_uid_s, _nj_name_s, _nj_tags, _nj_bio_s])
-    _nj_full_lower = _nj_full.lower()
-    _nj_bio_lower = _nj_bio_s.lower()
-    _nj_tags_lower = _nj_tags.lower()
-
-    for _w in ['feilvbin', '絡み募', 'xuhuong', 'xuhuongtiktok', 'gaixinh', 'gaixinhtiktok', 'xinhdep', 'cewek', 'wanita', 'masih mencari', 'cantik', 'mencari', 'dungmai', 'halinh', 'babygirl', 'bikini', 'follow tui', 'mọi người']:
-        _ws = str(_w or "").strip()
-        if _ws and _ws.lower() in _nj_full_lower:
-            return f"外国語/海外({_ws})"
-
-    # 中国語は、日本語の漢字まで落とさないため、簡体字特有文字/中国語フレーズで判定する
-    for _p in ['今天', '也是', '被热', '热可可', '旧电影', '电影', '治愈', '的一天', '关注', '私信', '主页', '置顶', '找我', '美女', '漂亮', '可爱', '点赞', '评论', '转发', '粉丝', '视频', '熱門', '热门', '推荐', '大家好', '我是', '谢谢', '喜欢', '生活', '日常', '女孩', '女生']:
-        if _p and _p in _nj_full:
-            return f"外国語/海外(中国語:{_p})"
-
-    _cn_simplified_hit = 0
-    for _ch in ['这', '们', '为', '热', '电', '说', '话', '买', '卖', '体', '会', '觉', '让', '从', '给', '发', '欢', '乐', '国', '学', '广', '东', '网', '写', '气', '应', '旧', '后', '边', '过', '还', '进', '长', '门']:
-        if _ch and _ch in _nj_full:
-            _cn_simplified_hit += 1
-    if _cn_simplified_hit >= 2:
-        return "外国語/海外(中国語/簡体字)"
-    # bio内に簡体字特有文字が1つでもあり、日本語かなが無ければ中国語扱い
-    if _nj_bio_s and _cn_simplified_hit >= 1 and not re.search(r"[ぁ-んァ-ヶ]", _nj_bio_s):
-        return "外国語/海外(中国語/簡体字Bio)"
-
-    # 日本語では通常使わない文字種は強めに除外
-    if re.search(r"[\u1000-\u109F\u1780-\u17FF\u0E80-\u0EFF\u0E00-\u0E7F\u0400-\u04FF\u0600-\u06FF\u0900-\u097F]", _nj_full):
-        return "外国語/海外(非日本語文字種)"
-
-    # ベトナム語アクセント
-    if re.search(r"[ăâêôơưđàáạảãằắặẳẵầấậẩẫèéẹẻẽềếệểễìíịỉĩòóọỏõồốộổỗờớợởỡùúụủũừứựửữỳýỵỷỹ]", _nj_full_lower):
-        return "外国語/海外(ベトナム語文字)"
-
-    # 英語はタグ単語だけなら許容。bioやタグが文章っぽい場合だけ除外
-    def _nj_english_sentence_like(_s):
-        _low = str(_s or "").lower()
-        _words = re.findall(r"[a-zA-Z']{2,}", _low)
-        if len(_words) >= 6:
-            return True
-        _hits = 0
-        for _ew in ['i', 'you', 'we', 'they', 'he', 'she', 'my', 'your', 'the', 'and', 'to', 'with', 'for', 'from', 'like', 'love', 'dont', "don't", 'cant', "can't", 'can', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'me', 'at', 'in', 'on', 'of', 'small', 'talk']:
-            if re.search(r"\b" + re.escape(_ew.lower()) + r"\b", _low):
-                _hits += 1
-        if len(_words) >= 3 and _hits >= 2:
-            return True
-        if len(_words) >= 3 and re.search(r"[.!?]", _s):
-            return True
-        return False
-
-    if _nj_english_sentence_like(_nj_bio_s):
-        return "外国語/海外(英語文章Bio)"
-    # 日本語が無い状態で、タグ+bio全体が英語文章っぽい場合
-    if not re.search(r"[ぁ-んァ-ヶ一-龥]", _nj_full) and _nj_english_sentence_like(_nj_full):
-        return "外国語/海外(英語文章)"
-
-    # 韓国語は単語タグだけなら許容。長い/文章っぽい場合だけ除外
-    _hangul_count = len(re.findall(r"[\uAC00-\uD7AF]", _nj_full))
-    _hangul_tokens = re.findall(r"[\uAC00-\uD7AF]{2,}", _nj_full)
-    if _hangul_count >= 10 or len(_hangul_tokens) >= 3:
-        return "外国語/海外(韓国語文章)"
-    if _nj_bio_s and len(re.findall(r"[\uAC00-\uD7AF]", _nj_bio_s)) >= 6:
-        return "外国語/海外(韓国語Bio)"
+    if (r := _foreign_account.check(_cs_uid_s, _cs_name_s, _cs_bio_s, _cs_tags)) is not None:
+        return r
 
 
 
