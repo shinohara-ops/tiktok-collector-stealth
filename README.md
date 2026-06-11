@@ -129,6 +129,35 @@ stealth 改造の中身:
 
 ---
 
+## スナップショットテスト(rules.py の挙動凍結)
+
+`rules.py` の 2233 行に手を入れる前のセーフティネット。Sheets「除外ログ」タブの
+実データから 820 ケースを fixture 化し、`local_skip_reason` の戻り値が変わらない
+ことを pytest で検証する。
+
+```sh
+# 開発用依存をインストール
+pip install -r requirements_dev.txt
+
+# テスト実行(~3秒)
+pytest tests/test_rules_snapshot.py -q
+```
+
+ベースラインの作り直し:
+
+```sh
+# Sheets から fixture を採り直す(時間かかる)
+python tests/generate_fixtures.py
+
+# 各ケースの expected_reason を現在の rules.py の出力で固定
+python tests/rebaseline_fixtures.py
+```
+
+意図的に `rules.py` の挙動を変えたとき(条件追加など)はこの 2 つを順に
+走らせて fixture を取り直す。意図せず壊した場合は pytest が即落ちる。
+
+---
+
 ## 注意
 
 - Chrome ウィンドウは閉じない。閉じると CDP セッションも切れる

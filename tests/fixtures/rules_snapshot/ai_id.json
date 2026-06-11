@@ -1,0 +1,35 @@
+[
+  {
+    "unique_id": "100oku_ai",
+    "display_name": "100oku_ai",
+    "follower_count": 215,
+    "hashtags": "AI AI仙人 起業",
+    "signature": "AIでデカい会社をつくって 素敵なお嫁さんつかまえたる‼️ 〜毎週金曜21時投稿〜",
+    "profile_url": "https://www.tiktok.com/@100oku_ai",
+    "post_url": "",
+    "expected_reason": "AI生成系ID(ai区切り)",
+    "expected_model_used": "local:no-screenshot"
+  },
+  {
+    "unique_id": "ai_20241001",
+    "display_name": "ai_20241001",
+    "follower_count": 2443,
+    "hashtags": "おはよう 掃除機 tiktokショップ",
+    "signature": "楽しんだもん勝ち…と、言いながらみんな色々あるよねー✌︎( ˙⩌˙ )✌︎美容、キャンプ、動物、食べる事大好き！！気軽にフォローお願いします(⋆ᴗ͈ˬᴗ͈)”",
+    "profile_url": "https://www.tiktok.com/@ai_20241001",
+    "post_url": "",
+    "expected_reason": "AI生成系ID(ai区切り)",
+    "expected_model_used": "local:no-screenshot"
+  },
+  {
+    "unique_id": "ken_ai_gpt",
+    "display_name": "ken_ai_gpt",
+    "follower_count": 5383,
+    "hashtags": "sns投稿 動画編集 リール",
+    "signature": "＼脱・量産型リールで\"素人っぽい\"を卒業／ ▶初心者でも出来る動画編集のコツ ▶1日6時間AIを研究しているオタク 12年勤めた会社を退社→ 44歳フリーランス2年目",
+    "profile_url": "https://www.tiktok.com/@ken_ai_gpt",
+    "post_url": "",
+    "expected_reason": "AI生成系ID(ai区切り)",
+    "expected_model_used": "local:no-screenshot"
+  }
+]

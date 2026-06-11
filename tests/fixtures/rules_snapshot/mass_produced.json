@@ -1,0 +1,35 @@
+[
+  {
+    "unique_id": "a_1lk9",
+    "display_name": "a_1lk9",
+    "follower_count": 225,
+    "hashtags": "体育祭 12 三重 おすすめ fyp",
+    "signature": "",
+    "profile_url": "https://www.tiktok.com/@a_1lk9",
+    "post_url": "",
+    "expected_reason": "量産系NG(短文Bio+ノイズタグ複数)",
+    "expected_model_used": "local:no-screenshot"
+  },
+  {
+    "unique_id": "shahidadherbs2",
+    "display_name": "@Nur Shahida Mohd Rashid",
+    "follower_count": null,
+    "hashtags": "fypシ viraltiktok trending traveljapan Food",
+    "signature": "",
+    "profile_url": "https://www.tiktok.com/@shahidadherbs2",
+    "post_url": "",
+    "expected_reason": "量産系NG(短文Bio+ノイズタグ複数)",
+    "expected_model_used": "local:no-screenshot"
+  },
+  {
+    "unique_id": "su_00210",
+    "display_name": "su_00210",
+    "follower_count": 25,
+    "hashtags": "一重 おすすめ fyp",
+    "signature": "",
+    "profile_url": "https://www.tiktok.com/@su_00210",
+    "post_url": "",
+    "expected_reason": "量産系NG(短文Bio+ノイズタグ複数)",
+    "expected_model_used": "local:no-screenshot"
+  }
+]
