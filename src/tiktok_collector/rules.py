@@ -4,6 +4,8 @@ from __future__ import annotations
 import re
 from typing import Callable, Optional
 
+from ._rules_parts import similar_excluded as _similar_excluded
+
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
 # main.py 起動時に set_ng_keyword_provider() で登録する。未登録なら従来通り
@@ -337,11 +339,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 類似アカウントの hardcoded ワード(テンプレ/音楽系)
+    # → src/tiktok_collector/_rules_parts/similar_excluded.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    for _w in ['テンプレートお借りしました', 'テンプレお借りしました', 'お借りしました', 'この歌好き', 'この音源好き', '音源好き', '黒毛和牛上塩タン焼680円', '黒毛和牛上塩タン焼', 'シャドバン', 'シャドウバン', 'シャドバン解除', 'げろげろぴー', 'unsunghero', 'runaar', '村谷はるな', 'はるち']:
-        _ws = str(_w or "").strip()
-        if _ws and _ws.lower() in _cs_low:
-            return f"類似除外({_ws})"
+    if (r := _similar_excluded.check(_cs_low)) is not None:
+        return r
 
 
     # ────────────────────────────────────────────────────────────────
