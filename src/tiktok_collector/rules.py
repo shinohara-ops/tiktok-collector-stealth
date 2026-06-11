@@ -12,6 +12,7 @@ from ._rules_parts import colored_excluded_ids as _colored_excluded_ids
 from ._rules_parts import underage_tail_id as _underage_tail_id
 from ._rules_parts import underage_v2_band as _underage_v2_band
 from ._rules_parts import ng_no_bio_yet as _ng_no_bio_yet
+from ._rules_parts import colored_leak_v2 as _colored_leak_v2
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -427,150 +428,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 汎用 色付き除外 v2(リンク/未成年/外国語/ランダムID/fyp/中文/反復ASCII)
+    # → src/tiktok_collector/_rules_parts/colored_leak_v2.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # 色付き行の類似アカウントを落とす汎用除外パッチ v2
-    try:
-        _gc_uid = (
-            _get(candidate, "unique_id", None)
-            or _get(candidate, "user_id", None)
-            or _get(candidate, "id", None)
-            or ""
-        )
-        _gc_name = (
-            _get(candidate, "display_name", None)
-            or _get(candidate, "nickname", None)
-            or _get(candidate, "name", None)
-            or ""
-        )
-        _gc_bio = (
-            _get(candidate, "profile_bio", None)
-            or _get(candidate, "bio", None)
-            or _get(candidate, "signature", None)
-            or _get(candidate, "profile_text", None)
-            or _get(candidate, "description", None)
-            or _get(candidate, "desc", None)
-            or ""
-        )
-        _gc_tags_raw = (
-            _get(candidate, "hashtags", None)
-            or _get(candidate, "hashtag", None)
-            or _get(candidate, "tags", None)
-            or _get(candidate, "tag_text", None)
-            or _get(candidate, "hashtag_text", None)
-            or ""
-        )
-    except Exception:
-        _gc_uid = (
-            getattr(candidate, "unique_id", None)
-            or getattr(candidate, "user_id", None)
-            or getattr(candidate, "id", None)
-            or ""
-        )
-        _gc_name = (
-            getattr(candidate, "display_name", None)
-            or getattr(candidate, "nickname", None)
-            or getattr(candidate, "name", None)
-            or ""
-        )
-        _gc_bio = (
-            getattr(candidate, "profile_bio", None)
-            or getattr(candidate, "bio", None)
-            or getattr(candidate, "signature", None)
-            or getattr(candidate, "profile_text", None)
-            or getattr(candidate, "description", None)
-            or getattr(candidate, "desc", None)
-            or ""
-        )
-        _gc_tags_raw = (
-            getattr(candidate, "hashtags", None)
-            or getattr(candidate, "hashtag", None)
-            or getattr(candidate, "tags", None)
-            or getattr(candidate, "tag_text", None)
-            or getattr(candidate, "hashtag_text", None)
-            or ""
-        )
-
-    if isinstance(_gc_tags_raw, (list, tuple, set)):
-        _gc_tags = " ".join([str(x) for x in _gc_tags_raw]).strip()
-    else:
-        _gc_tags = str(_gc_tags_raw or "").strip()
-
-    _gc_uid_s = str(_gc_uid or "").strip().replace("@", "")
-    _gc_name_s = str(_gc_name or "").strip()
-    _gc_bio_s = str(_gc_bio or "").strip()
-    _gc_full = " ".join([_gc_uid_s, _gc_name_s, _gc_tags, _gc_bio_s])
-    _gc_low = _gc_full.lower()
-    _gc_tags_low = _gc_tags.lower()
-
-    _gc_has_japanese = re.search(r"[ぁ-んァ-ヶ一-龥]", _gc_full) is not None
-    _gc_has_kana = re.search(r"[ぁ-んァ-ヶ]", _gc_full) is not None
-    _gc_has_ascii_tags = re.search(r"[a-zA-Z]", _gc_tags) is not None
-    _gc_has_ascii_bio = re.search(r"[a-zA-Z]", _gc_bio_s) is not None
-
-    # A. 明示NG。インスタ/ID誘導と短すぎる@Bioは除外しない。
-    for _gc_w in ['絡み募', '絡み募集', '地雷', 'xuhuong', 'gaixinh', 'xinhdep', 'cewek', 'wanita', 'cantik', 'mencari', 'daun muda', 'vaycongchua', 'phongcachphap', 'bachnguyetquang', 'stylenangtho', 'outfitlangman', 'cortis', 'onephony', '田島櫻子', 'slipknot', 'metal', 'affiliate', 'affiliatemarketing', 'no bio yet', 'No bio yet', '女装', '女装男子', '男の娘', '偽娘', 'ニューハーフ']:
-        _gc_ws = str(_gc_w or "").strip()
-        if _gc_ws and _gc_ws.lower() in _gc_low:
-            return f"類似除外({_gc_ws})"
-
-    # B. 未成年系。08/09はハッシュタグ単体トークンで除外。15さい/15歳なども除外。
-    _gc_tags_norm_digits = _gc_tags.translate(str.maketrans("０１２３４５６７８９", "0123456789"))
-    _gc_tag_tokens = [t for t in re.split(r"[#＃\s,，、/／｜|・.．。:_\-－ー]+", _gc_tags_norm_digits) if t]
-    if "08" in _gc_tag_tokens:
-        return "ハッシュタグNG(08/未成年系)"
-    if "09" in _gc_tag_tokens:
-        return "ハッシュタグNG(09/未成年系)"
-
-    for _uw in ['未成年', '中学生', '高校生', 'jc', 'jc1', 'jc2', 'jc3', 'jk1', 'jk2', 'jk3', 'fjk', 'sjk', 'ljk', '15さい', '15歳', '15才', '１５さい', '１５歳', '１５才', '14さい', '14歳', '14才', '１４さい', '１４歳', '１４才', '13さい', '13歳', '13才', '１３さい', '１３歳', '１３才', '16さい', '16歳', '16才', '１６さい', '１６歳', '１６才', '17さい', '17歳', '17才', '１７さい', '１７歳', '１７才']:
-        _uws = str(_uw or "").strip()
-        if _uws and _uws.lower() in _gc_low:
-            return f"未成年系NG({_uws})"
-
-    _gc_age_text = _gc_full.translate(str.maketrans("０１２３４５６７８９", "0123456789"))
-    if re.search(r"(?<![0-9])(?:1[0-7]|[0-9])\s*(?:歳|才|さい)(?![0-9])", _gc_age_text):
-        return "未成年系NG(年齢表記)"
-
-    # C. 外部リンク誘導。ただし litlink / lit.link は除外しない
-    _gc_has_litlink = ("lit.link" in _gc_low) or ("litlink" in _gc_low)
-    for _gc_link in ["facebook.com", "mibextid", "onlyfans", "ofans", "fansly", "beacons.ai", "linktr.ee"]:
-        if _gc_link in _gc_low and not _gc_has_litlink:
-            return f"外部リンクNG({_gc_link})"
-
-    # D. ランダムID + 日本語要素が薄い/海外っぽいもの
-    _gc_uid_clean = re.sub(r"[^a-zA-Z0-9]", "", _gc_uid_s).lower()
-    _gc_uid_has_letter = re.search(r"[a-z]", _gc_uid_clean) is not None
-    _gc_uid_has_digit = re.search(r"[0-9]", _gc_uid_clean) is not None
-    _gc_uid_has_sep = ("_" in _gc_uid_s) or ("." in _gc_uid_s) or ("-" in _gc_uid_s)
-    if len(_gc_uid_clean) >= 7 and _gc_uid_has_letter and _gc_uid_has_digit and not _gc_uid_has_sep:
-        if not _gc_has_kana or _gc_bio_s == "" or _gc_has_ascii_tags:
-            return "ランダムID/海外・量産寄り"
-
-    # E. 英字タグ中心 + 日本語なし/短文bio
-    if _gc_has_ascii_tags and not _gc_has_japanese:
-        if _gc_bio_s == "" or len(_gc_bio_s) <= 30:
-            return "外国語/海外(英字タグ中心+日本語なし)"
-
-    # F. fyp + 日本語要素が薄い
-    if "fyp" in _gc_tags_low and not _gc_has_kana:
-        if _gc_bio_s == "" or _gc_has_ascii_bio or re.search(r"[\u4E00-\u9FFF]", _gc_bio_s):
-            return "外国語/海外(fyp+日本語要素薄い)"
-
-    # G. 中国語は簡体字/中国語フレーズで除外
-    _gc_cn_phrases = ["今天", "也是", "电影", "治愈", "的一天", "关注", "私信", "主页", "置顶", "找我", "美女", "漂亮", "可爱", "点赞", "评论", "转发", "视频", "大家好", "我是", "喜欢"]
-    for _gc_cn in _gc_cn_phrases:
-        if _gc_cn in _gc_full:
-            return f"外国語/海外(中国語:{_gc_cn})"
-    _gc_simplified_chars = "这们为热电说话买卖体会觉让从给发欢乐国学广东网写气应旧后边过还进长门"
-    if sum(1 for _ch in _gc_simplified_chars if _ch in _gc_full) >= 2:
-        return "外国語/海外(中国語/簡体字)"
-
-    # H. 非日本語文字種
-    if re.search(r"[\u1000-\u109F\u1780-\u17FF\u0E80-\u0EFF\u0E00-\u0E7F\u0400-\u04FF\u0600-\u06FF\u0900-\u097F]", _gc_full):
-        return "外国語/海外(非日本語文字種)"
-
-    # I. 同一英字連続タグ
-    if re.search(r"(?i)(?<![a-z])([a-z])\1{7,}(?![a-z])", _gc_tags):
-        return "ハッシュタグNG(同一英字連続)"
+    if (r := _colored_leak_v2.check(_cs_uid_s, _cs_name_s, _cs_bio_s, _cs_tags)) is not None:
+        return r
 
 
 
