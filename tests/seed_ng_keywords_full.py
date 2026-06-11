@@ -183,8 +183,9 @@ def main() -> int:
                 continue
             existing.add(key)
             memo = f"rules.py L{lineno} {var_name} から転写"
+            # 列順: A=カテゴリ B=ワード C=有効 D=適用範囲 E=Bio空必須 F=メモ
             rows_to_append.append([
-                "general", word, "TRUE", memo, "all", "FALSE",
+                "general", word, "TRUE", "all", "FALSE", memo,
             ])
 
     print(f"追加候補: {len(rows_to_append)} 行", flush=True)

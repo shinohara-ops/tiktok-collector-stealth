@@ -16,20 +16,31 @@ HEADERS = [
     "プロフィール紹介文", "可愛さ点数", "理由", "使用モデル", "プロフURL", "投稿URL", "スクショパス",
 ]
 
-NG_KEYWORDS_HEADERS = ["カテゴリ", "ワード", "有効", "メモ", "適用範囲", "Bio空必須"]
+# 列順: A=カテゴリ B=ワード C=有効 D=適用範囲 E=Bio空必須 F=メモ
+# メモは可変長(複数行など)なので一番右に置く。判定に使う列(カテゴリ/ワード/有効/scope/bio_empty)
+# を左に集めることで Sheets を横スクロールせず編集できる。
+NG_KEYWORDS_HEADERS = ["カテゴリ", "ワード", "有効", "適用範囲", "Bio空必須", "メモ"]
 NG_KEYWORDS_TAB_KEY = "ng_keywords"
 NG_KEYWORDS_DEFAULT_TTL_SEC = 600
 
-# NGワードタブの列プルダウンの選択肢。B列(ワード)と D列(メモ)は自由入力。
+# 列インデックス(0-based)。データ読み込みでも使う。
+NG_COL_CATEGORY = 0
+NG_COL_WORD = 1
+NG_COL_ENABLED = 2
+NG_COL_SCOPE = 3
+NG_COL_BIO_EMPTY = 4
+NG_COL_MEMO = 5
+
+# プルダウン選択肢(ワードとメモは自由入力)
 NG_DROPDOWN_CATEGORIES = ["general", "ng", "ad", "official", "agency", "live", "music", "game", "pet", "food"]
 NG_DROPDOWN_BOOLEAN = ["TRUE", "FALSE"]
 NG_DROPDOWN_SCOPE = ["all", "hashtag", "bio"]
 # 列ごとに (0-based column index, 選択肢, strict)
 NG_DROPDOWN_SPECS: list[tuple[int, list[str], bool]] = [
-    (0, NG_DROPDOWN_CATEGORIES, True),   # A: カテゴリ
-    (2, NG_DROPDOWN_BOOLEAN, True),      # C: 有効
-    (4, NG_DROPDOWN_SCOPE, True),        # E: 適用範囲
-    (5, NG_DROPDOWN_BOOLEAN, True),      # F: Bio空必須
+    (NG_COL_CATEGORY, NG_DROPDOWN_CATEGORIES, True),
+    (NG_COL_ENABLED, NG_DROPDOWN_BOOLEAN, True),
+    (NG_COL_SCOPE, NG_DROPDOWN_SCOPE, True),
+    (NG_COL_BIO_EMPTY, NG_DROPDOWN_BOOLEAN, True),
 ]
 NG_DROPDOWN_ROWS = 5000  # 何行目までプルダウンを掛けるか(余裕を持って多めに)
 
@@ -417,21 +428,24 @@ class SheetsClient:
         flat: dict[str, list[str]] = {}
         meta: dict[str, list[dict]] = {}
 
+        def _cell(row: list, idx: int) -> str:
+            return str(row[idx]).strip() if len(row) > idx and row[idx] is not None else ""
+
         for row in rows:
-            if len(row) < 2:
+            if len(row) <= NG_COL_WORD:
                 continue
-            category = str(row[0] or "").strip().lower()
-            word = str(row[1] or "").strip()
+            category = _cell(row, NG_COL_CATEGORY).lower()
+            word = _cell(row, NG_COL_WORD)
             if not category or not word:
                 continue
-            enabled_raw = str(row[2]).strip() if len(row) >= 3 and row[2] is not None else ""
+            enabled_raw = _cell(row, NG_COL_ENABLED)
             if enabled_raw and enabled_raw.upper() in _NG_FALSEY_TOKENS:
                 continue
 
-            scope_raw = str(row[4]).strip().lower() if len(row) >= 5 and row[4] is not None else ""
+            scope_raw = _cell(row, NG_COL_SCOPE).lower()
             scope = scope_raw if scope_raw in NG_SCOPE_VALUES else "all"
 
-            bio_empty_raw = str(row[5]).strip() if len(row) >= 6 and row[5] is not None else ""
+            bio_empty_raw = _cell(row, NG_COL_BIO_EMPTY)
             bio_empty_required = bio_empty_raw.upper() in _NG_TRUTHY_TOKENS
 
             flat.setdefault(category, []).append(word)

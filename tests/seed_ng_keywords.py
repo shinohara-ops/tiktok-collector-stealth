@@ -112,13 +112,14 @@ def main() -> int:
         if key in existing:
             return
         existing.add(key)
+        # 列順: A=カテゴリ B=ワード C=有効 D=適用範囲 E=Bio空必須 F=メモ
         rows_to_append.append([
             category,
             word,
             "TRUE",
-            memo,
             scope,
             "TRUE" if bio_empty_required else "FALSE",
+            memo,
         ])
 
     for w in yaml_ng_keywords:
