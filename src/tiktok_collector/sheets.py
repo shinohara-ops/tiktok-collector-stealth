@@ -125,12 +125,30 @@ class SheetsClient:
             range=rng,
         ).execute()
         values = resp.get("values", [])
-        if not values:
+        existing = values[0] if values else []
+        if not existing:
+            # 新規タブ: ヘッダーをフル書き込み
             self.service.spreadsheets().values().update(
                 spreadsheetId=self.spreadsheet_id,
                 range=rng,
                 valueInputOption="RAW",
                 body={"values": [header_cols]},
+            ).execute()
+            return
+        # 既存ヘッダーが期待より列数が少なければ、不足分だけ後ろに書き足す。
+        # 既存セル(A1〜)は誤って上書きしない。NGワードタブを 4 → 6 列にする
+        # ような後方拡張に対応する。
+        if len(existing) < len(header_cols):
+            missing_start = len(existing)
+            missing_cols = header_cols[missing_start:]
+            start_col = chr(ord("A") + missing_start)
+            missing_rng = f"{tab}!{start_col}1:{col_end}1"
+            print(f"ヘッダー拡張: tab={tab} +{missing_cols}", flush=True)
+            self.service.spreadsheets().values().update(
+                spreadsheetId=self.spreadsheet_id,
+                range=missing_rng,
+                valueInputOption="RAW",
+                body={"values": [missing_cols]},
             ).execute()
 
     def _format_tabs(self):
