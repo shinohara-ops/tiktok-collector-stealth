@@ -97,6 +97,11 @@ class AlgorithmStealthConfig:
     # 書き込み二重防止は別途 _fresh_existing_uids_all_tabs で担保されているので、
     # ここは「無駄に AI を回さない」ための最適化目的。
     uid_map_refresh_sec: float = 600.0
+    # 同じ uid に N 回連続で当たったら、フィード詰まりと判断して Chrome を reload。
+    # Wi-Fi 不調等で TikTok 側の取得が止まったときの自動復帰用。
+    stuck_reload_threshold: int = 3
+    # 1 セッション中に reload する最大回数。これを超えたら停止して通知。
+    stuck_max_reloads: int = 6
 
 
 @dataclass

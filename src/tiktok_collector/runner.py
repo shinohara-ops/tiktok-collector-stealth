@@ -356,6 +356,10 @@ class TikTokRunner:
         self._liked_uids: set[str] = set()
         # 過去採用 uid マップ refresh 用
         self._uid_map_last_refresh_ts = 0.0
+        # フィード詰まり検出(同じ uid 連続)+ Chrome reload による復帰
+        self._last_seen_uid = ""
+        self._same_uid_streak = 0
+        self._reload_count = 0
 
     def _maybe_refresh_uid_map(self) -> None:
         """過去採用 uid マップを定期的に Sheets から再取得する。
@@ -739,6 +743,40 @@ class TikTokRunner:
         candidate = await self.scraper.current_candidate(page)
         if not candidate:
             self.db.event("warn", "candidate取得失敗")
+            return
+
+        # === stealth: 同じ uid に連続で当たったら Chrome を reload して復帰 ===
+        # Wi-Fi 不調や TikTok 側の一時的な固まりで先に進まないケースを自動回復する。
+        if candidate.unique_id and candidate.unique_id == self._last_seen_uid:
+            self._same_uid_streak += 1
+        else:
+            self._same_uid_streak = 0
+        self._last_seen_uid = candidate.unique_id or ""
+
+        algo_st = getattr(self.cfg, "algorithm_stealth", None)
+        stuck_threshold = int(getattr(algo_st, "stuck_reload_threshold", 3) or 3)
+        max_reloads = int(getattr(algo_st, "stuck_max_reloads", 6) or 6)
+        if self._same_uid_streak >= stuck_threshold:
+            self._reload_count += 1
+            if self._reload_count > max_reloads:
+                msg = f"フィード詰まりが{max_reloads}回続いたため停止 (最終 uid={candidate.unique_id})"
+                print(msg, flush=True)
+                self.notifier.send(msg)
+                Path("data/STOP_REQUESTED").touch()
+                return
+            print(
+                f"フィード詰まり検出: uid={candidate.unique_id} streak={self._same_uid_streak}"
+                f" → page.reload() #{self._reload_count}",
+                flush=True,
+            )
+            self.db.event("info", f"page.reload (stuck on {candidate.unique_id})")
+            try:
+                await page.reload(wait_until="domcontentloaded", timeout=30000)
+            except Exception as e:
+                print(f"page.reload エラー: {str(e)[:160]}", flush=True)
+            await asyncio.sleep(self.cfg.browser.startup_wait_sec)
+            self._same_uid_streak = 0
+            self._last_seen_uid = ""
             return
 
         processed = self.db.get(candidate.unique_id)
