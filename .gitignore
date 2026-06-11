@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+data/*.jsonl
+data/*.log
+.env
+.DS_Store
+credentials/
+chrome_profile_tiktok/

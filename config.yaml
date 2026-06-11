@@ -1,0 +1,91 @@
+collector_name: 篠原
+browser:
+  user_data_dir: ./chrome_profile_tiktok
+  headless: false
+  viewport_width: 1280
+  viewport_height: 900
+  start_url: https://www.tiktok.com/
+  startup_wait_sec: 15
+  action_delay_sec: 1.5
+  max_runtime_minutes: 480
+openai:
+  primary_model: gpt-4o-mini
+  fallback_model: gpt-4o-mini
+  use_fallback_for_uncertain: true
+  timeout_sec: 20
+  max_output_tokens: 250
+  image_detail: low
+google_sheets:
+  auth_mode: oauth
+  oauth_client_json: ./credentials/oauth_client.json
+  oauth_token_json: ./credentials/token.json
+  service_account_json: ./credentials/service_account.json
+  spreadsheet_id: 1nER3bldVQ88mDl8P-kR5wmHUPZMJQnn2LYxSvAGG250
+  tabs:
+    recommended: おすすめ
+    blackband: 黒帯確認
+    pending: AI未判定_保留
+    skipped: 除外ログ
+    ng_keywords: NGワード
+  ng_keywords_cache_ttl_sec: 600
+slack:
+  enabled: false
+  webhook_url: ''
+rate:
+  max_ai_calls_per_minute: 10
+  target_writes_per_minute: 1
+  rest_every_n_posts: 80
+  rest_sec: 60
+rules:
+  max_followers: 2000
+  min_followers: 0
+  ng_keywords:
+  - DM
+  - ＤＭ
+  - ディーエム
+  - 独身
+  - ゲーム
+  - 歌詞動画
+  - 弾き語り
+  - 歌ってみた
+  - アイドル
+  - アニメ
+  - 漫画
+  - マンガ
+  - ドラマ
+  - 映画
+  - 声優
+  - まとめ
+  - edit
+  - edits
+  - 推し
+  - オタク
+  - ヲタク
+  - 実況
+  - sekainoowari
+  - セカオワ
+  - ミセス
+  - Mrs. GREEN APPLE
+  underage_patterns:
+  - 08
+  - 09
+  - '10'
+  - '11'
+  - '12'
+  - '13'
+  - '14'
+  - '15'
+  foreign_strict: true
+blackband:
+  send_to_ai: false
+  top_bottom_dark_ratio_threshold: 0.2
+  dark_pixel_threshold: 35
+logging:
+  sqlite_path: ./data/tiktok_collector.sqlite3
+  screenshot_dir: ./data/screenshots
+
+algorithm_feedback:
+  enable_negative_feedback_for_excluded: true
+  negative_feedback_once_per_account: true
+  target_only_previous_excluded: true
+  negative_feedback_min_interval_sec: 20
