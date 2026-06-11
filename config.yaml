@@ -99,8 +99,10 @@ algorithm_stealth:
   # 候補性判定: 過去採用済みでない & フォロワー数 < rules.max_followers のときだけ候補
   enable_candidacy_check: true
   # 候補のうち like_probability で like を発火(0.0〜1.0)
+  # 候補(=フォロワー数判明+閾値未満)に対して強めに好意シグナルを送り、
+  # TikTokおすすめが似た傾向のアカウントに偏るようにする。
   enable_like: true
-  like_probability: 0.05
+  like_probability: 0.20
   # 連続 like を避けるための最小間隔(秒)
   like_min_interval_sec: 90
   # 過去採用 uid マップを Sheets から再取得する間隔(秒)。複数PC運用時、他PCの追記を取り込む。
