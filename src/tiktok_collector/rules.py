@@ -11,6 +11,7 @@ from ._rules_parts import underage_school_age as _underage_school_age
 from ._rules_parts import colored_excluded_ids as _colored_excluded_ids
 from ._rules_parts import underage_tail_id as _underage_tail_id
 from ._rules_parts import underage_v2_band as _underage_v2_band
+from ._rules_parts import ng_no_bio_yet as _ng_no_bio_yet
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -408,34 +409,19 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: NGワード — "No bio yet"
+    # → src/tiktok_collector/_rules_parts/ng_no_bio_yet.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    if "no bio yet" in text.lower():
-        return "NGワード(No bio yet)"
+    if (r := _ng_no_bio_yet.check(text)) is not None:
+        return r
 
 
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 色付き除外 ID 群(1650 行スナップショット)
+    # → src/tiktok_collector/_rules_parts/colored_excluded_ids.py の check_1650
     # ────────────────────────────────────────────────────────────────
-    # 1650行目以降の色付きアカウントID除外
-    _colored_excluded_ids_1650 = ['ngminhchi335', 'muxi6699', 'osakana1225', '_ll.s10', 'hozonyoudesu0', 'neko22momo', '_n0zk', 'maya181526', 'xrbdwqgoceh', 'umebosi_05', 'mio0403018', 'uu1313.t', '26zixy', 'minpuri330']
-    try:
-        _candidate_uid_1650 = (
-            _get(candidate, "unique_id", None)
-            or _get(candidate, "user_id", None)
-            or _get(candidate, "id", None)
-            or ""
-        )
-    except Exception:
-        _candidate_uid_1650 = (
-            getattr(candidate, "unique_id", None)
-            or getattr(candidate, "user_id", None)
-            or getattr(candidate, "id", None)
-            or ""
-        )
-    _candidate_uid_1650 = str(_candidate_uid_1650 or "").strip().replace("@", "")
-    if _candidate_uid_1650 in _colored_excluded_ids_1650:
-        return f"色付き除外ID({_candidate_uid_1650})"
+    if (r := _colored_excluded_ids.check_1650(_cs_uid_s)) is not None:
+        return r
 
 
 
