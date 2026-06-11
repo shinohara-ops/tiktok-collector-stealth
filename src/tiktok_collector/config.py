@@ -138,6 +138,12 @@ def load_config(path: str = "config.yaml") -> AppConfig:
 
     raw = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
 
+    # TIKTOK_COLLECTOR_NAME(3_run_collector.command が立てる)があれば
+    # config.yaml の collector_name より優先。複数 PC 運用で記入者を区別するため。
+    env_collector_name = os.getenv("TIKTOK_COLLECTOR_NAME", "").strip()
+    if env_collector_name:
+        raw["collector_name"] = env_collector_name
+
     openai_api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not openai_api_key:
         raise RuntimeError(".env に OPENAI_API_KEY を設定してください。")
