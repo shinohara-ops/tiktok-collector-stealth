@@ -5,6 +5,7 @@ import re
 from typing import Callable, Optional
 
 from ._rules_parts import similar_excluded as _similar_excluded
+from ._rules_parts import underage_pair as _underage_pair
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -347,15 +348,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 未成年系 — 08/09 ペア表記の判定
+    # → src/tiktok_collector/_rules_parts/underage_pair.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    if re.search(r"(?<!\d)(?:08|09)\s*[♡❤♥💕💖/／・,，、.．\-－_\s]+\s*(?:08|09)(?!\d)", _cs_digit_text):
-        return "未成年系NG(08/09ペア表記)"
-
-    _cs_tokens = [t for t in re.split(r"[#＃\s,，、/／｜|・.．。:_\-－ー♡❤♥💕💖]+", _cs_digit_text) if t]
-    if "08" in _cs_tokens:
-        return "未成年系NG(08)"
-    if "09" in _cs_tokens:
-        return "未成年系NG(09)"
+    if (r := _underage_pair.check(_cs_digit_text)) is not None:
+        return r
 
 
     # ────────────────────────────────────────────────────────────────
