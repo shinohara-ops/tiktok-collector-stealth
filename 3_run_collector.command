@@ -47,8 +47,45 @@ fi
 
 export TIKTOK_COLLECTOR_NAME
 
+# === フォロワー数閾値(max_followers)の確定 ===
+# 解決順: 環境変数 TIKTOK_MAX_FOLLOWERS > .max_followers ファイル > 対話入力(現状値で Enter)
+# この値「未満」のフォロワー数のアカウントが候補になる。それ以上は stealth_candidacy で早期 skip。
+if [ -z "$TIKTOK_MAX_FOLLOWERS" ] && [ -f ".max_followers" ]; then
+  TIKTOK_MAX_FOLLOWERS="$(head -n 1 .max_followers | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+fi
+
+# 現状値(env or ファイル or config.yaml の rules.max_followers)を表示用に決める
+CURRENT_MAX="$TIKTOK_MAX_FOLLOWERS"
+if [ -z "$CURRENT_MAX" ]; then
+  CURRENT_MAX="$(awk '/^rules:/{flag=1} flag && /^[[:space:]]+max_followers:/{print $2; exit}' config.yaml 2>/dev/null)"
+fi
+if [ -z "$CURRENT_MAX" ]; then
+  CURRENT_MAX="2000"
+fi
+
+echo ""
+echo "現在のフォロワー数しきい値: ${CURRENT_MAX} 未満を抽出対象"
+printf "変更する場合は新しい値を入力(そのままなら Enter)> "
+read -r NEW_MAX
+NEW_MAX="$(echo "$NEW_MAX" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+if [ -n "$NEW_MAX" ]; then
+  case "$NEW_MAX" in
+    ''|*[!0-9]*)
+      echo "数値ではないため中断します: $NEW_MAX"
+      exit 1
+      ;;
+  esac
+  TIKTOK_MAX_FOLLOWERS="$NEW_MAX"
+  printf "%s\n" "$NEW_MAX" > .max_followers
+  echo "→ .max_followers に保存しました(次回からはこの値が初期値になります)"
+else
+  TIKTOK_MAX_FOLLOWERS="$CURRENT_MAX"
+fi
+export TIKTOK_MAX_FOLLOWERS
+
 echo ""
 echo "=== TikTokCollectorStealth 本体起動 ==="
 echo "記入者名: $TIKTOK_COLLECTOR_NAME"
+echo "抽出条件: フォロワー数 ${TIKTOK_MAX_FOLLOWERS} 未満"
 echo ""
 python3 main.py

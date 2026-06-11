@@ -8,3 +8,4 @@ data/*.log
 credentials/
 chrome_profile_tiktok/
 .collector_name
+.max_followers

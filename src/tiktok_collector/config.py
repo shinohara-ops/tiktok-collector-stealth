@@ -39,6 +39,7 @@ class GoogleSheetsConfig:
     oauth_client_json: str = "./credentials/oauth_client.json"
     oauth_token_json: str = "./credentials/token.json"
     service_account_json: str = "./credentials/service_account.json"
+    ng_keywords_cache_ttl_sec: int = 600
 
 
 @dataclass
@@ -140,6 +141,19 @@ def load_config(path: str = "config.yaml") -> AppConfig:
     openai_api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not openai_api_key:
         raise RuntimeError(".env に OPENAI_API_KEY を設定してください。")
+
+    # 環境変数 TIKTOK_MAX_FOLLOWERS が指定されていたら rules.max_followers を上書き。
+    # 3_run_collector.command が起動時の対話入力でこの env を立てる。
+    env_max_followers = os.getenv("TIKTOK_MAX_FOLLOWERS", "").strip()
+    if env_max_followers:
+        try:
+            mf = int(env_max_followers)
+            if mf > 0:
+                raw_rules = dict(raw.get("rules", {}) or {})
+                raw_rules["max_followers"] = mf
+                raw["rules"] = raw_rules
+        except ValueError:
+            pass
 
     cfg = AppConfig(
         collector_name=str(raw.get("collector_name", "")),
