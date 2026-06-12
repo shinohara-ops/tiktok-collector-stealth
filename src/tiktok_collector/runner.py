@@ -54,32 +54,19 @@ class RateLimiter:
 
 
 async def _start_pause_guard(page):
-    """判定前に中央の動画を 1 回だけ pause する。
-    元 collector では setInterval(250ms) で TikTok の自動再生再開を片端から止めて
-    いたが、stealth モード(CDP で画面が見える状態)では「再生/一時停止アイコン」
-    が秒 4 回切り替わって不自然な見た目になる + TikTok アルゴから見ても普通の
-    視聴者の挙動ではない。
-    1 回だけ pause して、TikTok が再生再開したらそのまま視聴を許容する方針に変更。
-    視聴時間がやや増えるが、検知耐性は probe (60/60 完走) で実証済み。"""
-    try:
-        await page.evaluate("""
-        () => {
-          const vw = innerWidth, vh = innerHeight;
-          const videos = Array.from(document.querySelectorAll('video'))
-            .map(v => {
-              const r = v.getBoundingClientRect();
-              const visibleW = Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0));
-              const visibleH = Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0));
-              return {video: v, area: visibleW * visibleH};
-            })
-            .filter(x => x.area > 5000)
-            .sort((a,b) => b.area - a.area);
-          const v = videos[0]?.video;
-          if (v && !v.paused) v.pause();
-        }
-        """)
-    except Exception:
-        pass
+    """**stealth モードでは何もしない**(完全 noop)。
+
+    元 collector は判定中に動画を一時停止して「視聴時間を増やさない」設計だったが、
+    stealth では下記の理由で pause を一切しない方針:
+      1. 普通のユーザーは動画を能動的に一時停止しない。pause を呼ぶこと自体が
+         anti-bot 検知の材料になり得る(video element の pause() 呼び出しパターン)
+      2. 画面上で再生/一時停止アイコンが点滅して明らかに不自然(ユーザー報告)
+      3. 視聴時間制御は別経路で達成済み:
+         - target=False → 短く再生 → スワイプ(自然な「興味なし」挙動)
+         - target=True → _watch_target_video で動画完視聴(complete view シグナル)
+
+    関数は signature を残したまま中身を空にして、call site の変更を最小化。"""
+    return
 
 
 async def _stop_pause_guard(page):
@@ -398,9 +385,20 @@ class TikTokRunner:
             pass
 
     async def _watch_target_video(self, page):
-        sec = int(getattr(getattr(self.cfg, "algorithm", None), "watch_target_sec", 12) or 12)
-        sec = max(5, min(sec, 20))
-        await _watch_complete_and_visit_profile(page, locals().get('candidate'))
+        """採用(target=True)した動画は **最後まで** 視聴する。
+
+        TikTok アルゴリズムから見て complete view rate(完視聴率)は最も強い
+        好意シグナル。stealth 候補に対して probability で like も発火させて
+        いるが、ここで完視聴することで「この uid のような動画を増やせ」と
+        TikTok に明確に伝える。
+
+        実装方針:
+          1. 動画を再生開始(muted のまま、isTrusted は影響しない)
+          2. duration / currentTime を取得して残り再生時間を計算
+          3. 残り時間 + 0.5 秒 sleep(余裕分)
+          4. duration 不明時は安全側で 30 秒(投稿の typical 上限)を上限に
+        """
+        await _stop_pause_guard(page)  # 念のため旧 interval を全部 clear
         try:
             await page.evaluate("""() => {
               const v = Array.from(document.querySelectorAll('video')).find(v => {
@@ -411,7 +409,40 @@ class TikTokRunner:
             }""")
         except Exception:
             pass
-        await asyncio.sleep(sec)
+
+        # 残り再生時間を取得
+        try:
+            info = await page.evaluate("""() => {
+              const v = Array.from(document.querySelectorAll('video')).find(v => {
+                const r = v.getBoundingClientRect();
+                return r.width > 120 && r.height > 180;
+              });
+              if (!v) return null;
+              return {
+                duration: Number(v.duration || 0),
+                currentTime: Number(v.currentTime || 0)
+              };
+            }""")
+        except Exception:
+            info = None
+
+        WATCH_FLOOR = 8.0   # 最低 8 秒は見る(極端に短い動画でも好意シグナルを送る)
+        WATCH_CEIL = 60.0   # 上限 60 秒(長尺動画の暴走防止)
+
+        if info and isinstance(info, dict):
+            duration = float(info.get("duration") or 0)
+            current = float(info.get("currentTime") or 0)
+            if 0 < duration <= WATCH_CEIL:
+                remain = max(WATCH_FLOOR, duration - current + 0.5)
+                wait_sec = min(WATCH_CEIL, remain)
+            else:
+                # duration 不明 or 長尺すぎ → 安全側で 30 秒視聴
+                wait_sec = 30.0
+        else:
+            wait_sec = 30.0
+
+        print(f"target視聴: {wait_sec:.1f}秒(完視聴シグナル)", flush=True)
+        await asyncio.sleep(wait_sec)
 
     async def run(self):
         self._clear_stop_requested()
