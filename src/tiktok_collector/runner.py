@@ -578,8 +578,9 @@ class TikTokRunner:
     async def _force_advance_after_skip(self, page, uid: str = ""):
         """スキップ系で同じ動画に張り付かないよう次へ進める。
         stealth: 1 番目に scraper.next_post(= human_swipe wheel + chevron + ArrowDown)
-        を試し、失敗時のみ各種キー/scroll にフォールバック。wait は 350ms に短縮して
-        「興味ない動画は 1 秒で次へ」の人間挙動に近づける。"""
+        を試し、失敗時のみ各種キー/scroll にフォールバック。
+        wait は 500ms — 短すぎると次の _process_one が前動画の uid を拾って
+        二重スキップ(2 動画進む)が起きる。"""
         for method in range(1, 7):
             try:
                 if method == 1:
@@ -594,7 +595,7 @@ class TikTokRunner:
                     await page.mouse.wheel(0, 900)
                 elif method == 6:
                     await page.evaluate("window.scrollBy(0, Math.max(700, window.innerHeight * 0.85))")
-                await page.wait_for_timeout(350)
+                await page.wait_for_timeout(500)
                 return True
             except Exception:
                 continue
@@ -768,6 +769,24 @@ class TikTokRunner:
 
     async def _process_one(self, page):
         candidate = await self.scraper.current_candidate(page)
+
+        # === stealth: 二重スキップ防止ガード ===
+        # _force_advance_after_skip の直後で DOM がまだ前動画のままだと、
+        # current_candidate が前動画の uid を返す → 既処理判定 → もう一度
+        # _force_advance_after_skip(2 動画進む)が起きる。前回 uid と同じ
+        # かつ既処理ならスキップ前に追加待機して再取得する。
+        if (
+            candidate
+            and getattr(candidate, "unique_id", "")
+            and self._last_seen_uid
+            and candidate.unique_id == self._last_seen_uid
+        ):
+            await asyncio.sleep(0.5)
+            recheck = await self.scraper.current_candidate(page)
+            if recheck and getattr(recheck, "unique_id", "") and recheck.unique_id != self._last_seen_uid:
+                candidate = recheck  # 新しい動画の uid が取れた → 採用
+            # 取れなければそのまま進める(reload guard が後段で動く)
+
         if not candidate:
             self.db.event("warn", "candidate取得失敗")
             return
