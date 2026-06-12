@@ -52,58 +52,19 @@ _GET_CENTER_VIDEO_SRC_JS = r"""
 """
 
 
-async def _find_next_button(page: Page) -> dict | None:
-    try:
-        return await page.evaluate(r"""
-        () => {
-          const vw = innerWidth, vh = innerHeight;
-          const visible = (el) => {
-            const r = el.getBoundingClientRect();
-            const s = getComputedStyle(el);
-            return r.width > 16 && r.height > 16 &&
-                   s.display !== 'none' && s.visibility !== 'hidden' &&
-                   r.bottom > 0 && r.top < vh;
-          };
-          const sels = [
-            'button[aria-label*="次" i]',
-            'button[aria-label*="next" i]',
-            'button[data-e2e*="arrow-right"]',
-            'button[data-e2e*="arrow-down"]',
-            'button[data-e2e*="next"]',
-          ];
-          for (const sel of sels) {
-            const els = Array.from(document.querySelectorAll(sel)).filter(visible);
-            if (els.length) {
-              const r = els[0].getBoundingClientRect();
-              return {x: r.left + r.width/2, y: r.top + r.height/2, src: 'sel:'+sel};
-            }
-          }
-          const buttons = Array.from(document.querySelectorAll('button, [role="button"]')).filter(visible);
-          for (const b of buttons) {
-            const r = b.getBoundingClientRect();
-            if (r.left < vw * 0.78 || r.right > vw + 5) continue;
-            if (r.top < vh * 0.35 || r.top > vh * 0.85) continue;
-            const svg = b.querySelector('svg');
-            if (!svg) continue;
-            const d = (svg.querySelector('path')?.getAttribute('d') || '');
-            if (/[Mm].*[Ll]/.test(d)) {
-              return {x: r.left + r.width/2, y: r.top + r.height/2, src: 'right-svg'};
-            }
-          }
-          return null;
-        }
-        """)
-    except Exception:
-        return None
-
-
 async def human_swipe(page: Page) -> dict:
-    """TikTok For You を次へ進める。wheel → chevron click → ArrowDown の順で試す。
-    すべて CDP Input 経由なので isTrusted=true。
+    """TikTok For You を次の動画へ進める。**下方向のみ**保証。
 
-    タイミング:
-      普通のユーザーが興味ない動画を 0.5〜1.5 秒でスワイプする挙動を模倣する。
-      検知耐性は probe 60/60 完走で確認済み(速いスワイプ自体は不審ではない)。"""
+    優先順位:
+      1. CDP mouse wheel(deltaY > 0 = 下スクロール = 次の動画)
+      2. ArrowDown キー(下方向、確実)
+
+    chevron-click(右側矢印ボタン)は廃止。TikTok の DOM 改修で「次」と「前」
+    のボタンが同じ data-e2e / aria-label セットを使うケースがあり、検出が
+    間違って「前へ」を押してしまうと画面上で 1 つ戻ってしまう。
+
+    検知耐性は probe 60/60 完走で確認済み。普通のユーザーが興味ない動画を
+    0.5〜1.5 秒でスワイプする挙動を模倣する。"""
     try:
         dims = await page.evaluate("() => ({vw: innerWidth, vh: innerHeight})")
         vw, vh = dims["vw"], dims["vh"]
@@ -113,39 +74,26 @@ async def human_swipe(page: Page) -> dict:
         cy = vh * random.uniform(0.40, 0.60)
         await page.mouse.move(cx, cy, steps=random.randint(5, 10))
         await asyncio.sleep(random.uniform(0.04, 0.12))
-        big = random.uniform(900, 1300)
+        big = random.uniform(900, 1300)  # 正の値 = 下方向(次の動画)
         await page.mouse.wheel(0, big)
         # スワイプ後の DOM 切替待ち。短すぎると after_src がまだ前動画
-        # と同じに見えて wheel 失敗扱いになり、chevron-click fallback で
-        # **二重スワイプ**になる(動画が 2 つ進む)。0.55〜0.70 で安定。
+        # と同じに見えて wheel 失敗扱いになり、fallback に流れる。
         await asyncio.sleep(random.uniform(0.55, 0.70))
         after_src = await page.evaluate(_GET_CENTER_VIDEO_SRC_JS)
         # src が空のときは動画ロード中 → 成功扱い(誤った fallback を防ぐ)。
-        # ロード中の動画もすぐ DOM 上に現れるので runner 側の current_candidate
-        # は次の iteration で正しく拾える。
         if not after_src or after_src != before_src:
             return {"ok": True, "method": "wheel"}
 
-        btn = await _find_next_button(page)
-        if btn:
-            jx = btn["x"] + random.uniform(-3, 3)
-            jy = btn["y"] + random.uniform(-3, 3)
-            await page.mouse.move(jx, jy, steps=random.randint(5, 9))
-            await asyncio.sleep(random.uniform(0.04, 0.10))
-            await page.mouse.down()
-            await asyncio.sleep(random.uniform(0.02, 0.06))
-            await page.mouse.up()
-            await asyncio.sleep(random.uniform(0.55, 0.70))
-            after2_src = await page.evaluate(_GET_CENTER_VIDEO_SRC_JS)
-            if not after2_src or after2_src != before_src:
-                return {"ok": True, "method": "chevron-click"}
-
+        # wheel が効かない場合のみ ArrowDown(キーボード操作で次の動画へ)
         try:
             await page.keyboard.press("ArrowDown")
             await asyncio.sleep(random.uniform(0.40, 0.60))
-            return {"ok": True, "method": "arrow-down-fallback"}
+            after2_src = await page.evaluate(_GET_CENTER_VIDEO_SRC_JS)
+            if not after2_src or after2_src != before_src:
+                return {"ok": True, "method": "arrow-down-fallback"}
         except Exception:
             pass
+
         return {"ok": False, "method": "no-advance"}
     except Exception as e:
         return {"ok": False, "method": "error", "error": str(e)[:200]}
