@@ -15,6 +15,7 @@ from ._rules_parts import ng_no_bio_yet as _ng_no_bio_yet
 from ._rules_parts import colored_leak_v2 as _colored_leak_v2
 from ._rules_parts import foreign_account as _foreign_account
 from ._rules_parts import noise_idol_music as _noise_idol_music
+from ._rules_parts import vn_affiliate_insta as _vn_affiliate_insta
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -457,112 +458,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: ベトナム/affiliate/Instagram/メンションのみ Bio + K-POP タグ
+    # → src/tiktok_collector/_rules_parts/vn_affiliate_insta.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # 追加除外: ベトナム系ローマ字タグ/インスタ誘導/短すぎるメンションBio
-    try:
-        _vn_uid = (
-            _get(candidate, "unique_id", None)
-            or _get(candidate, "user_id", None)
-            or _get(candidate, "id", None)
-            or ""
-        )
-        _vn_name = (
-            _get(candidate, "display_name", None)
-            or _get(candidate, "nickname", None)
-            or _get(candidate, "name", None)
-            or ""
-        )
-        _vn_bio = (
-            _get(candidate, "profile_bio", None)
-            or _get(candidate, "bio", None)
-            or _get(candidate, "signature", None)
-            or _get(candidate, "profile_text", None)
-            or _get(candidate, "description", None)
-            or _get(candidate, "desc", None)
-            or ""
-        )
-        _vn_tags_raw = (
-            _get(candidate, "hashtags", None)
-            or _get(candidate, "hashtag", None)
-            or _get(candidate, "tags", None)
-            or _get(candidate, "tag_text", None)
-            or _get(candidate, "hashtag_text", None)
-            or ""
-        )
-    except Exception:
-        _vn_uid = (
-            getattr(candidate, "unique_id", None)
-            or getattr(candidate, "user_id", None)
-            or getattr(candidate, "id", None)
-            or ""
-        )
-        _vn_name = (
-            getattr(candidate, "display_name", None)
-            or getattr(candidate, "nickname", None)
-            or getattr(candidate, "name", None)
-            or ""
-        )
-        _vn_bio = (
-            getattr(candidate, "profile_bio", None)
-            or getattr(candidate, "bio", None)
-            or getattr(candidate, "signature", None)
-            or getattr(candidate, "profile_text", None)
-            or getattr(candidate, "description", None)
-            or getattr(candidate, "desc", None)
-            or ""
-        )
-        _vn_tags_raw = (
-            getattr(candidate, "hashtags", None)
-            or getattr(candidate, "hashtag", None)
-            or getattr(candidate, "tags", None)
-            or getattr(candidate, "tag_text", None)
-            or getattr(candidate, "hashtag_text", None)
-            or ""
-        )
-
-    if isinstance(_vn_tags_raw, (list, tuple, set)):
-        _vn_tags = " ".join([str(x) for x in _vn_tags_raw]).strip()
-    else:
-        _vn_tags = str(_vn_tags_raw or "").strip()
-
-    _vn_uid_s = str(_vn_uid or "").strip().replace("@", "")
-    _vn_name_s = str(_vn_name or "").strip()
-    _vn_bio_s = str(_vn_bio or "").strip()
-    _vn_full = " ".join([_vn_uid_s, _vn_name_s, _vn_tags, _vn_bio_s])
-    _vn_full_lower = _vn_full.lower()
-    _vn_tags_lower = _vn_tags.lower()
-    _vn_bio_lower = _vn_bio_s.lower()
-
-    # ベトナム系/海外ローマ字タグ
-    for _w in ['vaycongchua', 'phongcachphap', 'bachnguyetquang', 'stylenangtho', 'nangtho', 'outfitlangman', 'langman', 'vay', 'congchua', 'phongcach', 'bong_iu', 'bongiu', 'hihi']:
-        _ws = str(_w or "").strip()
-        if _ws and _ws.lower() in _vn_full_lower:
-            return f"外国語/海外({_ws})"
-
-    # インスタ/外部SNS誘導
-    for _w in ['affiliatemarketing', 'affiliate marketing', 'いんすたきて', 'インスタきて', 'インスタ来て', 'instaきて', 'instagramきて', 'いんすた来て', 'ID→', 'id→', 'ID:', 'id:']:
-        _ws = str(_w or "").strip()
-        if _ws and _ws.lower() in _vn_full_lower:
-            return f"SNS誘導({_ws})"
-
-    # affiliate系
-    if "affiliate" in _vn_full_lower:
-        return "NGワード(affiliate)"
-
-    # ハッシュタグがfyp込みで、紹介文がインスタID誘導っぽい場合
-    if "fyp" in _vn_tags_lower and re.search(r"(いんすた|インスタ|insta|instagram|id\s*[→:：])", _vn_bio_lower):
-        return "SNS誘導(fyp+インスタID)"
-
-    # bioが @xx だけ、またはほぼメンションのみで短すぎる場合
-    _mention_only = re.fullmatch(r"@?[a-zA-Z0-9_.]{1,20}", _vn_bio_s or "") is not None
-    if _mention_only and len(_vn_bio_s.replace("@", "").strip()) <= 4:
-        return "プロフィール紹介文が短すぎるメンションのみ"
-
-    # cortisなど、K-POP/海外タグが単体でbio短文の場合
-    for _w in ['cortis']:
-        _ws = str(_w or "").strip()
-        if _ws and _ws.lower() in _vn_tags_lower and len(_vn_bio_s) <= 5:
-            return f"海外/ノイズタグ({_ws})"
+    if (r := _vn_affiliate_insta.check(_cs_uid_s, _cs_name_s, _cs_bio_s, _cs_tags)) is not None:
+        return r
 
 
 
