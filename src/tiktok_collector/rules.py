@@ -28,6 +28,7 @@ from ._rules_parts import foreign_vn_redux as _foreign_vn_redux
 from ._rules_parts import extra_ng_2 as _extra_ng_2
 from ._rules_parts import account_meta_basic as _account_meta_basic
 from ._rules_parts import follower_ad_official as _follower_ad_official
+from ._rules_parts import age_foreign_agency as _age_foreign_agency
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -596,27 +597,11 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
 
     # ────────────────────────────────────────────────────────────────
-    # SECTION: 年齢 + 外国語 + 事務所系ワード
+    # SECTION: 年齢 + 外国語 + 事務所系
+    # → src/tiktok_collector/_rules_parts/age_foreign_agency.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # 年齢/学生
-    r = _age_ng(text)
-    if r:
+    if (r := _age_foreign_agency.check(text, rules, _age_ng, _looks_like_foreign, _contains_any, _load_extra_words)) is not None:
         return r
-
-    # 外国語/海外
-    if _looks_like_foreign(text):
-        return "外国語/海外"
-
-    # 他事務所/所属系
-    agency_words = [
-        "所属", "事務所所属", "ライバー事務所", "公式ライバー", "認証ライバー",
-        "seju", "asobinext", "vaz", "grove", "avex", "ppp studio", "luv", "studio15",
-        "321inc", "live事務所", "liver office", "liveroffice", "マネージャー", "manager",
-        "nextwave", "neobright", "palmu", "pococha", "17live", "イチナナ",
-    ]
-    hit = _contains_any(text, agency_words + _load_extra_words(rules, "agency_keywords"))
-    if hit:
-        return "他事務所/所属系(" + hit + ")"
 
 
     # ────────────────────────────────────────────────────────────────
