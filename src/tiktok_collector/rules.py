@@ -19,6 +19,7 @@ from ._rules_parts import vn_affiliate_insta as _vn_affiliate_insta
 from ._rules_parts import indonesian_malay as _indonesian_malay
 from ._rules_parts import stream_hashtag as _stream_hashtag
 from ._rules_parts import non_jp_script_emoji_bio as _non_jp_script_emoji_bio
+from ._rules_parts import similar_v1 as _similar_v1
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -497,125 +498,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 類似アカウント v1(外部リンク/アダルト/コスプレ/空 Bio + ASCII タグ/ランダム ID)
+    # → src/tiktok_collector/_rules_parts/similar_v1.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # 類似アカウント除外v1: 1〜5 ※follow/いいね稼ぎ系は未実装
-    try:
-        _sim_uid = (
-            _get(candidate, "unique_id", None)
-            or _get(candidate, "user_id", None)
-            or _get(candidate, "id", None)
-            or ""
-        )
-        _sim_name = (
-            _get(candidate, "display_name", None)
-            or _get(candidate, "nickname", None)
-            or _get(candidate, "name", None)
-            or ""
-        )
-        _sim_bio = (
-            _get(candidate, "profile_bio", None)
-            or _get(candidate, "bio", None)
-            or _get(candidate, "signature", None)
-            or _get(candidate, "profile_text", None)
-            or _get(candidate, "description", None)
-            or _get(candidate, "desc", None)
-            or ""
-        )
-        _sim_tags_raw = (
-            _get(candidate, "hashtags", None)
-            or _get(candidate, "hashtag", None)
-            or _get(candidate, "tags", None)
-            or _get(candidate, "tag_text", None)
-            or _get(candidate, "hashtag_text", None)
-            or ""
-        )
-    except Exception:
-        _sim_uid = (
-            getattr(candidate, "unique_id", None)
-            or getattr(candidate, "user_id", None)
-            or getattr(candidate, "id", None)
-            or ""
-        )
-        _sim_name = (
-            getattr(candidate, "display_name", None)
-            or getattr(candidate, "nickname", None)
-            or getattr(candidate, "name", None)
-            or ""
-        )
-        _sim_bio = (
-            getattr(candidate, "profile_bio", None)
-            or getattr(candidate, "bio", None)
-            or getattr(candidate, "signature", None)
-            or getattr(candidate, "profile_text", None)
-            or getattr(candidate, "description", None)
-            or getattr(candidate, "desc", None)
-            or ""
-        )
-        _sim_tags_raw = (
-            getattr(candidate, "hashtags", None)
-            or getattr(candidate, "hashtag", None)
-            or getattr(candidate, "tags", None)
-            or getattr(candidate, "tag_text", None)
-            or getattr(candidate, "hashtag_text", None)
-            or ""
-        )
-
-    if isinstance(_sim_tags_raw, (list, tuple, set)):
-        _sim_tags = " ".join([str(x) for x in _sim_tags_raw]).strip()
-    else:
-        _sim_tags = str(_sim_tags_raw or "").strip()
-
-    _sim_uid_s = str(_sim_uid or "").strip().replace("@", "")
-    _sim_name_s = str(_sim_name or "").strip()
-    _sim_bio_s = str(_sim_bio or "").strip()
-    _sim_full = " ".join([_sim_uid_s, _sim_name_s, _sim_tags, _sim_bio_s])
-    _sim_full_lower = _sim_full.lower()
-
-    # 3. 外部リンク誘導系。ただし litlink / lit.link は除外しない
-    _sim_has_litlink = ("lit.link" in _sim_full_lower) or ("litlink" in _sim_full_lower)
-    for _link_ng in ['facebook.com', 'mibextid', 'onlyfans', 'ofans', 'fansly']:
-        if _link_ng in _sim_full_lower and not _sim_has_litlink:
-            return f"外部リンクNG({_link_ng})"
-
-    # 4. 美容・色気・成人・下着・成熟系
-    for _adult_w in ['lingerie', 'gorgeous', 'mature', 'maturewoman', 'maturewomen', '成熟', '成熟した女性', '色気', 'セクシー', 'sexy', '大人', '大人女子', '大人ガーリー', 'big.ass', 'ass9855', 'MagneticBeauty', 'SelfLoveVibes', 'GlamAndGrow', 'ConfidenceIsKey', 'beauty', 'glam']:
-        _adult_s = str(_adult_w or "").strip()
-        if not _adult_s:
-            continue
-        if _adult_s.lower() == "beauty":
-            if "beauty" in _sim_full_lower and (_sim_bio_s == "" or re.search(r"[a-zA-Z]", _sim_tags)):
-                return "NGワード(beauty系)"
-            continue
-        if _adult_s.lower() in _sim_full_lower:
-            return f"NGワード({_adult_s})"
-
-    # 5. コスプレ・アニメ・キャラ・ゲーム系
-    for _cg_w in ['cosplay', 'cosplayer', 'コスプレ', 'レイヤー', '宝鐘マリン', 'ホロライブ', 'hololive', 'アスカ', 'asuka', 'neongenesisevangelion', 'evangelion', 'エヴァ', 'エヴァンゲリオン', 'fivem', 'gta', 'gtarp', 'ゲーム実況', 'gaming']:
-        _cg_s = str(_cg_w or "").strip()
-        if _cg_s and _cg_s.lower() in _sim_full_lower:
-            return f"NGワード({_cg_s})"
-
-    # 1. プロフ空欄 + 英字ハッシュタグのみ
-    if _sim_bio_s == "" and _sim_tags:
-        _sim_has_japanese_tag = re.search(r"[ぁ-んァ-ヶ一-龥]", _sim_tags) is not None
-        _sim_has_ascii_tag = re.search(r"[a-zA-Z]", _sim_tags) is not None
-        if _sim_has_ascii_tag and not _sim_has_japanese_tag:
-            return "外国語/海外(英字タグのみ/プロフィール紹介文空欄)"
-
-    # 2. プロフ空欄 + ランダムIDっぽいユーザーID
-    _sim_uid_clean = re.sub(r"[^a-zA-Z0-9]", "", _sim_uid_s).lower()
-    _sim_uid_has_letter = re.search(r"[a-z]", _sim_uid_clean) is not None
-    _sim_uid_has_digit = re.search(r"[0-9]", _sim_uid_clean) is not None
-    _sim_uid_has_sep = ("_" in _sim_uid_s) or ("." in _sim_uid_s) or ("-" in _sim_uid_s)
-    _sim_uid_random_like = (
-        _sim_bio_s == ""
-        and len(_sim_uid_clean) >= 6
-        and _sim_uid_has_letter
-        and _sim_uid_has_digit
-        and not _sim_uid_has_sep
-    )
-    if _sim_uid_random_like:
-        return "ランダムID/プロフィール紹介文空欄"
+    if (r := _similar_v1.check(_cs_uid_s, _cs_name_s, _cs_bio_s, _cs_tags)) is not None:
+        return r
 
 
 
