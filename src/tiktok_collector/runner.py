@@ -842,18 +842,25 @@ class TikTokRunner:
             reason = "フォロー中"
             print(f"ローカル除外: {candidate.unique_id} / {reason}", flush=True)
             self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
-            self.sheets.append("skipped", candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:check-path"))
             self.sheet_seen_ids.add(candidate.unique_id)
+            row = candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:check-path")
+            # 判定 → 即スワイプ → 後で Sheets 書き込み。Sheets API は数百ms〜1s かかる
+            # ため、先にやると「興味あり」と誤認されかねない長さ視聴することになる。
+            # 既処理スキップと同じ速度感を出すのが狙い。
             await self._negative_feedback_for_current_exclusion(page, candidate, "skipped", reason)
+            await self._force_advance_after_skip(page, candidate.unique_id)
+            self.sheets.append("skipped", row)
             return
 
         if follow_state != "not_following":
             reason = "フォロー状態不明"
             print(f"ローカル除外: {candidate.unique_id} / {reason}", flush=True)
             self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
-            self.sheets.append("skipped", candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:follow-unknown"))
             self.sheet_seen_ids.add(candidate.unique_id)
+            row = candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:follow-unknown")
             await self._negative_feedback_for_current_exclusion(page, candidate, "skipped", reason)
+            await self._force_advance_after_skip(page, candidate.unique_id)
+            self.sheets.append("skipped", row)
             return
 
 
@@ -979,9 +986,11 @@ class TikTokRunner:
         if reason:
             print(f"ローカル除外: {candidate.unique_id} / {reason}", flush=True)
             self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
-            self.sheets.append("skipped", candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:no-screenshot"))
             self.sheet_seen_ids.add(candidate.unique_id)
+            row = candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:no-screenshot")
             await self._negative_feedback_for_current_exclusion(page, candidate, "skipped", reason)
+            await self._force_advance_after_skip(page, candidate.unique_id)
+            self.sheets.append("skipped", row)
             return
 
         screenshot_path = await self.scraper.screenshot_current(page, candidate.unique_id)
