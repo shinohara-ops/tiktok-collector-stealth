@@ -23,6 +23,7 @@ from ._rules_parts import similar_v1 as _similar_v1
 from ._rules_parts import colored_leak_v2_words as _colored_leak_v2_words
 from ._rules_parts import colored_leak_v1_words as _colored_leak_v1_words
 from ._rules_parts import v5_foreign as _v5_foreign
+from ._rules_parts import extra_ng_1 as _extra_ng_1
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -552,70 +553,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 追加 NG ワード 1(teamwork/ダンス/推し/アダルト/ファッション)
+    # → src/tiktok_collector/_rules_parts/extra_ng_1.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # 追加NGワード: teamwork
-    if "teamwork" in text.lower():
-        return "NGワード(teamwork)"
-
-
-    # 追加NGワード: tiktok / 踊る / 極愛パラドックス / ラブパラ / 大人ガーリー / アラフィフ
-    _extra_ng_text_lower = text.lower()
-    for _extra_ng in ["踊る", "極愛パラドックス", "ラブパラ", "大人ガーリー", "アラフィフ"]:
-        if _extra_ng in text:
-            return f"NGワード({_extra_ng})"
-
-    # ハッシュタグ3点セット除外: 美人 + モデル + かわいい
-    try:
-        _combo_hashtags_raw = (
-            _get(candidate, "hashtags", None)
-            or _get(candidate, "hashtag", None)
-            or _get(candidate, "tags", None)
-            or _get(candidate, "tag_text", None)
-            or _get(candidate, "hashtag_text", None)
-            or ""
-        )
-    except Exception:
-        _combo_hashtags_raw = (
-            getattr(candidate, "hashtags", None)
-            or getattr(candidate, "hashtag", None)
-            or getattr(candidate, "tags", None)
-            or getattr(candidate, "tag_text", None)
-            or getattr(candidate, "hashtag_text", None)
-            or ""
-        )
-    if isinstance(_combo_hashtags_raw, (list, tuple, set)):
-        _combo_hashtags_text = " ".join([str(x) for x in _combo_hashtags_raw])
-    else:
-        _combo_hashtags_text = str(_combo_hashtags_raw or "")
-    if all(_kw in _combo_hashtags_text for _kw in ["美人", "モデル", "かわいい"]):
-        return "ハッシュタグNG(美人/モデル/かわいい)"
-
-
-    # 追加NGワード: 男の娘 / 偽娘 / 女装男子 / ニューハーフ
-    for _extra_ng in ["男の娘", "偽娘", "女装男子", "ニューハーフ"]:
-        if _extra_ng in text:
-            return f"NGワード({_extra_ng})"
-
-
-    # 追加NGワード: サブスク / 彼氏募集 / 彼氏募集中 / followme / follow me
-    _extra_ng_text_lower = text.lower()
-    for _extra_ng in ["サブスク", "彼氏募集", "彼氏募集中"]:
-        if _extra_ng in text:
-            return f"NGワード({_extra_ng})"
-    for _extra_ng in ["followme", "follow me"]:
-        if _extra_ng in _extra_ng_text_lower:
-            return f"NGワード({_extra_ng})"
-
-
-    # 追加NGワード: fypシ / foryou / 4u / yah / 料理動画 / 料理
-    _extra_ng_text_lower = text.lower()
-    for _extra_ng in ["fypシ", "foryou", "4u", "yah"]:
-        if _extra_ng.lower() in _extra_ng_text_lower:
-            return f"NGワード({_extra_ng})"
-    for _extra_ng in ["料理動画", "料理"]:
-        if _extra_ng in text:
-            return f"NGワード({_extra_ng})"
-
+    if (r := _extra_ng_1.check(text, _cs_tags)) is not None:
+        return r
 
 
     # ────────────────────────────────────────────────────────────────
