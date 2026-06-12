@@ -517,8 +517,9 @@ class TikTokRunner:
 
                 self._maybe_refresh_uid_map()
 
+                already_advanced = False
                 try:
-                    await asyncio.wait_for(self._process_one(page), timeout=90)
+                    already_advanced = bool(await asyncio.wait_for(self._process_one(page), timeout=90))
                 except asyncio.TimeoutError:
                     print("1投稿の処理が90秒を超えたため次へ進みます。", flush=True)
                 except Exception as e:
@@ -539,7 +540,11 @@ class TikTokRunner:
                     self.notifier.send(f"稼働中: processed={self.processed_count}, written={self.written_count}")
                     self.last_health = time.time()
 
-                await self.scraper.next_post(page)
+                # _process_one が内部で _force_advance_after_skip を呼んでいた場合は
+                # ここで二重に next_post すると 2 動画進んでしまう(連続2スワイプ)。
+                # 内部スワイプ済みは True を返す約束なので、True のときは skip する。
+                if not already_advanced:
+                    await self.scraper.next_post(page)
                 await asyncio.sleep(self.cfg.browser.action_delay_sec)
 
             await context.close()
@@ -773,7 +778,10 @@ class TikTokRunner:
             return True
         return False
 
-    async def _process_one(self, page):
+    async def _process_one(self, page) -> bool:
+        """1 動画を処理する。戻り値 True なら **このメソッド内ですでに次の動画へ
+        スワイプ済み** であることを呼び出し側に伝え、main loop の追加 next_post
+        を抑止する(連続2スワイプ防止)。False なら main loop が next_post する。"""
         candidate = await self.scraper.current_candidate(page)
 
         # === stealth: 二重スキップ防止ガード ===
@@ -795,7 +803,7 @@ class TikTokRunner:
 
         if not candidate:
             self.db.event("warn", "candidate取得失敗")
-            return
+            return False
 
         # === stealth: 同じ uid に連続で当たったら Chrome を reload して復帰 ===
         # Wi-Fi 不調や TikTok 側の一時的な固まりで先に進まないケースを自動回復する。
@@ -815,7 +823,7 @@ class TikTokRunner:
                 print(msg, flush=True)
                 self.notifier.send(msg)
                 Path("data/STOP_REQUESTED").touch()
-                return
+                return True
             print(
                 f"フィード詰まり検出: uid={candidate.unique_id} streak={self._same_uid_streak}"
                 f" → page.reload() #{self._reload_count}",
@@ -829,19 +837,20 @@ class TikTokRunner:
             await asyncio.sleep(self.cfg.browser.startup_wait_sec)
             self._same_uid_streak = 0
             self._last_seen_uid = ""
-            return
+            # reload で DOM が完全に切り替わったので追加スワイプは不要
+            return True
 
         processed = self.db.get(candidate.unique_id)
         if processed:
             if await self._handle_already_processed_candidate(page, candidate, processed):
-                return
+                return True
 
         if candidate.unique_id in self.sheet_seen_ids:
             if await self._handle_already_processed_candidate(page, candidate, None):
-                return
+                return True
             print(f"既処理スキップ: {candidate.unique_id}", flush=True)
             await self._force_advance_after_skip(page, candidate.unique_id)
-            return
+            return True
 
         follow_state = await self.scraper.detect_follow_state_local(page)
         if follow_state == "following":
@@ -856,7 +865,7 @@ class TikTokRunner:
             await self._negative_feedback_for_current_exclusion(page, candidate, "skipped", reason)
             await self._force_advance_after_skip(page, candidate.unique_id)
             self.sheets.append("skipped", row)
-            return
+            return True
 
         if follow_state != "not_following":
             reason = "フォロー状態不明"
@@ -867,7 +876,7 @@ class TikTokRunner:
             await self._negative_feedback_for_current_exclusion(page, candidate, "skipped", reason)
             await self._force_advance_after_skip(page, candidate.unique_id)
             self.sheets.append("skipped", row)
-            return
+            return True
 
 
         # フォロワー数取得。プロフィールページは開かない。取得後は local_skip_reason が既存ルールで判定する。
@@ -950,14 +959,14 @@ class TikTokRunner:
                 self.sheet_seen_ids.add(candidate.unique_id)
                 await self._watch_target_video(page)
                 await self._force_advance_after_skip(page, candidate.unique_id)
-                return
+                return True
             if fc is not None and fc >= max_followers_threshold:
                 reason = f"stealth_candidacy:follower>={max_followers_threshold}"
                 print(f"stealth候補外: {candidate.unique_id} / {reason}", flush=True)
                 self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
                 self.sheet_seen_ids.add(candidate.unique_id)
                 await self._force_advance_after_skip(page, candidate.unique_id)
-                return
+                return True
 
             # like はフォロワー数が判明していて閾値未満のときだけ発火。
             # 不明だと「人気アカウント」の可能性もあるので like の安全網を切らない。
@@ -1002,7 +1011,7 @@ class TikTokRunner:
             await self._negative_feedback_for_current_exclusion(page, candidate, "skipped", reason)
             await self._force_advance_after_skip(page, candidate.unique_id)
             self.sheets.append("skipped", row)
-            return
+            return True
 
         screenshot_path = await self.scraper.screenshot_current(page, candidate.unique_id)
         candidate.screenshot_path = screenshot_path
@@ -1019,7 +1028,7 @@ class TikTokRunner:
             self.db.mark(candidate.unique_id, "blackband", reason, candidate.profile_url, candidate.post_url, screenshot_path)
             self.sheets.append("blackband", candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:blackband"))
             self.sheet_seen_ids.add(candidate.unique_id)
-            return
+            return False
 
         await self.rate.wait()
         try:
@@ -1032,7 +1041,7 @@ class TikTokRunner:
             self.db.mark(candidate.unique_id, "pending", reason, candidate.profile_url, candidate.post_url, screenshot_path)
             self.sheets.append("pending", candidate.to_row(self.cfg.collector_name, reason=reason, model_used="pending:no-ai"))
             self.sheet_seen_ids.add(candidate.unique_id)
-            return
+            return False
 
         if result.get("target"):
             score = str(result.get("cute_score", ""))
@@ -1057,4 +1066,6 @@ class TikTokRunner:
             self.sheets.append("skipped", candidate.to_row(self.cfg.collector_name, reason=reason, score=str(result.get("cute_score", "")), model_used=model_used))
             self.sheet_seen_ids.add(candidate.unique_id)
             await self._negative_feedback_for_current_exclusion(page, candidate, "skipped_ai", reason)
+        # target=True 採用後 or AI除外後はこの関数内ではスワイプしない → main loop が next_post する
+        return False
 
