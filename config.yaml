@@ -9,7 +9,10 @@ browser:
   action_delay_sec: 1.5
   max_runtime_minutes: 480
 openai:
-  primary_model: gpt-4o-mini
+  # コスト最適化: 大半は nano(最安) で判定、uncertain=true のときだけ mini に
+  # エスカレーション。完全 mini と比べて大幅にコスト削減しつつ、ボーダーライン
+  # ケースの品質はそのまま保つハイブリッド構成。
+  primary_model: gpt-4.1-nano
   fallback_model: gpt-4o-mini
   use_fallback_for_uncertain: true
   timeout_sec: 20
