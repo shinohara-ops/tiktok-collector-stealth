@@ -507,26 +507,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 色付き除外 ID 群(1539 行スナップショット)
+    # → src/tiktok_collector/_rules_parts/colored_excluded_ids.py の check_1539
     # ────────────────────────────────────────────────────────────────
-    # 1539行目以降の色付きアカウントID除外
-    _colored_excluded_ids_1539 = ['erishinn', 'layna0930', 'olehistrinya43', 'kata_kata_hati_yo', 'nasyacuw3k', 'una____1116', 'uutkyds2189166932', '5dfgegd', 'zella_matcha']
-    try:
-        _candidate_uid_1539 = (
-            _get(candidate, "unique_id", None)
-            or _get(candidate, "user_id", None)
-            or _get(candidate, "id", None)
-            or ""
-        )
-    except Exception:
-        _candidate_uid_1539 = (
-            getattr(candidate, "unique_id", None)
-            or getattr(candidate, "user_id", None)
-            or getattr(candidate, "id", None)
-            or ""
-        )
-    _candidate_uid_1539 = str(_candidate_uid_1539 or "").strip().replace("@", "")
-    if _candidate_uid_1539 in _colored_excluded_ids_1539:
-        return f"色付き除外ID({_candidate_uid_1539})"
+    if (r := _colored_excluded_ids.check_1539(_cs_uid_s)) is not None:
+        return r
 
 
 

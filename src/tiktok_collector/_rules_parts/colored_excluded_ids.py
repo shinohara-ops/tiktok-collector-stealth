@@ -29,8 +29,12 @@ _IDS_1650: frozenset[str] = frozenset({
     "26zixy", "minpuri330",
 })
 
-# L1539 のリストは後で追加(別 fire で 1539 セクションを抽出する時に埋める)
-_IDS_1539: frozenset[str] = frozenset()
+_IDS_1539: frozenset[str] = frozenset({
+    "erishinn", "layna0930", "olehistrinya43",
+    "kata_kata_hati_yo", "nasyacuw3k",
+    "una____1116", "uutkyds2189166932",
+    "5dfgegd", "zella_matcha",
+})
 
 
 def _check(uid: str, ids: frozenset[str]) -> str | None:
