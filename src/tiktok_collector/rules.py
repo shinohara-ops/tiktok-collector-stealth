@@ -146,51 +146,6 @@ def _candidate_text(candidate) -> str:
     return _norm(" ".join([str(x) for x in parts if x]))
 
 
-
-
-    # 低優先度除外: ハッシュタグにfypという文字列があり、かつプロフィール紹介文が空欄の場合のみ除外
-    try:
-        _profile_bio = (
-            _get(candidate, "profile_bio", None)
-            or _get(candidate, "bio", None)
-            or _get(candidate, "signature", None)
-            or _get(candidate, "profile_text", None)
-            or _get(candidate, "description", None)
-            or _get(candidate, "desc", None)
-            or ""
-        )
-        _hashtags_raw = (
-            _get(candidate, "hashtags", None)
-            or _get(candidate, "hashtag", None)
-            or _get(candidate, "tags", None)
-            or _get(candidate, "tag_text", None)
-            or _get(candidate, "hashtag_text", None)
-            or ""
-        )
-    except Exception:
-        _profile_bio = (
-            getattr(candidate, "profile_bio", None)
-            or getattr(candidate, "bio", None)
-            or getattr(candidate, "signature", None)
-            or getattr(candidate, "profile_text", None)
-            or getattr(candidate, "description", None)
-            or getattr(candidate, "desc", None)
-            or ""
-        )
-        _hashtags_raw = (
-            getattr(candidate, "hashtags", None)
-            or getattr(candidate, "hashtag", None)
-            or getattr(candidate, "tags", None)
-            or getattr(candidate, "tag_text", None)
-            or getattr(candidate, "hashtag_text", None)
-            or ""
-        )
-    if isinstance(_hashtags_raw, (list, tuple, set)):
-        _hashtags_text = " ".join([str(x) for x in _hashtags_raw]).lower()
-    else:
-        _hashtags_text = str(_hashtags_raw).lower()
-    if str(_profile_bio).strip() == "" and "fyp" in _hashtags_text:
-        return "プロフィール紹介文空欄(fyp)"
 def _contains_any(text: str, words) -> str:
     for w in words:
         if not w:
