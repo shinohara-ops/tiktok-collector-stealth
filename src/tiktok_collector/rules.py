@@ -26,6 +26,7 @@ from ._rules_parts import v5_foreign as _v5_foreign
 from ._rules_parts import extra_ng_1 as _extra_ng_1
 from ._rules_parts import foreign_vn_redux as _foreign_vn_redux
 from ._rules_parts import extra_ng_2 as _extra_ng_2
+from ._rules_parts import account_meta_basic as _account_meta_basic
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -578,46 +579,11 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
 
     # ────────────────────────────────────────────────────────────────
-    # SECTION: フォロワー数チェック(min_followers)
+    # SECTION: フォロワー数チェック + AI 生成 ID 形式 + メタフラグ
+    # → src/tiktok_collector/_rules_parts/account_meta_basic.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # フォロワー数が取れていない場合は、おすすめに入れない。
-    # runner側でこの理由を検知したらリロードする。
-    try:
-        fc_required = _get(candidate, "follower_count", "")
-    except Exception:
-        fc_required = getattr(candidate, "follower_count", "")
-    if fc_required is None or str(fc_required).strip() == "":
-        return "フォロワー数未取得"
-
-
-    # ────────────────────────────────────────────────────────────────
-    # SECTION: AI 生成 ID 形式 + user 接頭辞 + フォロー中 + 広告フラグ + 認証バッジ
-    # ────────────────────────────────────────────────────────────────
-
-    # AI生成系ID除外: ai_ / ai- / _ai / -ai のように ai が区切り語として入るIDだけ除外
-    try:
-        uid_for_ai = _norm(_get(candidate, "unique_id", ""))
-    except Exception:
-        uid_for_ai = str(getattr(candidate, "unique_id", "") or "").lower()
-    if re.search(r"(^ai[_-]|[_-]ai($|[_-]))", uid_for_ai):
-        return "AI生成系ID(ai区切り)"
-
-
-
-    uid = _norm(_get(candidate, "unique_id", ""))
-    if uid.startswith("user"):
-        return "ID形式NG(user始まり)"
-
-
-    # フォロー判定はrunner/scraper側で安定済み。ここでは既存フラグだけ見る。
-    if bool(_get(candidate, "is_following", False)):
-        return "フォロー中"
-
-    if bool(_get(candidate, "is_ad", False)):
-        return "広告/PR"
-
-    if _verified_flag(candidate):
-        return "認証/青チェック"
+    if (r := _account_meta_basic.check(candidate, _verified_flag, _get, _norm)) is not None:
+        return r
 
 
     # ────────────────────────────────────────────────────────────────
