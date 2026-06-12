@@ -17,6 +17,7 @@ from ._rules_parts import foreign_account as _foreign_account
 from ._rules_parts import noise_idol_music as _noise_idol_music
 from ._rules_parts import vn_affiliate_insta as _vn_affiliate_insta
 from ._rules_parts import indonesian_malay as _indonesian_malay
+from ._rules_parts import stream_hashtag as _stream_hashtag
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -477,94 +478,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: ライブ配信/08/09 ハッシュタグトークン
+    # → src/tiktok_collector/_rules_parts/stream_hashtag.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # 追加除外: ハッシュタグ08/09 + 配信系
-    try:
-        _stream_uid = (
-            _get(candidate, "unique_id", None)
-            or _get(candidate, "user_id", None)
-            or _get(candidate, "id", None)
-            or ""
-        )
-        _stream_name = (
-            _get(candidate, "display_name", None)
-            or _get(candidate, "nickname", None)
-            or _get(candidate, "name", None)
-            or ""
-        )
-        _stream_bio = (
-            _get(candidate, "profile_bio", None)
-            or _get(candidate, "bio", None)
-            or _get(candidate, "signature", None)
-            or _get(candidate, "profile_text", None)
-            or _get(candidate, "description", None)
-            or _get(candidate, "desc", None)
-            or ""
-        )
-        _stream_tags_raw = (
-            _get(candidate, "hashtags", None)
-            or _get(candidate, "hashtag", None)
-            or _get(candidate, "tags", None)
-            or _get(candidate, "tag_text", None)
-            or _get(candidate, "hashtag_text", None)
-            or ""
-        )
-    except Exception:
-        _stream_uid = (
-            getattr(candidate, "unique_id", None)
-            or getattr(candidate, "user_id", None)
-            or getattr(candidate, "id", None)
-            or ""
-        )
-        _stream_name = (
-            getattr(candidate, "display_name", None)
-            or getattr(candidate, "nickname", None)
-            or getattr(candidate, "name", None)
-            or ""
-        )
-        _stream_bio = (
-            getattr(candidate, "profile_bio", None)
-            or getattr(candidate, "bio", None)
-            or getattr(candidate, "signature", None)
-            or getattr(candidate, "profile_text", None)
-            or getattr(candidate, "description", None)
-            or getattr(candidate, "desc", None)
-            or ""
-        )
-        _stream_tags_raw = (
-            getattr(candidate, "hashtags", None)
-            or getattr(candidate, "hashtag", None)
-            or getattr(candidate, "tags", None)
-            or getattr(candidate, "tag_text", None)
-            or getattr(candidate, "hashtag_text", None)
-            or ""
-        )
-
-    if isinstance(_stream_tags_raw, (list, tuple, set)):
-        _stream_tags = " ".join([str(x) for x in _stream_tags_raw]).strip()
-    else:
-        _stream_tags = str(_stream_tags_raw or "").strip()
-
-    _stream_full = " ".join([
-        str(_stream_uid or ""),
-        str(_stream_name or ""),
-        _stream_tags,
-        str(_stream_bio or "")
-    ])
-    _stream_full_lower = _stream_full.lower()
-
-    for _sw in ['配信', 'ｻﾌﾞ配信', 'サブ配信', '配信専用', 'テキーラ配信', '本垢', '本アカ', '本アカウント', '他にもあります']:
-        _sws = str(_sw or "").strip()
-        if _sws and _sws.lower() in _stream_full_lower:
-            return f"NGワード({_sws})"
-
-    # ハッシュタグに 08 / 09 が単体で含まれる場合は除外
-    _tags_norm_digits = _stream_tags.translate(str.maketrans("０１２３４５６７８９", "0123456789"))
-    _tag_tokens = [t for t in re.split(r"[#＃\s,，、/／｜|・.．。:_\-－ー]+", _tags_norm_digits) if t]
-    if "08" in _tag_tokens:
-        return "ハッシュタグNG(08)"
-    if "09" in _tag_tokens:
-        return "ハッシュタグNG(09)"
+    if (r := _stream_hashtag.check(_cs_uid_s, _cs_name_s, _cs_bio_s, _cs_tags)) is not None:
+        return r
 
 
 
