@@ -25,12 +25,24 @@ fi
 # === 記入者名(collector_name)の確定 ===
 # 解決順: 環境変数 TIKTOK_COLLECTOR_NAME > .collector_name ファイル > 対話入力
 # Sheets の B列にこの名前が入る。複数 PC で運用するときは PC ごとに別名にする。
+# .collector_name が既にあっても起動時に毎回確認プロンプトを出して、変更したいときは
+# その場で書き換えられる(.max_followers と同じパターン)。
 if [ -z "$TIKTOK_COLLECTOR_NAME" ] && [ -f ".collector_name" ]; then
   TIKTOK_COLLECTOR_NAME="$(head -n 1 .collector_name | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
 fi
 
-if [ -z "$TIKTOK_COLLECTOR_NAME" ]; then
-  echo ""
+echo ""
+if [ -n "$TIKTOK_COLLECTOR_NAME" ]; then
+  echo "現在の記入者名: $TIKTOK_COLLECTOR_NAME"
+  printf "変更する場合は新しい値を入力(そのままなら Enter)> "
+  read -r NEW_NAME
+  NEW_NAME="$(echo "$NEW_NAME" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+  if [ -n "$NEW_NAME" ]; then
+    TIKTOK_COLLECTOR_NAME="$NEW_NAME"
+    printf "%s\n" "$NEW_NAME" > .collector_name
+    echo "→ .collector_name を更新しました"
+  fi
+else
   echo "記入者名(Sheets B列に入る名前)が未設定です。"
   echo "複数 PC で運用するときに区別できる名前を入力してください。"
   echo "例: 篠原-Mac1 / 篠原-Mac2 / 篠原-Studio"
