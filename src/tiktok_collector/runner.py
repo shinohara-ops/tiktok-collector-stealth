@@ -741,11 +741,17 @@ class TikTokRunner:
             processed = self.db.get(uid)
         status = str((processed or {}).get("status") or self.sheet_status_by_id.get(uid, "") or "")
         if status == "recommended":
-            print(f"[SKIP_RECOMMENDED_ALREADY_PROCESSED] account_id={uid}", flush=True)
+            # 過去採用済みアカウントの動画は **完視聴** してからスワイプ。
+            # 即スワイプすると TikTok アルゴから「以前好きだった系統を今は拒否」と
+            # 読まれ、似た傾向の新規候補が枯渇する。既処理が増えるほどこの侵食が
+            # 効いて、新規 recommended がどんどん減る悪循環になる。
+            # 完視聴(complete view)は TikTok の最強好意シグナル。
+            print(f"[WATCH_RECOMMENDED_ALREADY_PROCESSED] account_id={uid}", flush=True)
             try:
                 self.db.touch_seen(uid)
             except Exception:
                 pass
+            await self._watch_target_video(page)
             await self._force_advance_after_skip(page, uid)
             return True
         if self._is_excluded_status(status):
@@ -936,12 +942,17 @@ class TikTokRunner:
             fc = follower_count if isinstance(follower_count, int) else None
             is_past_adopted = self.sheet_status_by_id.get(candidate.unique_id) == "recommended"
             max_followers_threshold = int(getattr(self.cfg.rules, "max_followers", 2000) or 2000)
-            if is_past_adopted or (fc is not None and fc >= max_followers_threshold):
-                reason = (
-                    "stealth_candidacy:past_adopted"
-                    if is_past_adopted
-                    else f"stealth_candidacy:follower>={max_followers_threshold}"
-                )
+            if is_past_adopted:
+                # 他PCで採用された uid。完視聴して positive signal を送る。
+                # db.mark はしない(sheet 側の recommended 状態を local "skipped" で
+                # 上書きしないため)。sheet_seen_ids には入れて Sheets 重複追記を防ぐ。
+                print(f"stealth past_adopted: {candidate.unique_id} (watch for signal)", flush=True)
+                self.sheet_seen_ids.add(candidate.unique_id)
+                await self._watch_target_video(page)
+                await self._force_advance_after_skip(page, candidate.unique_id)
+                return
+            if fc is not None and fc >= max_followers_threshold:
+                reason = f"stealth_candidacy:follower>={max_followers_threshold}"
                 print(f"stealth候補外: {candidate.unique_id} / {reason}", flush=True)
                 self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
                 self.sheet_seen_ids.add(candidate.unique_id)
