@@ -12,12 +12,12 @@
   4. 動物/ペット(20 語)→ 「動物/ペット系({hit})」
   5. 食べ物(20 語)→ 「食べ物/料理系({hit})」
   6. その他 NG(50+ 語)→ 「NGワード({hit})」
-
-DI: contains_any_fn, load_extra_words_fn
 """
 from __future__ import annotations
 
 from typing import Optional
+
+from ._helpers import _contains_any, _load_extra_words
 
 
 _LIVE_WORDS: list[str] = [
@@ -115,28 +115,28 @@ _GENERAL_WORDS: list[str] = [
 ]
 
 
-def check(text: str, rules, contains_any_fn, load_extra_words_fn) -> Optional[str]:
-    hit = contains_any_fn(text, _LIVE_WORDS + load_extra_words_fn(rules, "live_keywords"))
+def check(text: str, rules) -> Optional[str]:
+    hit = _contains_any(text, _LIVE_WORDS + _load_extra_words(rules, "live_keywords"))
     if hit:
         return "配信/LIVE系(" + hit + ")"
 
-    hit = contains_any_fn(text, _MUSIC_WORDS + load_extra_words_fn(rules, "music_keywords"))
+    hit = _contains_any(text, _MUSIC_WORDS + _load_extra_words(rules, "music_keywords"))
     if hit:
         return "音楽/外部映像系(" + hit + ")"
 
-    hit = contains_any_fn(text, _GAME_WORDS + load_extra_words_fn(rules, "game_keywords"))
+    hit = _contains_any(text, _GAME_WORDS + _load_extra_words(rules, "game_keywords"))
     if hit:
         return "ゲーム系(" + hit + ")"
 
-    hit = contains_any_fn(text, _PET_WORDS + load_extra_words_fn(rules, "pet_keywords"))
+    hit = _contains_any(text, _PET_WORDS + _load_extra_words(rules, "pet_keywords"))
     if hit:
         return "動物/ペット系(" + hit + ")"
 
-    hit = contains_any_fn(text, _FOOD_WORDS + load_extra_words_fn(rules, "food_keywords"))
+    hit = _contains_any(text, _FOOD_WORDS + _load_extra_words(rules, "food_keywords"))
     if hit:
         return "食べ物/料理系(" + hit + ")"
 
-    hit = contains_any_fn(text, _GENERAL_WORDS + load_extra_words_fn(rules, "ng_keywords"))
+    hit = _contains_any(text, _GENERAL_WORDS + _load_extra_words(rules, "ng_keywords"))
     if hit:
         return "NGワード(" + hit + ")"
 

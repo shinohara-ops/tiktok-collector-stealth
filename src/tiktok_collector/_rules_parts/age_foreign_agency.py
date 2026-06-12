@@ -1,15 +1,14 @@
 """年齢 + 外国語 + 事務所系 — 3 サブチェック。
 
-  1. _age_ng(text) で年齢検出 → そのまま reason 返す
-  2. _looks_like_foreign(text) で外国語/海外シグナル → 「外国語/海外」
-  3. 25 語の事務所/所属/ライバー系 + rules.agency_keywords →
-     「他事務所/所属系({hit})」
-
-DI: age_ng_fn / looks_like_foreign_fn / contains_any_fn / load_extra_words_fn
+  1. _age_ng(text) → 年齢検出
+  2. _looks_like_foreign(text) → 「外国語/海外」
+  3. 25 語の事務所/所属/ライバー系 + rules.agency_keywords → 「他事務所/所属系({hit})」
 """
 from __future__ import annotations
 
 from typing import Optional
+
+from ._helpers import _age_ng, _looks_like_foreign, _contains_any, _load_extra_words
 
 
 _AGENCY_WORDS: list[str] = [
@@ -20,15 +19,15 @@ _AGENCY_WORDS: list[str] = [
 ]
 
 
-def check(text: str, rules, age_ng_fn, looks_like_foreign_fn, contains_any_fn, load_extra_words_fn) -> Optional[str]:
-    r = age_ng_fn(text)
+def check(text: str, rules) -> Optional[str]:
+    r = _age_ng(text)
     if r:
         return r
 
-    if looks_like_foreign_fn(text):
+    if _looks_like_foreign(text):
         return "外国語/海外"
 
-    hit = contains_any_fn(text, _AGENCY_WORDS + load_extra_words_fn(rules, "agency_keywords"))
+    hit = _contains_any(text, _AGENCY_WORDS + _load_extra_words(rules, "agency_keywords"))
     if hit:
         return "他事務所/所属系(" + hit + ")"
 

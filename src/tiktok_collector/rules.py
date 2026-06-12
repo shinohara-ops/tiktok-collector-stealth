@@ -330,7 +330,7 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     # SECTION: フォロワー数チェック + AI 生成 ID 形式 + メタフラグ
     # → src/tiktok_collector/_rules_parts/account_meta_basic.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    if (r := _account_meta_basic.check(candidate, _verified_flag, _get, _norm)) is not None:
+    if (r := _account_meta_basic.check(candidate)) is not None:
         return r
 
 
@@ -338,7 +338,7 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     # SECTION: フォロワー上限超過 + 広告/PR + 公式/法人系
     # → src/tiktok_collector/_rules_parts/follower_ad_official.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    if (r := _follower_ad_official.check(text, candidate, rules, _get, _contains_any, _load_extra_words)) is not None:
+    if (r := _follower_ad_official.check(text, candidate, rules)) is not None:
         return r
 
 
@@ -346,7 +346,7 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     # SECTION: 年齢 + 外国語 + 事務所系
     # → src/tiktok_collector/_rules_parts/age_foreign_agency.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    if (r := _age_foreign_agency.check(text, rules, _age_ng, _looks_like_foreign, _contains_any, _load_extra_words)) is not None:
+    if (r := _age_foreign_agency.check(text, rules)) is not None:
         return r
 
 
@@ -354,7 +354,7 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     # SECTION: Live / Music(2000+ アーティスト) / Game / Pet / Food / general NG
     # → src/tiktok_collector/_rules_parts/category_keywords.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    if (r := _category_keywords.check(text, rules, _contains_any, _load_extra_words)) is not None:
+    if (r := _category_keywords.check(text, rules)) is not None:
         return r
 
 

@@ -1,16 +1,14 @@
 """フォロワー上限超過 + 広告系 + 公式/法人系 — 3 サブチェック。
 
   1. follower_count > rules.max_followers → 「フォロワー数NG({count})」
-  2. text に広告系 24 語(広告 / promotion / スポンサー / 案件 / タイアップ /
-     paid partnership / shop now 等) + rules.ad_keywords → 「広告/PR」
+  2. text に広告系 24 語 + rules.ad_keywords → 「広告/PR」
   3. text に公式/法人系 80+ 語 + rules.official_keywords → 「公式/企業系({hit})」
-
-入力: text, candidate, rules
-DI:   contains_any_fn(text, words) -> str / load_extra_words_fn(rules, key) -> list / get_fn
 """
 from __future__ import annotations
 
 from typing import Optional
+
+from ._helpers import _get, _contains_any, _load_extra_words
 
 
 _AD_WORDS: list[str] = [
@@ -43,14 +41,14 @@ _OFFICIAL_WORDS: list[str] = [
 ]
 
 
-def check(text: str, candidate, rules, get_fn, contains_any_fn, load_extra_words_fn) -> Optional[str]:
+def check(text: str, candidate, rules) -> Optional[str]:
     # 1. フォロワー上限
-    max_followers = get_fn(rules, "max_followers", 2000)
+    max_followers = _get(rules, "max_followers", 2000)
     try:
         max_followers = int(max_followers)
     except Exception:
         max_followers = 2000
-    follower_count = get_fn(candidate, "follower_count", None)
+    follower_count = _get(candidate, "follower_count", None)
     if follower_count not in (None, ""):
         try:
             if int(follower_count) > max_followers:
@@ -59,12 +57,12 @@ def check(text: str, candidate, rules, get_fn, contains_any_fn, load_extra_words
             pass
 
     # 2. 広告/PR
-    hit = contains_any_fn(text, _AD_WORDS + load_extra_words_fn(rules, "ad_keywords"))
+    hit = _contains_any(text, _AD_WORDS + _load_extra_words(rules, "ad_keywords"))
     if hit:
         return "広告/PR"
 
     # 3. 公式/法人系
-    hit = contains_any_fn(text, _OFFICIAL_WORDS + load_extra_words_fn(rules, "official_keywords"))
+    hit = _contains_any(text, _OFFICIAL_WORDS + _load_extra_words(rules, "official_keywords"))
     if hit:
         return "公式/企業系(" + hit + ")"
 
