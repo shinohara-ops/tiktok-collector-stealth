@@ -85,7 +85,16 @@ logging:
   screenshot_dir: ./data/screenshots
 
 algorithm_feedback:
-  enable_negative_feedback_for_excluded: true
+  # stealth モードでは「興味なし」明示発火を OFF にする。
+  # 理由:
+  #   1. mark_not_interested_current が動画右上の三点メニューを 6 座標
+  #      で連続クリック試行 → 当たらないと動画本体クリックで pause/play
+  #      が連発、画面上で明らかに不自然(検知材料)
+  #   2. TikTok DOM の更新で当たらないケースが多発
+  #      ([NEGATIVE_FEEDBACK_EXCLUDED_FAILED] が頻発)
+  #   3. 早スワイプ(target=False / 非候補で短く視聴して次へ)で
+  #      「興味なし」シグナルは十分伝わる(自然な人間挙動)
+  enable_negative_feedback_for_excluded: false
   negative_feedback_once_per_account: true
   target_only_previous_excluded: true
   negative_feedback_min_interval_sec: 20
