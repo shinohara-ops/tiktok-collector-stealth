@@ -22,6 +22,7 @@ from ._rules_parts import non_jp_script_emoji_bio as _non_jp_script_emoji_bio
 from ._rules_parts import similar_v1 as _similar_v1
 from ._rules_parts import colored_leak_v2_words as _colored_leak_v2_words
 from ._rules_parts import colored_leak_v1_words as _colored_leak_v1_words
+from ._rules_parts import v5_foreign as _v5_foreign
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -542,47 +543,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: v5 外国語キーワード + 中文スパム + ベトナム発音記号 + 繁体字
+    # → src/tiktok_collector/_rules_parts/v5_foreign.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # V5共有前保証: 海外/外国語アカウント除外
-    _v5_foreign_text = text.lower()
-    _v5_foreign_keywords = [
-        "taiwan", "taipei", "台灣", "台湾", "臺灣", "香港", "hong kong", "hongkong",
-        "china", "chinese", "中文", "繁體", "繁体", "中国語", "華語", "华语",
-        "korea", "korean", "한국", "태국", "thai", "thailand", "philippines", "vietnam",
-        "indonesia", "malaysia", "singapore", "overseas", "foreign", "foreigner",
-        "xuhuong", "xuhuongtiktok", "xu huong", "xuhướng", "hướng",
-        "gaixinh", "gaixinhtiktok", "gai xinh", "xinhdep", "xinh dep",
-        "girlxinh", "nhactrung", "dungmai", "halinh",
-        "babygirl", "bikini", "binkini",
-        "viral", "trending", "foryou", "hottrend",
-        "follow mình", "flow em", "follow tui", "mọi người", "giúp mình",
-        "lên 1000fl", "1000fl", "vào đây", "tìm gì", "em rất", "cô đơn",
-        "mình", "nhé", "nhá", "đi ạ", "tui",
-        "置顶找我", "gaixinhmacbinkini",
-        "australia", "perth", "single", "makefriends", "southern hemisphere", "freedom",
-        "手势舞", "甜妹", "白羊座"
-    ]
-    for _kw in _v5_foreign_keywords:
-        if _kw.lower() in _v5_foreign_text or _kw in text:
-            return f"外国語/海外({_kw})"
-
-    if re.search(r"[\uac00-\ud7af\u0e00-\u0e7f\u0400-\u04ff\u0600-\u06ff]", text):
-        return "外国語/海外(文字種)"
-
-    if re.search(r"[ăâêôơưđàáạảãằắặẳẵầấậẩẫèéẹẻẽềếệểễìíịỉĩòóọỏõồốộổỗờớợởỡùúụủũừứựửữỳýỵỷỹ]", _v5_foreign_text):
-        return "外国語/海外(ベトナム語文字)"
-
-    _v5_chinese_spam_keywords = [
-        "置顶", "找我", "美女", "漂亮", "可爱", "关注", "私信", "主页", "點", "點擊", "點我",
-        "視頻", "视频", "比基尼", "泳裝", "泳装"
-    ]
-    for _kw in _v5_chinese_spam_keywords:
-        if _kw in text:
-            return f"外国語/海外({_kw})"
-
-    _v5_traditional_chars = "這裡妳們嗎沒麼個幾為點歡樂國學廣東臺灣說聽買賣開網寫氣體應覺讓從與給還發"
-    if sum(1 for _ch in text if _ch in _v5_traditional_chars) >= 2:
-        return "外国語/海外(繁体字)"
+    if (r := _v5_foreign.check(text)) is not None:
+        return r
 
 
 
