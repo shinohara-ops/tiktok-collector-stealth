@@ -18,6 +18,7 @@ from ._rules_parts import noise_idol_music as _noise_idol_music
 from ._rules_parts import vn_affiliate_insta as _vn_affiliate_insta
 from ._rules_parts import indonesian_malay as _indonesian_malay
 from ._rules_parts import stream_hashtag as _stream_hashtag
+from ._rules_parts import non_jp_script_emoji_bio as _non_jp_script_emoji_bio
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -487,102 +488,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 非日本語スクリプト + 絵文字のみ Bio + ASCII タグ
+    # → src/tiktok_collector/_rules_parts/non_jp_script_emoji_bio.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # 追加除外: 外国文字/着替えフェチ/shit/絵文字のみBio
-    try:
-        _extra_uid = (
-            _get(candidate, "unique_id", None)
-            or _get(candidate, "user_id", None)
-            or _get(candidate, "id", None)
-            or ""
-        )
-        _extra_name = (
-            _get(candidate, "display_name", None)
-            or _get(candidate, "nickname", None)
-            or _get(candidate, "name", None)
-            or ""
-        )
-        _extra_bio = (
-            _get(candidate, "profile_bio", None)
-            or _get(candidate, "bio", None)
-            or _get(candidate, "signature", None)
-            or _get(candidate, "profile_text", None)
-            or _get(candidate, "description", None)
-            or _get(candidate, "desc", None)
-            or ""
-        )
-        _extra_tags_raw = (
-            _get(candidate, "hashtags", None)
-            or _get(candidate, "hashtag", None)
-            or _get(candidate, "tags", None)
-            or _get(candidate, "tag_text", None)
-            or _get(candidate, "hashtag_text", None)
-            or ""
-        )
-    except Exception:
-        _extra_uid = (
-            getattr(candidate, "unique_id", None)
-            or getattr(candidate, "user_id", None)
-            or getattr(candidate, "id", None)
-            or ""
-        )
-        _extra_name = (
-            getattr(candidate, "display_name", None)
-            or getattr(candidate, "nickname", None)
-            or getattr(candidate, "name", None)
-            or ""
-        )
-        _extra_bio = (
-            getattr(candidate, "profile_bio", None)
-            or getattr(candidate, "bio", None)
-            or getattr(candidate, "signature", None)
-            or getattr(candidate, "profile_text", None)
-            or getattr(candidate, "description", None)
-            or getattr(candidate, "desc", None)
-            or ""
-        )
-        _extra_tags_raw = (
-            getattr(candidate, "hashtags", None)
-            or getattr(candidate, "hashtag", None)
-            or getattr(candidate, "tags", None)
-            or getattr(candidate, "tag_text", None)
-            or getattr(candidate, "hashtag_text", None)
-            or ""
-        )
-
-    if isinstance(_extra_tags_raw, (list, tuple, set)):
-        _extra_tags = " ".join([str(x) for x in _extra_tags_raw]).strip()
-    else:
-        _extra_tags = str(_extra_tags_raw or "").strip()
-
-    _extra_uid_s = str(_extra_uid or "").strip().replace("@", "")
-    _extra_name_s = str(_extra_name or "").strip()
-    _extra_bio_s = str(_extra_bio or "").strip()
-    _extra_full = " ".join([_extra_uid_s, _extra_name_s, _extra_tags, _extra_bio_s])
-    _extra_full_lower = _extra_full.lower()
-
-    for _w in ['shit', 'お着替え', '着替え', '着替えチャレンジ', 'フェチ', 'fetish', 'ミニサイズ', 'パレオ']:
-        _ws = str(_w or "").strip()
-        if _ws and _ws.lower() in _extra_full_lower:
-            return f"NGワード({_ws})"
-
-    # ミャンマー語/クメール語/ラオ語など、これまで漏れていた外国文字
-    if any(
-        (0x1000 <= ord(_ch) <= 0x109F)
-        or (0x1780 <= ord(_ch) <= 0x17FF)
-        or (0x0E80 <= ord(_ch) <= 0x0EFF)
-        for _ch in _extra_full
-    ):
-        return "外国語/海外(東南アジア系文字)"
-
-    # bioが絵文字・記号だけで、ハッシュタグが英字/ランダム寄りの場合は除外
-    if _extra_bio_s:
-        _bio_has_meaning_text = re.search(r"[a-zA-Z0-9ぁ-んァ-ヶ一-龥]", _extra_bio_s) is not None
-        _bio_is_emoji_only = not _bio_has_meaning_text
-        _tags_has_ascii = re.search(r"[a-zA-Z]", _extra_tags) is not None
-        _tags_has_japanese = re.search(r"[ぁ-んァ-ヶ一-龥]", _extra_tags) is not None
-        if _bio_is_emoji_only and _tags_has_ascii and not _tags_has_japanese:
-            return "プロフィール紹介文が絵文字のみ/英字タグ"
+    if (r := _non_jp_script_emoji_bio.check(_cs_uid_s, _cs_name_s, _cs_bio_s, _cs_tags)) is not None:
+        return r
 
 
 
