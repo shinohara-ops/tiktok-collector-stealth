@@ -14,6 +14,7 @@ from ._rules_parts import underage_v2_band as _underage_v2_band
 from ._rules_parts import ng_no_bio_yet as _ng_no_bio_yet
 from ._rules_parts import colored_leak_v2 as _colored_leak_v2
 from ._rules_parts import foreign_account as _foreign_account
+from ._rules_parts import noise_idol_music as _noise_idol_music
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -447,99 +448,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: ノイズ/アイドル/音楽系タグ(daun muda / onephony / 反復ASCII)
+    # → src/tiktok_collector/_rules_parts/noise_idol_music.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # 追加除外: 量産タグ/アイドル系/海外音楽系
-    try:
-        _noise_uid = (
-            _get(candidate, "unique_id", None)
-            or _get(candidate, "user_id", None)
-            or _get(candidate, "id", None)
-            or ""
-        )
-        _noise_name = (
-            _get(candidate, "display_name", None)
-            or _get(candidate, "nickname", None)
-            or _get(candidate, "name", None)
-            or ""
-        )
-        _noise_bio = (
-            _get(candidate, "profile_bio", None)
-            or _get(candidate, "bio", None)
-            or _get(candidate, "signature", None)
-            or _get(candidate, "profile_text", None)
-            or _get(candidate, "description", None)
-            or _get(candidate, "desc", None)
-            or ""
-        )
-        _noise_tags_raw = (
-            _get(candidate, "hashtags", None)
-            or _get(candidate, "hashtag", None)
-            or _get(candidate, "tags", None)
-            or _get(candidate, "tag_text", None)
-            or _get(candidate, "hashtag_text", None)
-            or ""
-        )
-    except Exception:
-        _noise_uid = (
-            getattr(candidate, "unique_id", None)
-            or getattr(candidate, "user_id", None)
-            or getattr(candidate, "id", None)
-            or ""
-        )
-        _noise_name = (
-            getattr(candidate, "display_name", None)
-            or getattr(candidate, "nickname", None)
-            or getattr(candidate, "name", None)
-            or ""
-        )
-        _noise_bio = (
-            getattr(candidate, "profile_bio", None)
-            or getattr(candidate, "bio", None)
-            or getattr(candidate, "signature", None)
-            or getattr(candidate, "profile_text", None)
-            or getattr(candidate, "description", None)
-            or getattr(candidate, "desc", None)
-            or ""
-        )
-        _noise_tags_raw = (
-            getattr(candidate, "hashtags", None)
-            or getattr(candidate, "hashtag", None)
-            or getattr(candidate, "tags", None)
-            or getattr(candidate, "tag_text", None)
-            or getattr(candidate, "hashtag_text", None)
-            or ""
-        )
-
-    if isinstance(_noise_tags_raw, (list, tuple, set)):
-        _noise_tags = " ".join([str(x) for x in _noise_tags_raw]).strip()
-    else:
-        _noise_tags = str(_noise_tags_raw or "").strip()
-
-    _noise_uid_s = str(_noise_uid or "").strip().replace("@", "")
-    _noise_name_s = str(_noise_name or "").strip()
-    _noise_bio_s = str(_noise_bio or "").strip()
-    _noise_full = " ".join([_noise_uid_s, _noise_name_s, _noise_tags, _noise_bio_s])
-    _noise_full_lower = _noise_full.lower()
-    _noise_tags_lower = _noise_tags.lower()
-
-    for _nw in ['daun muda', 'daun', 'muda', '田島櫻子', '田島櫻子ちゃん', 'onephony', 'slipknot', 'metal', "don't like small talk", 'dont like small talk', 'small talk']:
-        _nws = str(_nw or "").strip()
-        if _nws and _nws.lower() in _noise_full_lower:
-            return f"NGワード({_nws})"
-
-    if re.search(r"(?i)(?<![a-z])([a-z])\1{7,}(?![a-z])", _noise_tags):
-        return "ハッシュタグNG(同一英字連続)"
-
-    if "fyp" in _noise_tags_lower and re.search(r"(?i)([a-z])\1{5,}", _noise_tags):
-        return "ハッシュタグNG(fyp+同一英字連続)"
-
-    _noise_has_japanese = re.search(r"[ぁ-んァ-ヶ一-龥]", _noise_full) is not None
-    if not _noise_has_japanese and re.search(r"[a-zA-Z]", _noise_tags) and re.search(r"[a-zA-Z]", _noise_bio_s):
-        if len(_noise_bio_s) <= 30:
-            return "外国語/海外(英字タグ+短文英字Bio)"
-
-    if _noise_bio_s == "" and ("onephony" in _noise_tags_lower or "田島櫻子" in _noise_tags):
-        return "アイドル/ファン系タグ(プロフィール紹介文空欄)"
+    if (r := _noise_idol_music.check(_cs_uid_s, _cs_name_s, _cs_bio_s, _cs_tags)) is not None:
+        return r
 
 
 
