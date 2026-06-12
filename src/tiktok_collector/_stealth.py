@@ -115,12 +115,15 @@ async def human_swipe(page: Page) -> dict:
         await asyncio.sleep(random.uniform(0.04, 0.12))
         big = random.uniform(900, 1300)
         await page.mouse.wheel(0, big)
-        # スワイプ後の DOM 切り替わり待ち。ここを短くすると一番効くが
-        # 短すぎると after_src 取得時にまだ前動画のままで wheel 失敗扱いに
-        # なるので 0.30〜0.45 で安定。
-        await asyncio.sleep(random.uniform(0.30, 0.45))
+        # スワイプ後の DOM 切替待ち。短すぎると after_src がまだ前動画
+        # と同じに見えて wheel 失敗扱いになり、chevron-click fallback で
+        # **二重スワイプ**になる(動画が 2 つ進む)。0.55〜0.70 で安定。
+        await asyncio.sleep(random.uniform(0.55, 0.70))
         after_src = await page.evaluate(_GET_CENTER_VIDEO_SRC_JS)
-        if after_src and after_src != before_src:
+        # src が空のときは動画ロード中 → 成功扱い(誤った fallback を防ぐ)。
+        # ロード中の動画もすぐ DOM 上に現れるので runner 側の current_candidate
+        # は次の iteration で正しく拾える。
+        if not after_src or after_src != before_src:
             return {"ok": True, "method": "wheel"}
 
         btn = await _find_next_button(page)
@@ -132,14 +135,14 @@ async def human_swipe(page: Page) -> dict:
             await page.mouse.down()
             await asyncio.sleep(random.uniform(0.02, 0.06))
             await page.mouse.up()
-            await asyncio.sleep(random.uniform(0.30, 0.50))
+            await asyncio.sleep(random.uniform(0.55, 0.70))
             after2_src = await page.evaluate(_GET_CENTER_VIDEO_SRC_JS)
-            if after2_src and after2_src != before_src:
+            if not after2_src or after2_src != before_src:
                 return {"ok": True, "method": "chevron-click"}
 
         try:
             await page.keyboard.press("ArrowDown")
-            await asyncio.sleep(random.uniform(0.30, 0.50))
+            await asyncio.sleep(random.uniform(0.40, 0.60))
             return {"ok": True, "method": "arrow-down-fallback"}
         except Exception:
             pass
