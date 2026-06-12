@@ -25,6 +25,7 @@ from ._rules_parts import colored_leak_v1_words as _colored_leak_v1_words
 from ._rules_parts import v5_foreign as _v5_foreign
 from ._rules_parts import extra_ng_1 as _extra_ng_1
 from ._rules_parts import foreign_vn_redux as _foreign_vn_redux
+from ._rules_parts import extra_ng_2 as _extra_ng_2
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -570,56 +571,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 追加 NG ワード 2(sexy/感謝/メンションスパム/推し/bot/nidone)
+    # → src/tiktok_collector/_rules_parts/extra_ng_2.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # 追加NGワード: sexy / Japanese
-    for _extra_ng in ["sexy", "japanese"]:
-        if _extra_ng in text.lower():
-            return f"NGワード({_extra_ng})"
-
-
-    # 追加NGワード: ありがとう
-    if "ありがとう" in text:
-        return "NGワード(ありがとう)"
-
-
-    # 追加NGワード: メッセージ
-    if "メッセージ" in text:
-        return "NGワード(メッセージ)"
-
-
-    # 追加NGワード一括: エロ/販売誘導/配信系（サブ垢・サブアカ除外）
-    for _extra_ng in ['えち', 'えっち', 'エッチ', 'えちえち', 'エロい', 'えろい', 'エロ垢', '裏垢', '裏アカ', '裏垢女子', '裏アカ女子', '裏垢男子', 'せふれ', 'セフレ', 'オフパコ', 'ぱこ', 'パコ', 'ぬき', '抜き', '抜ける', '抜いて', 'おな', 'オナ', 'おなにー', 'オナニー', '自慰', '性欲', '欲求不満', 'むらむら', 'ムラムラ', 'むちむち', 'むち', '下ネタ', '下着', 'ランジェリー', 'パンチラ', '胸チラ', '谷間', 'おっぱい', '乳', '巨乳', '美乳', '尻', 'お尻', 'ケツ', '太もも', '脚フェチ', '動画販売', '動画売ります', '動画買って', '写真売ります', '写真販売', '個別販売', 'PayPay', 'ぺいぺい', 'ペイペイ', '貢いで', '支援して', '見せ合い', '見せて', '見たい人', '欲しい人', 'dmして', 'DMして', '秘密垢', '限定公開', '限定動画', '鍵垢', '配信者', 'ライバー', 'ライブ配信', 'LIVE配信', 'live配信', 'ファンマ', '推し活', '推して', '古参', '初見さん', '初見歓迎', 'コメントして', 'フォローして', 'フォロバ', '相互', '相互フォロー']:
-        if _extra_ng.lower() in text:
-            return f"NGワード({_extra_ng})"
-
-
-    # 追加NGワード: エロ / おかず / えろ / エドイ / えどい
-    for _extra_ng in ["エロ", "おかず", "えろ", "エドイ", "えどい"]:
-        if _extra_ng.lower() in text:
-            return f"NGワード({_extra_ng})"
-
-
-
-    # 追加NGワード: 推し
-    if "推し" in text:
-        return "NGワード(推し)"
-
-
-    # 追加NGワード: bot / 動画売る / 動画売ってます / 秘密 / jp / ライブ / live
-    _extra_ng_text = text.lower()
-    for _extra_ng in ["動画売る", "動画売ってます", "秘密", "ライブ"]:
-        if _extra_ng.lower() in _extra_ng_text:
-            return f"NGワード({_extra_ng})"
-    for _extra_word_ng in ["bot", "jp", "live"]:
-        if re.search(rf"(?<![a-z0-9_]){re.escape(_extra_word_ng)}(?![a-z0-9_])", _extra_ng_text):
-            return f"NGワード({_extra_word_ng})"
-
-
-    # 追加NGワード: にどね / ニドン / nidone / 歓迎します / 歓迎 / 孤独
-    for _extra_ng in ["にどね", "ニドン", "nidone", "歓迎します", "歓迎", "孤独"]:
-        if _extra_ng.lower() in text:
-            return f"NGワード({_extra_ng})"
-
+    if (r := _extra_ng_2.check(text)) is not None:
+        return r
 
 
     # ────────────────────────────────────────────────────────────────
