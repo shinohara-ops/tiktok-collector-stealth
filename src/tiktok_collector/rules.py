@@ -16,6 +16,7 @@ from ._rules_parts import colored_leak_v2 as _colored_leak_v2
 from ._rules_parts import foreign_account as _foreign_account
 from ._rules_parts import noise_idol_music as _noise_idol_music
 from ._rules_parts import vn_affiliate_insta as _vn_affiliate_insta
+from ._rules_parts import indonesian_malay as _indonesian_malay
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -467,86 +468,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: インドネシア語/マレー語系タグワード
+    # → src/tiktok_collector/_rules_parts/indonesian_malay.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # 追加除外: インドネシア語/マレー語系タグ・プロフィール
-    try:
-        _indo_uid = (
-            _get(candidate, "unique_id", None)
-            or _get(candidate, "user_id", None)
-            or _get(candidate, "id", None)
-            or ""
-        )
-        _indo_name = (
-            _get(candidate, "display_name", None)
-            or _get(candidate, "nickname", None)
-            or _get(candidate, "name", None)
-            or ""
-        )
-        _indo_bio = (
-            _get(candidate, "profile_bio", None)
-            or _get(candidate, "bio", None)
-            or _get(candidate, "signature", None)
-            or _get(candidate, "profile_text", None)
-            or _get(candidate, "description", None)
-            or _get(candidate, "desc", None)
-            or ""
-        )
-        _indo_tags_raw = (
-            _get(candidate, "hashtags", None)
-            or _get(candidate, "hashtag", None)
-            or _get(candidate, "tags", None)
-            or _get(candidate, "tag_text", None)
-            or _get(candidate, "hashtag_text", None)
-            or ""
-        )
-    except Exception:
-        _indo_uid = (
-            getattr(candidate, "unique_id", None)
-            or getattr(candidate, "user_id", None)
-            or getattr(candidate, "id", None)
-            or ""
-        )
-        _indo_name = (
-            getattr(candidate, "display_name", None)
-            or getattr(candidate, "nickname", None)
-            or getattr(candidate, "name", None)
-            or ""
-        )
-        _indo_bio = (
-            getattr(candidate, "profile_bio", None)
-            or getattr(candidate, "bio", None)
-            or getattr(candidate, "signature", None)
-            or getattr(candidate, "profile_text", None)
-            or getattr(candidate, "description", None)
-            or getattr(candidate, "desc", None)
-            or ""
-        )
-        _indo_tags_raw = (
-            getattr(candidate, "hashtags", None)
-            or getattr(candidate, "hashtag", None)
-            or getattr(candidate, "tags", None)
-            or getattr(candidate, "tag_text", None)
-            or getattr(candidate, "hashtag_text", None)
-            or ""
-        )
-
-    if isinstance(_indo_tags_raw, (list, tuple, set)):
-        _indo_tags = " ".join([str(x) for x in _indo_tags_raw]).strip()
-    else:
-        _indo_tags = str(_indo_tags_raw or "").strip()
-
-    _indo_full = " ".join([
-        str(_indo_uid or ""),
-        str(_indo_name or ""),
-        _indo_tags,
-        str(_indo_bio or "")
-    ])
-    _indo_full_lower = _indo_full.lower()
-
-    for _iw in ['cewek', 'cewekcantik', 'cewekidaman', 'wanita', 'masih mencari', 'cantik', 'idaman', 'mencari', 'gadis', 'perempuan', 'indonesia', 'jakarta', 'malaysia', 'malay']:
-        _iws = str(_iw or "").strip()
-        if _iws and _iws.lower() in _indo_full_lower:
-            return f"外国語/海外({_iws})"
+    if (r := _indonesian_malay.check(_cs_uid_s, _cs_name_s, _cs_bio_s, _cs_tags)) is not None:
+        return r
 
 
 
