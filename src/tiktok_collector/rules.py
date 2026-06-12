@@ -27,6 +27,7 @@ from ._rules_parts import extra_ng_1 as _extra_ng_1
 from ._rules_parts import foreign_vn_redux as _foreign_vn_redux
 from ._rules_parts import extra_ng_2 as _extra_ng_2
 from ._rules_parts import account_meta_basic as _account_meta_basic
+from ._rules_parts import follower_ad_official as _follower_ad_official
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -587,64 +588,11 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
 
     # ────────────────────────────────────────────────────────────────
-    # SECTION: フォロワー上限超過 + 広告系キーワード
+    # SECTION: フォロワー上限超過 + 広告/PR + 公式/法人系
+    # → src/tiktok_collector/_rules_parts/follower_ad_official.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # フォロワー上限。プロフィール取得済みの場合のみ効く
-    max_followers = _get(rules, "max_followers", 2000)
-    try:
-        max_followers = int(max_followers)
-    except Exception:
-        max_followers = 2000
-
-    follower_count = _get(candidate, "follower_count", None)
-    if follower_count not in (None, ""):
-        try:
-            if int(follower_count) > max_followers:
-                return f"フォロワー数NG({int(follower_count)})"
-        except Exception:
-            pass
-
-    # 広告/PR。pr/ad単体は誤爆が多いので入れない
-    ad_words = [
-        "広告", "promotion", "promoted", "sponsored", "スポンサー", "提供", "案件",
-        "タイアップ", "企業案件", "#ad", "#pr", "paid partnership", "shop now",
-        "購入はこちら", "詳細はこちら", "キャンペーン", "無料体験", "資料請求",
-        "セール", "割引", "クーポン", "予約受付", "販売中",
-    ]
-    hit = _contains_any(text, ad_words + _load_extra_words(rules, "ad_keywords"))
-    if hit:
-        return "広告/PR"
-
-
-    # ────────────────────────────────────────────────────────────────
-    # SECTION: 公式/法人系キーワード
-    # ────────────────────────────────────────────────────────────────
-    # 公式/企業/ブランド/メディア/店舗/採用/団体っぽいアカウント
-    # inc/tv/ai/運営/グループ単体は誤爆が多いため入れない
-    official_words = [
-        "公式", "official", "_official", ".official", "official_jp", "japan.official",
-        "認証", "verify", "verified", "bluecheck", "blue check",
-        "企業", "会社", "株式会社", "有限会社", "合同会社",
-        "company", "corporation", "holdings", "ホールディングス",
-        "brand", "ブランド", "shop", "store", "ecサイト", "通販", "online store", "オンラインストア",
-        "news", "media", "press", "magazine", "編集部", "新聞", "テレビ", "番組", "放送",
-        "事務局", "広報", "採用", "求人", "recruit", "career",
-        "clinic", "クリニック", "美容外科", "美容皮膚科", "サロン", "美容室", "整体", "整骨院",
-        "school", "スクール", "academy", "アカデミー", "studio", "スタジオ",
-        "不動産", "賃貸", "物件", "住宅", "ハウス", "建築", "施工", "工務店",
-        "カードローン", "cardloan", "loan", "保険", "金融", "投資スクール",
-        "ホテル", "旅館", "観光協会", "旅行会社", "ガイド", "guide",
-        "協会", "団体", "連盟", "法人", "プロジェクト",
-        "selectshop", "select shop", "apparel shop", "アパレルショップ", "セレクトショップ",
-        "イオンモール", "ショッピングモール", "店舗", "販売店", "新作入荷",
-        "visa",
-        "adobefirefly",
-        "adobepartner",
-        "リクルート",
-    ]
-    hit = _contains_any(text, official_words + _load_extra_words(rules, "official_keywords"))
-    if hit:
-        return "公式/企業系(" + hit + ")"
+    if (r := _follower_ad_official.check(text, candidate, rules, _get, _contains_any, _load_extra_words)) is not None:
+        return r
 
 
     # ────────────────────────────────────────────────────────────────
