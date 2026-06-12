@@ -576,16 +576,14 @@ class TikTokRunner:
         return str(status or "").strip().lower() in {"skipped", "skipped_ai", "excluded", "exclude", "local_excluded", "ai_excluded"}
 
     async def _force_advance_after_skip(self, page, uid: str = ""):
-        """
-        スキップ/処理済み/興味なし対象外のとき、同じ動画に張り付かないよう強制的に次へ進める。
-        """
+        """スキップ系で同じ動画に張り付かないよう次へ進める。
+        stealth: 1 番目に scraper.next_post(= human_swipe wheel + chevron + ArrowDown)
+        を試し、失敗時のみ各種キー/scroll にフォールバック。wait は 350ms に短縮して
+        「興味ない動画は 1 秒で次へ」の人間挙動に近づける。"""
         for method in range(1, 7):
             try:
                 if method == 1:
-                    try:
-                        await self.scraper.next_video(page)
-                    except TypeError:
-                        await self.scraper.next_video()
+                    await self.scraper.next_post(page)
                 elif method == 2:
                     await page.keyboard.press("ArrowDown")
                 elif method == 3:
@@ -596,7 +594,7 @@ class TikTokRunner:
                     await page.mouse.wheel(0, 900)
                 elif method == 6:
                     await page.evaluate("window.scrollBy(0, Math.max(700, window.innerHeight * 0.85))")
-                await page.wait_for_timeout(900)
+                await page.wait_for_timeout(350)
                 return True
             except Exception:
                 continue

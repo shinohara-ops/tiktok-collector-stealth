@@ -99,7 +99,11 @@ async def _find_next_button(page: Page) -> dict | None:
 
 async def human_swipe(page: Page) -> dict:
     """TikTok For You を次へ進める。wheel → chevron click → ArrowDown の順で試す。
-    すべて CDP Input 経由なので isTrusted=true。"""
+    すべて CDP Input 経由なので isTrusted=true。
+
+    タイミング:
+      普通のユーザーが興味ない動画を 0.5〜1.5 秒でスワイプする挙動を模倣する。
+      検知耐性は probe 60/60 完走で確認済み(速いスワイプ自体は不審ではない)。"""
     try:
         dims = await page.evaluate("() => ({vw: innerWidth, vh: innerHeight})")
         vw, vh = dims["vw"], dims["vh"]
@@ -107,11 +111,14 @@ async def human_swipe(page: Page) -> dict:
 
         cx = vw * random.uniform(0.72, 0.82)
         cy = vh * random.uniform(0.40, 0.60)
-        await page.mouse.move(cx, cy, steps=random.randint(10, 18))
-        await asyncio.sleep(random.uniform(0.10, 0.28))
+        await page.mouse.move(cx, cy, steps=random.randint(5, 10))
+        await asyncio.sleep(random.uniform(0.04, 0.12))
         big = random.uniform(900, 1300)
         await page.mouse.wheel(0, big)
-        await asyncio.sleep(random.uniform(0.7, 1.1))
+        # スワイプ後の DOM 切り替わり待ち。ここを短くすると一番効くが
+        # 短すぎると after_src 取得時にまだ前動画のままで wheel 失敗扱いに
+        # なるので 0.30〜0.45 で安定。
+        await asyncio.sleep(random.uniform(0.30, 0.45))
         after_src = await page.evaluate(_GET_CENTER_VIDEO_SRC_JS)
         if after_src and after_src != before_src:
             return {"ok": True, "method": "wheel"}
@@ -120,19 +127,19 @@ async def human_swipe(page: Page) -> dict:
         if btn:
             jx = btn["x"] + random.uniform(-3, 3)
             jy = btn["y"] + random.uniform(-3, 3)
-            await page.mouse.move(jx, jy, steps=random.randint(10, 16))
-            await asyncio.sleep(random.uniform(0.08, 0.20))
+            await page.mouse.move(jx, jy, steps=random.randint(5, 9))
+            await asyncio.sleep(random.uniform(0.04, 0.10))
             await page.mouse.down()
-            await asyncio.sleep(random.uniform(0.03, 0.09))
+            await asyncio.sleep(random.uniform(0.02, 0.06))
             await page.mouse.up()
-            await asyncio.sleep(random.uniform(0.7, 1.0))
+            await asyncio.sleep(random.uniform(0.30, 0.50))
             after2_src = await page.evaluate(_GET_CENTER_VIDEO_SRC_JS)
             if after2_src and after2_src != before_src:
                 return {"ok": True, "method": "chevron-click"}
 
         try:
             await page.keyboard.press("ArrowDown")
-            await asyncio.sleep(random.uniform(0.6, 1.0))
+            await asyncio.sleep(random.uniform(0.30, 0.50))
             return {"ok": True, "method": "arrow-down-fallback"}
         except Exception:
             pass
