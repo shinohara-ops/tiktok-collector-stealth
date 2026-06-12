@@ -20,6 +20,7 @@ from ._rules_parts import indonesian_malay as _indonesian_malay
 from ._rules_parts import stream_hashtag as _stream_hashtag
 from ._rules_parts import non_jp_script_emoji_bio as _non_jp_script_emoji_bio
 from ._rules_parts import similar_v1 as _similar_v1
+from ._rules_parts import colored_leak_v2_words as _colored_leak_v2_words
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -516,84 +517,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 色付き漏れ v2 — ワードリスト + タグコンボ
+    # → src/tiktok_collector/_rules_parts/colored_leak_v2_words.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # 色付き漏れ行対策v2: 追加NG/海外/スパム系ワード ※litlinkは除外しない
-    _colored_leak_ng_words_v2 = ['Doublefedora', 'mafioso', 'forsaken', 'ベトナムフェスティバル', 'ウエノデコリアンフェスタ', 'コリアンフェスタ', 'カリブラテンアメリカストリート', 'ラテンアメリカ', '日比谷音楽祭', 'アウトドアシネマ', 'スタンダップコメディ', 'standupcomedy', 'crowdwork', 'ほんまやでダンス', 'newmusic', 'いいねください', 'fypツ', 'smail', 'facebook.com', 'mibextid', '可愛い女の子', '毎日 可愛い女の子', '宝鐘マリン', 'くださいませチャレンジ', '愛くださいませ', '成熟した女性', '成熟', 'cosplay', 'cosplayer', 'neongenesisevangelion', 'アスカ', 'lingerie', 'gorgeous', 'MagneticBeauty', 'SelfLoveVibes', 'GlamAndGrow', 'ConfidenceIsKey', 'PR エバーカラー', 'エバーカラー', 'カラコン', 'ROWfreelove', 'rowlove', 'rowbuzz', 'charlesandsylvia', 'wolfieandsylvia', 'couplescomedy', 'じゅんな', 'ゆうな']
-    _colored_leak_text_lower_v2 = text.lower()
-    _has_litlink_v2 = ("lit.link" in _colored_leak_text_lower_v2) or ("litlink" in _colored_leak_text_lower_v2)
-
-    for _colored_ng in _colored_leak_ng_words_v2:
-        _colored_ng_s = str(_colored_ng or "").strip()
-        if not _colored_ng_s:
-            continue
-        if _colored_ng_s.lower() in ["litlink", "lit.link"]:
-            continue
-        if _colored_ng_s.lower() in _colored_leak_text_lower_v2:
-            return f"NGワード({_colored_ng_s})"
-
-    for _link_ng in ["facebook.com", "mibextid", "onlyfans", "ofans", "fansly"]:
-        if _link_ng in _colored_leak_text_lower_v2 and not _has_litlink_v2:
-            return f"外部リンクNG({_link_ng})"
-
-    try:
-        _colored_bio = (
-            _get(candidate, "profile_bio", None)
-            or _get(candidate, "bio", None)
-            or _get(candidate, "signature", None)
-            or _get(candidate, "profile_text", None)
-            or _get(candidate, "description", None)
-            or _get(candidate, "desc", None)
-            or ""
-        )
-        _colored_tags_raw = (
-            _get(candidate, "hashtags", None)
-            or _get(candidate, "hashtag", None)
-            or _get(candidate, "tags", None)
-            or _get(candidate, "tag_text", None)
-            or _get(candidate, "hashtag_text", None)
-            or ""
-        )
-    except Exception:
-        _colored_bio = (
-            getattr(candidate, "profile_bio", None)
-            or getattr(candidate, "bio", None)
-            or getattr(candidate, "signature", None)
-            or getattr(candidate, "profile_text", None)
-            or getattr(candidate, "description", None)
-            or getattr(candidate, "desc", None)
-            or ""
-        )
-        _colored_tags_raw = (
-            getattr(candidate, "hashtags", None)
-            or getattr(candidate, "hashtag", None)
-            or getattr(candidate, "tags", None)
-            or getattr(candidate, "tag_text", None)
-            or getattr(candidate, "hashtag_text", None)
-            or ""
-        )
-
-    if isinstance(_colored_tags_raw, (list, tuple, set)):
-        _colored_tags = " ".join([str(x) for x in _colored_tags_raw]).strip()
-    else:
-        _colored_tags = str(_colored_tags_raw or "").strip()
-
-    _colored_tags_lower = _colored_tags.lower()
-    _colored_bio_s = str(_colored_bio or "").strip()
-
-    if _colored_bio_s == "" and _colored_tags:
-        _has_japanese = re.search(r"[ぁ-んァ-ヶ一-龥]", _colored_tags) is not None
-        _has_ascii_letter = re.search(r"[a-zA-Z]", _colored_tags) is not None
-        if _has_ascii_letter and not _has_japanese:
-            return "外国語/海外(英字タグのみ/プロフィール紹介文空欄)"
-
-    if _colored_bio_s == "" and "fyp" in _colored_tags_lower:
-        return "プロフィール紹介文空欄(fyp)"
-
-    if _colored_bio_s == "" and _colored_tags.strip() in ["可愛", "可愛い"]:
-        return "ハッシュタグ単体NG(可愛)"
-
-    if "可愛い" in _colored_tags and "女の子" in _colored_tags:
-        return "ハッシュタグNG(可愛い女の子)"
+    if (r := _colored_leak_v2_words.check(text, _cs_bio_s, _cs_tags)) is not None:
+        return r
 
     # Sheets 由来のメタ付き NG ワード(scope=hashtag/bio/all + bio_empty_required)。
     # Sheets が空ならここは何もしない=既存ハードコード判定の挙動と完全一致。
