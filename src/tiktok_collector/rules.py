@@ -30,6 +30,7 @@ from ._rules_parts import account_meta_basic as _account_meta_basic
 from ._rules_parts import follower_ad_official as _follower_ad_official
 from ._rules_parts import age_foreign_agency as _age_foreign_agency
 from ._rules_parts import category_keywords as _category_keywords
+from ._rules_parts import v5_final_combos as _v5_final_combos
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -615,122 +616,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: v5 ハッシュコンボ + 数字のみタグ + 空 Bio/タグ
+    # → src/tiktok_collector/_rules_parts/v5_final_combos.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # V5共有前保証: ハッシュタグ 美人 + モデル + かわいい の3点セット除外
-    try:
-        _v5_combo_tags_raw = (
-            _get(candidate, "hashtags", None)
-            or _get(candidate, "hashtag", None)
-            or _get(candidate, "tags", None)
-            or _get(candidate, "tag_text", None)
-            or _get(candidate, "hashtag_text", None)
-            or ""
-        )
-    except Exception:
-        _v5_combo_tags_raw = (
-            getattr(candidate, "hashtags", None)
-            or getattr(candidate, "hashtag", None)
-            or getattr(candidate, "tags", None)
-            or getattr(candidate, "tag_text", None)
-            or getattr(candidate, "hashtag_text", None)
-            or ""
-        )
-    if isinstance(_v5_combo_tags_raw, (list, tuple, set)):
-        _v5_combo_tags = " ".join([str(x) for x in _v5_combo_tags_raw])
-    else:
-        _v5_combo_tags = str(_v5_combo_tags_raw or "")
-    if all(_kw in _v5_combo_tags for _kw in ["美人", "モデル", "かわいい"]):
-        return "ハッシュタグNG(美人/モデル/かわいい)"
-
-    # V5共有前保証: ハッシュタグが数字だけ、かつプロフィール紹介文が空欄なら除外
-    try:
-        _v5_num_bio = (
-            _get(candidate, "profile_bio", None)
-            or _get(candidate, "bio", None)
-            or _get(candidate, "signature", None)
-            or _get(candidate, "profile_text", None)
-            or _get(candidate, "description", None)
-            or _get(candidate, "desc", None)
-            or ""
-        )
-        _v5_num_tags_raw = (
-            _get(candidate, "hashtags", None)
-            or _get(candidate, "hashtag", None)
-            or _get(candidate, "tags", None)
-            or _get(candidate, "tag_text", None)
-            or _get(candidate, "hashtag_text", None)
-            or ""
-        )
-    except Exception:
-        _v5_num_bio = (
-            getattr(candidate, "profile_bio", None)
-            or getattr(candidate, "bio", None)
-            or getattr(candidate, "signature", None)
-            or getattr(candidate, "profile_text", None)
-            or getattr(candidate, "description", None)
-            or getattr(candidate, "desc", None)
-            or ""
-        )
-        _v5_num_tags_raw = (
-            getattr(candidate, "hashtags", None)
-            or getattr(candidate, "hashtag", None)
-            or getattr(candidate, "tags", None)
-            or getattr(candidate, "tag_text", None)
-            or getattr(candidate, "hashtag_text", None)
-            or ""
-        )
-    if isinstance(_v5_num_tags_raw, (list, tuple, set)):
-        _v5_num_tags = " ".join([str(x) for x in _v5_num_tags_raw]).strip()
-    else:
-        _v5_num_tags = str(_v5_num_tags_raw or "").strip()
-    _v5_num_norm = _v5_num_tags.translate(str.maketrans("０１２３４５６７８９", "0123456789"))
-    _v5_num_norm = re.sub(r"[#＃\s,，、/／｜|・.．。:_\-－ー]+", "", _v5_num_norm)
-    if str(_v5_num_bio).strip() == "" and _v5_num_tags != "" and _v5_num_norm.isdigit():
-        return "ハッシュタグ数字のみ/プロフィール紹介文空欄"
-
-    # V5共有前保証: ハッシュタグとプロフィール紹介文がどちらも空欄なら除外
-    try:
-        _v5_empty_bio = (
-            _get(candidate, "profile_bio", None)
-            or _get(candidate, "bio", None)
-            or _get(candidate, "signature", None)
-            or _get(candidate, "profile_text", None)
-            or _get(candidate, "description", None)
-            or _get(candidate, "desc", None)
-            or ""
-        )
-        _v5_empty_tags_raw = (
-            _get(candidate, "hashtags", None)
-            or _get(candidate, "hashtag", None)
-            or _get(candidate, "tags", None)
-            or _get(candidate, "tag_text", None)
-            or _get(candidate, "hashtag_text", None)
-            or ""
-        )
-    except Exception:
-        _v5_empty_bio = (
-            getattr(candidate, "profile_bio", None)
-            or getattr(candidate, "bio", None)
-            or getattr(candidate, "signature", None)
-            or getattr(candidate, "profile_text", None)
-            or getattr(candidate, "description", None)
-            or getattr(candidate, "desc", None)
-            or ""
-        )
-        _v5_empty_tags_raw = (
-            getattr(candidate, "hashtags", None)
-            or getattr(candidate, "hashtag", None)
-            or getattr(candidate, "tags", None)
-            or getattr(candidate, "tag_text", None)
-            or getattr(candidate, "hashtag_text", None)
-            or ""
-        )
-    if isinstance(_v5_empty_tags_raw, (list, tuple, set)):
-        _v5_empty_tags = " ".join([str(x) for x in _v5_empty_tags_raw]).strip()
-    else:
-        _v5_empty_tags = str(_v5_empty_tags_raw or "").strip()
-    if str(_v5_empty_bio).strip() == "" and _v5_empty_tags == "":
-        return "ハッシュタグ/プロフィール紹介文空欄"
+    if (r := _v5_final_combos.check(_cs_bio_s, _cs_tags)) is not None:
+        return r
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 全てパスした → return None
