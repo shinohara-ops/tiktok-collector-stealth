@@ -24,6 +24,7 @@ from ._rules_parts import colored_leak_v2_words as _colored_leak_v2_words
 from ._rules_parts import colored_leak_v1_words as _colored_leak_v1_words
 from ._rules_parts import v5_foreign as _v5_foreign
 from ._rules_parts import extra_ng_1 as _extra_ng_1
+from ._rules_parts import foreign_vn_redux as _foreign_vn_redux
 
 
 # Sheets「NGワード」タブからカテゴリ別 NG ワードを供給するためのフック。
@@ -561,39 +562,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
     # ────────────────────────────────────────────────────────────────
     # SECTION: 外国語/ベトナム語キーワードリスト + 中文スパム(再掲)
+    # → src/tiktok_collector/_rules_parts/foreign_vn_redux.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    # 海外/ベトナム系アカウント判定強化: xuhuong / gaixinh / Vietnamese spam系
-    _foreign_vn_text = text.lower()
-
-    _foreign_vn_keywords = [
-        "xuhuong", "xuhuongtiktok", "xu huong", "xuhướng", "hướng",
-        "gaixinh", "gaixinhtiktok", "gai xinh", "xinhdep", "xinh dep",
-        "girlxinh", "nhactrung", "dungmai", "halinh",
-        "babygirl", "bikini", "binkini",
-        "viral", "trending", "foryou", "hottrend",
-        "follow mình", "flow em", "follow tui", "mọi người", "giúp mình",
-        "lên 1000fl", "1000fl", "vào đây", "tìm gì", "em rất", "cô đơn",
-        "mình", "nhé", "nhá", "đi ạ", "tui",
-        "置顶找我", "gaixinhmacbinkini"
-    ]
-
-    for _kw in _foreign_vn_keywords:
-        if _kw in _foreign_vn_text:
-            return f"外国語/海外({_kw})"
-
-    # ベトナム語でよく出る文字が1文字でもあれば海外扱いに寄せる
-    if re.search(r"[ăâêôơưđàáạảãằắặẳẵầấậẩẫèéẹẻẽềếệểễìíịỉĩòóọỏõồốộổỗờớợởỡùúụủũừứựửữỳýỵỷỹ]", _foreign_vn_text):
-        return "外国語/海外(ベトナム語文字)"
-
-    # 中国語簡体/繁体のSNS誘導っぽい語
-    _chinese_spam_keywords = [
-        "置顶", "找我", "美女", "漂亮", "可爱", "关注", "私信", "主页", "點", "點擊", "點我",
-        "視頻", "视频", "比基尼", "泳裝", "泳装"
-    ]
-    for _kw in _chinese_spam_keywords:
-        if _kw in text:
-            return f"外国語/海外({_kw})"
-
+    if (r := _foreign_vn_redux.check(text)) is not None:
+        return r
 
 
     # ────────────────────────────────────────────────────────────────
