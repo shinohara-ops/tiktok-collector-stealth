@@ -13,7 +13,6 @@ local_skip_reason の末尾。ここを抜けたら return None で関数完走�
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 
 _HASHTAG_TRIPLE: list[str] = ["美人", "モデル", "かわいい"]
@@ -21,7 +20,7 @@ _FULLWIDTH_TO_HALFWIDTH = str.maketrans("０１２３４５６７８９", "01234
 _TAG_DELIM = re.compile(r"[#＃\s,，、/／｜|・.．。:_\-－ー]+")
 
 
-def check(bio_s: str, tags: str) -> Optional[str]:
+def check(bio_s: str, tags: str) -> str | None:
     # 1. ハッシュタグ 3 点セット
     if all(kw in tags for kw in _HASHTAG_TRIPLE):
         return "ハッシュタグNG(美人/モデル/かわいい)"

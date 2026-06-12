@@ -11,7 +11,6 @@
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 from ._helpers import _get, _norm, _verified_flag
 
@@ -19,7 +18,7 @@ from ._helpers import _get, _norm, _verified_flag
 _AI_DELIM_PATTERN = re.compile(r"(^ai[_-]|[_-]ai($|[_-]))")
 
 
-def check(candidate) -> Optional[str]:
+def check(candidate) -> str | None:
     # 1. follower_count 取得チェック
     try:
         fc_required = _get(candidate, "follower_count", "")

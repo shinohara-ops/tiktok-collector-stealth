@@ -6,7 +6,6 @@
 """
 from __future__ import annotations
 
-from typing import Optional
 
 from ._helpers import _get, _contains_any, _load_extra_words
 
@@ -41,7 +40,7 @@ _OFFICIAL_WORDS: list[str] = [
 ]
 
 
-def check(text: str, candidate, rules) -> Optional[str]:
+def check(text: str, candidate, rules) -> str | None:
     # 1. フォロワー上限
     max_followers = _get(rules, "max_followers", 2000)
     try:

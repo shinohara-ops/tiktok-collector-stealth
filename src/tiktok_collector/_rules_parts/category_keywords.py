@@ -15,7 +15,6 @@
 """
 from __future__ import annotations
 
-from typing import Optional
 
 from ._helpers import _contains_any, _load_extra_words
 
@@ -115,7 +114,7 @@ _GENERAL_WORDS: list[str] = [
 ]
 
 
-def check(text: str, rules) -> Optional[str]:
+def check(text: str, rules) -> str | None:
     hit = _contains_any(text, _LIVE_WORDS + _load_extra_words(rules, "live_keywords"))
     if hit:
         return "配信/LIVE系(" + hit + ")"

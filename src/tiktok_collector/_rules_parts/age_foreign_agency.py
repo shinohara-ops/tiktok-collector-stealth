@@ -6,7 +6,6 @@
 """
 from __future__ import annotations
 
-from typing import Optional
 
 from ._helpers import _age_ng, _looks_like_foreign, _contains_any, _load_extra_words
 
@@ -19,7 +18,7 @@ _AGENCY_WORDS: list[str] = [
 ]
 
 
-def check(text: str, rules) -> Optional[str]:
+def check(text: str, rules) -> str | None:
     r = _age_ng(text)
     if r:
         return r
