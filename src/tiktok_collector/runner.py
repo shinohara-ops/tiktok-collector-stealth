@@ -11,6 +11,15 @@ from .rules import local_skip_reason, detect_blackband
 from ._stealth import STEALTH_INIT_JS, fire_like as _stealth_fire_like
 
 
+# 過去除外 uid の再判定で「ローカルルールで弾かれた reason」のうち、AI 画像判定に
+# バトンタッチするべき heuristic 系の prefix。uid + テキストだけの判定は誤検出が
+# 多いので、AI に画像で本人らしさを確認させる方が正確。確証性が高い NG(未成年系
+# / 外部リンク / 類似除外 / フォロワー数 等)は引き続き早期スキップする。
+_AI_OVERRIDE_RECHECK_REASON_PREFIXES: tuple[str, ...] = (
+    "ランダムID",
+    "外国語/海外(",
+)
+
 
 def _clamp_ai_score_0_10(value):
     try:
@@ -855,10 +864,15 @@ class TikTokRunner:
             except Exception as e:
                 print(f"[PAST_EXCLUDED_RECHECK_REPAIR_ERROR] account_id={uid} err={str(e)[:120]}", flush=True)
             local_reason = local_skip_reason(candidate, self.cfg.rules)
-            if local_reason:
+            if local_reason and not local_reason.startswith(_AI_OVERRIDE_RECHECK_REASON_PREFIXES):
+                # 確証性が高い NG(未成年 / 外部リンク / 類似除外 等)は AI に振らずに skip。
                 print(f"[PAST_EXCLUDED_RECHECK_SKIP_LOCAL] account_id={uid} reason={local_reason}", flush=True)
                 await self._force_advance_after_skip(page, uid)
                 return True
+            if local_reason:
+                # heuristic 系("ランダムID/..." "外国語/海外(...)" 等)は uid + テキストだけの
+                # 推定なので誤検出が多い。AI に画像で本人らしさを確認させる。
+                print(f"[PAST_EXCLUDED_RECHECK_LOCAL_AI_OVERRIDE] account_id={uid} reason={local_reason} → asking AI", flush=True)
 
             # ここまで来てやっと AI 再判定対象。スクショは swipe 前のみ可能。
             print(f"[PAST_EXCLUDED_RECHECK] account_id={uid} prev_status={status} reason={prev_reason} fc={follower_count}", flush=True)
