@@ -842,13 +842,51 @@ class TikTokRunner:
             except Exception as e:
                 print(f"[PAST_EXCLUDED_RECHECK_NO_SCREENSHOT] account_id={uid} err={str(e)[:120]}", flush=True)
 
-            # 先にスワイプ → ユーザー視点では即次の動画。AI 判定は裏で動かす。
-            await self._force_advance_after_skip(page, uid)
+            if not screenshot_path:
+                await self._force_advance_after_skip(page, uid)
+                return True
 
-            if screenshot_path:
-                asyncio.create_task(
-                    self._background_recheck_past_excluded(uid, screenshot_path, candidate)
+            # AI を同期実行。target=True なら完視聴(positive signal)、target=False なら即 swipe。
+            # 背景化しない理由: 救済確定時に動画がまだ画面上にある状態で _watch_target_video を呼ぶ
+            # 必要があるため。背景タスクで判定する場合は既にスワイプ済みで完視聴できない。
+            try:
+                result = await asyncio.to_thread(
+                    self.ai.judge_with_fallback_if_needed, screenshot_path, candidate.dict()
                 )
+                if isinstance(result, dict) and "cute_score" in result:
+                    result["cute_score"] = _clamp_ai_score_0_10(result.get("cute_score", ""))
+            except Exception as e:
+                print(f"[PAST_EXCLUDED_RECHECK_ERROR] account_id={uid} err={str(e)[:120]}", flush=True)
+                await self._force_advance_after_skip(page, uid)
+                return True
+
+            if not result.get("target"):
+                print(f"[PAST_EXCLUDED_RECHECK_REJECT] account_id={uid} (still excluded)", flush=True)
+                await self._force_advance_after_skip(page, uid)
+                return True
+
+            # 救済確定: DB/Sheets 更新 → 完視聴 → swipe(target=True 通常フローと同等)
+            score = str(result.get("cute_score", ""))
+            reason = str(result.get("reason", ""))
+            model_used = str(result.get("model_used", ""))
+            print(f"[PAST_EXCLUDED_RECOVERED] account_id={uid} score={score} reason={reason}", flush=True)
+
+            try:
+                self.db.mark(uid, "recommended", reason, candidate.profile_url, candidate.post_url, screenshot_path)
+            except Exception as e:
+                print(f"[PAST_EXCLUDED_RECOVERED_DB_FAIL] account_id={uid} err={str(e)[:120]}", flush=True)
+
+            try:
+                self.sheets.append(
+                    "recommended",
+                    candidate.to_row(self.cfg.collector_name, reason=reason, score=score, model_used=model_used),
+                )
+                self.written_count += 1
+            except Exception as e:
+                print(f"[PAST_EXCLUDED_RECOVERED_SHEET_FAIL] account_id={uid} err={str(e)[:120]}", flush=True)
+
+            await self._watch_target_video(page)
+            await self._force_advance_after_skip(page, uid)
             return True
         if status:
             print(f"既処理スキップ: {uid} / status={status}", flush=True)
@@ -859,48 +897,6 @@ class TikTokRunner:
             await self._force_advance_after_skip(page, uid)
             return True
         return False
-
-    async def _background_recheck_past_excluded(self, uid: str, screenshot_path: str, candidate) -> None:
-        """過去除外 uid を裏で AI 再判定。target=True なら recommended に昇格して
-        Sheets に追記する。呼び出し側でスワイプ完了済みなので、ここでどれだけ
-        時間がかかっても再生時間(=TikTok への視聴シグナル)には影響しない。
-
-        判定が target=False(また除外)のときは DB を触らず、ログだけ残す。
-        旧 "skipped" 行はそのまま、Sheets にも追加書き込みはしない。
-        """
-        try:
-            result = await asyncio.to_thread(
-                self.ai.judge_with_fallback_if_needed, screenshot_path, candidate.dict()
-            )
-            if isinstance(result, dict) and "cute_score" in result:
-                result["cute_score"] = _clamp_ai_score_0_10(result.get("cute_score", ""))
-        except Exception as e:
-            print(f"[PAST_EXCLUDED_RECHECK_ERROR] account_id={uid} err={str(e)[:120]}", flush=True)
-            return
-
-        if not result.get("target"):
-            print(f"[PAST_EXCLUDED_RECHECK_REJECT] account_id={uid} (still excluded)", flush=True)
-            return
-
-        score = str(result.get("cute_score", ""))
-        reason = str(result.get("reason", ""))
-        model_used = str(result.get("model_used", ""))
-        print(f"[PAST_EXCLUDED_RECOVERED] account_id={uid} score={score} reason={reason}", flush=True)
-
-        try:
-            self.db.mark(uid, "recommended", reason, candidate.profile_url, candidate.post_url, screenshot_path)
-        except Exception as e:
-            print(f"[PAST_EXCLUDED_RECOVERED_DB_FAIL] account_id={uid} err={str(e)[:120]}", flush=True)
-
-        try:
-            await asyncio.to_thread(
-                self.sheets.append,
-                "recommended",
-                candidate.to_row(self.cfg.collector_name, reason=reason, score=score, model_used=model_used),
-            )
-            self.written_count += 1
-        except Exception as e:
-            print(f"[PAST_EXCLUDED_RECOVERED_SHEET_FAIL] account_id={uid} err={str(e)[:120]}", flush=True)
 
     async def _process_one(self, page) -> bool:
         """1 動画を処理する。戻り値 True なら **このメソッド内ですでに次の動画へ
