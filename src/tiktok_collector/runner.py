@@ -866,10 +866,15 @@ class TikTokRunner:
             except Exception:
                 pass
 
-            # フォロワー閾値ガード: 大手は再判定対象外。AI も呼ばずスワイプして抜ける。
+            # フォロワー閾値ガード: 大手 / 小規模すぎるアカウントは再判定対象外。AI も呼ばずスワイプして抜ける。
             max_followers_threshold = int(getattr(self.cfg.rules, "max_followers", 2000) or 2000)
+            min_followers_threshold = int(getattr(self.cfg.rules, "min_followers", 0) or 0)
             if follower_count is not None and follower_count >= max_followers_threshold:
                 print(f"[PAST_EXCLUDED_RECHECK_SKIP_BIG_FOLLOWER] account_id={uid} fc={follower_count}", flush=True)
+                await self._force_advance_after_skip(page, uid)
+                return True
+            if follower_count is not None and follower_count < min_followers_threshold:
+                print(f"[PAST_EXCLUDED_RECHECK_SKIP_SMALL_FOLLOWER] account_id={uid} fc={follower_count} min={min_followers_threshold}", flush=True)
                 await self._force_advance_after_skip(page, uid)
                 return True
 
@@ -1157,6 +1162,7 @@ class TikTokRunner:
                 await self._watch_target_video(page)
                 await self._force_advance_after_skip(page, candidate.unique_id)
                 return True
+            min_followers_threshold = int(getattr(self.cfg.rules, "min_followers", 0) or 0)
             if fc is not None and fc >= max_followers_threshold:
                 reason = f"stealth_candidacy:follower>={max_followers_threshold}"
                 print(f"stealth候補外: {candidate.unique_id} / {reason}", flush=True)
@@ -1164,10 +1170,17 @@ class TikTokRunner:
                 self.sheet_seen_ids.add(candidate.unique_id)
                 await self._force_advance_after_skip(page, candidate.unique_id)
                 return True
+            if fc is not None and fc < min_followers_threshold:
+                reason = f"stealth_candidacy:follower<{min_followers_threshold}"
+                print(f"stealth候補外: {candidate.unique_id} / {reason}", flush=True)
+                self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
+                self.sheet_seen_ids.add(candidate.unique_id)
+                await self._force_advance_after_skip(page, candidate.unique_id)
+                return True
 
-            # like はフォロワー数が判明していて閾値未満のときだけ発火。
+            # like はフォロワー数が判明していて閾値範囲内のときだけ発火。
             # 不明だと「人気アカウント」の可能性もあるので like の安全網を切らない。
-            is_like_target = fc is not None and fc < max_followers_threshold
+            is_like_target = fc is not None and min_followers_threshold <= fc < max_followers_threshold
             if is_like_target and getattr(algo_st, "enable_like", True):
                 like_prob = float(getattr(algo_st, "like_probability", 0.20))
                 like_interval = float(getattr(algo_st, "like_min_interval_sec", 90))

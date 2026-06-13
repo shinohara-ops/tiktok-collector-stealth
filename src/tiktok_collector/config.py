@@ -153,7 +153,8 @@ def load_config(path: str = "config.yaml") -> AppConfig:
     if not openai_api_key:
         raise RuntimeError(".env に OPENAI_API_KEY を設定してください。")
 
-    # 環境変数 TIKTOK_MAX_FOLLOWERS が指定されていたら rules.max_followers を上書き。
+    # 環境変数 TIKTOK_MAX_FOLLOWERS / TIKTOK_MIN_FOLLOWERS が指定されていたら
+    # rules.max_followers / rules.min_followers を上書き。
     # 3_run_collector.command が起動時の対話入力でこの env を立てる。
     env_max_followers = os.getenv("TIKTOK_MAX_FOLLOWERS", "").strip()
     if env_max_followers:
@@ -162,6 +163,17 @@ def load_config(path: str = "config.yaml") -> AppConfig:
             if mf > 0:
                 raw_rules = dict(raw.get("rules", {}) or {})
                 raw_rules["max_followers"] = mf
+                raw["rules"] = raw_rules
+        except ValueError:
+            pass
+
+    env_min_followers = os.getenv("TIKTOK_MIN_FOLLOWERS", "").strip()
+    if env_min_followers:
+        try:
+            mnf = int(env_min_followers)
+            if mnf >= 0:
+                raw_rules = dict(raw.get("rules", {}) or {})
+                raw_rules["min_followers"] = mnf
                 raw["rules"] = raw_rules
         except ValueError:
             pass
