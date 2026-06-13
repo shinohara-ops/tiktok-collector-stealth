@@ -49,6 +49,7 @@ from ._rules_parts import follower_ad_official as _follower_ad_official
 from ._rules_parts import age_foreign_agency as _age_foreign_agency
 from ._rules_parts import category_keywords as _category_keywords
 from ._rules_parts import v5_final_combos as _v5_final_combos
+from ._rules_parts import user_digits_id as _user_digits_id
 
 
 def local_skip_reason(candidate, rules=None) -> str | None:
@@ -363,6 +364,14 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     # → src/tiktok_collector/_rules_parts/v5_final_combos.py に抽出済
     # ────────────────────────────────────────────────────────────────
     if (r := _v5_final_combos.check(_cs_bio_s, _cs_tags)) is not None:
+        return r
+
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: user + 6桁以上の数字 のデフォルトID
+    # → src/tiktok_collector/_rules_parts/user_digits_id.py に抽出済
+    # ────────────────────────────────────────────────────────────────
+    if (r := _user_digits_id.check(_cs_uid_s)) is not None:
         return r
 
     # ────────────────────────────────────────────────────────────────
