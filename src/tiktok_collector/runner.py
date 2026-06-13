@@ -780,9 +780,62 @@ class TikTokRunner:
                 return True
 
             self._past_excluded_rechecked.add(uid)
-            print(f"[PAST_EXCLUDED_RECHECK] account_id={uid} prev_status={status} reason={prev_reason}", flush=True)
 
-            # スクショは swipe 前にしか取れない(動画が消える)。
+            # フォロワー数 / プロフィール紹介文 を並列で取得(視聴時間短縮)。
+            # 通常フロー(L877〜)と同じ取得関数を使うので、recovered 行も
+            # フォロワー / bio 入りで Sheets に書ける。
+            try:
+                fc_result, pt_result = await asyncio.gather(
+                    self.scraper.detect_follower_count_from_feed(page, uid),
+                    self.scraper.detect_profile_text_from_feed(page, uid),
+                    return_exceptions=True,
+                )
+            except Exception:
+                fc_result, pt_result = None, None
+
+            follower_count = None
+            follower_source = ""
+            if isinstance(fc_result, tuple):
+                if isinstance(fc_result[0], int):
+                    follower_count = fc_result[0]
+                follower_source = fc_result[1] if len(fc_result) > 1 and fc_result[1] else ""
+            profile_text = ""
+            profile_source = ""
+            if isinstance(pt_result, tuple):
+                profile_text = pt_result[0] or ""
+                profile_source = pt_result[1] if len(pt_result) > 1 and pt_result[1] else ""
+
+            try:
+                object.__setattr__(candidate, "follower_count", follower_count if follower_count is not None else "")
+                object.__setattr__(candidate, "follower_source", follower_source or "")
+                if profile_text:
+                    object.__setattr__(candidate, "signature", profile_text)
+                    object.__setattr__(candidate, "bio", profile_text)
+                    object.__setattr__(candidate, "profile_text_source", profile_source or "")
+            except Exception:
+                pass
+
+            # フォロワー閾値ガード: 大手は再判定対象外。AI も呼ばずスワイプして抜ける。
+            max_followers_threshold = int(getattr(self.cfg.rules, "max_followers", 2000) or 2000)
+            if follower_count is not None and follower_count >= max_followers_threshold:
+                print(f"[PAST_EXCLUDED_RECHECK_SKIP_BIG_FOLLOWER] account_id={uid} fc={follower_count}", flush=True)
+                await self._force_advance_after_skip(page, uid)
+                return True
+
+            # プロフィール / ハッシュタグを最新状態に揃えてから現行 ローカルルール で再評価。
+            # 過去の除外理由が今でも有効か(NG ワード追加など)を反映する。
+            try:
+                candidate = await _repair_candidate_profile_and_hashtags(page, candidate, getattr(self, "scraper", None))
+            except Exception as e:
+                print(f"[PAST_EXCLUDED_RECHECK_REPAIR_ERROR] account_id={uid} err={str(e)[:120]}", flush=True)
+            local_reason = local_skip_reason(candidate, self.cfg.rules)
+            if local_reason:
+                print(f"[PAST_EXCLUDED_RECHECK_SKIP_LOCAL] account_id={uid} reason={local_reason}", flush=True)
+                await self._force_advance_after_skip(page, uid)
+                return True
+
+            # ここまで来てやっと AI 再判定対象。スクショは swipe 前のみ可能。
+            print(f"[PAST_EXCLUDED_RECHECK] account_id={uid} prev_status={status} reason={prev_reason} fc={follower_count}", flush=True)
             screenshot_path = None
             try:
                 screenshot_path = await self.scraper.screenshot_current(page, uid)
