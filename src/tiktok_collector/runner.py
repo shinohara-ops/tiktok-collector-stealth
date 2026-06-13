@@ -750,16 +750,29 @@ class TikTokRunner:
             processed = self.db.get(uid)
         status = str((processed or {}).get("status") or self.sheet_status_by_id.get(uid, "") or "")
         if status == "recommended":
+            # follow=following なら完視聴シグナルを送らない。フォロー中アカウントを
+            # 完視聴すると、TikTok はフォロー中の似た系統ばかり次に出すようになり、
+            # 「新規候補が見つからずフォロー中アカウントしか出ない」状態に陥る。
+            # フォロー外で過去採用済みのときだけ完視聴して positive signal を送る。
+            try:
+                follow_state = await self.scraper.detect_follow_state_local(page)
+            except Exception:
+                follow_state = "unknown"
+            try:
+                self.db.touch_seen(uid)
+            except Exception:
+                pass
+            if follow_state == "following":
+                print(f"[PAST_RECOMMENDED_FOLLOWING_SKIP] account_id={uid}", flush=True)
+                await self._force_advance_after_skip(page, uid)
+                return True
+
             # 過去採用済みアカウントの動画は **完視聴** してからスワイプ。
             # 即スワイプすると TikTok アルゴから「以前好きだった系統を今は拒否」と
             # 読まれ、似た傾向の新規候補が枯渇する。既処理が増えるほどこの侵食が
             # 効いて、新規 recommended がどんどん減る悪循環になる。
             # 完視聴(complete view)は TikTok の最強好意シグナル。
             print(f"[WATCH_RECOMMENDED_ALREADY_PROCESSED] account_id={uid}", flush=True)
-            try:
-                self.db.touch_seen(uid)
-            except Exception:
-                pass
             await self._watch_target_video(page)
             await self._force_advance_after_skip(page, uid)
             return True
@@ -769,6 +782,19 @@ class TikTokRunner:
                 self.db.touch_seen(uid)
             except Exception:
                 pass
+
+            # follow=following なら再判定も視聴もしない(救済して完視聴したら
+            # フォロー中アカウントだらけになりフィードが偏る)。dedup セット
+            # の前にチェックすることで、ユーザーがセッション中に対象アカウントを
+            # アンフォローした場合は次の遭遇で正常に再判定パスに入れる。
+            try:
+                follow_state = await self.scraper.detect_follow_state_local(page)
+            except Exception:
+                follow_state = "unknown"
+            if follow_state == "following":
+                print(f"[PAST_EXCLUDED_FOLLOWING_SKIP] account_id={uid} status={status} reason={prev_reason}", flush=True)
+                await self._force_advance_after_skip(page, uid)
+                return True
 
             # 過去に除外したが、今出ている動画は別かもしれず、過去判定が誤りだった
             # 可能性もある。スワイプを先にやってから AI を裏で叩いて、target=True
