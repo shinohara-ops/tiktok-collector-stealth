@@ -866,14 +866,20 @@ class TikTokRunner:
             except Exception:
                 pass
 
-            # フォロワー閾値ガード: 大手 / 小規模すぎるアカウントは再判定対象外。AI も呼ばずスワイプして抜ける。
+            # フォロワー閾値ガード: 大手 / 小規模すぎる / 取得失敗のアカウントは再判定対象外。
+            # 取得失敗時に AI に流していたが、AI も画像から fc を判別できないため
+            # 採用してしまうケースが多かった。取りこぼし許容に倒して採用見送り。
             max_followers_threshold = int(getattr(self.cfg.rules, "max_followers", 2000) or 2000)
             min_followers_threshold = int(getattr(self.cfg.rules, "min_followers", 0) or 0)
-            if follower_count is not None and follower_count >= max_followers_threshold:
+            if follower_count is None:
+                print(f"[PAST_EXCLUDED_RECHECK_SKIP_FC_UNKNOWN] account_id={uid}", flush=True)
+                await self._force_advance_after_skip(page, uid)
+                return True
+            if follower_count >= max_followers_threshold:
                 print(f"[PAST_EXCLUDED_RECHECK_SKIP_BIG_FOLLOWER] account_id={uid} fc={follower_count}", flush=True)
                 await self._force_advance_after_skip(page, uid)
                 return True
-            if follower_count is not None and follower_count < min_followers_threshold:
+            if follower_count < min_followers_threshold:
                 print(f"[PAST_EXCLUDED_RECHECK_SKIP_SMALL_FOLLOWER] account_id={uid} fc={follower_count} min={min_followers_threshold}", flush=True)
                 await self._force_advance_after_skip(page, uid)
                 return True
@@ -1143,11 +1149,11 @@ class TikTokRunner:
 
 
         # === stealth: 候補性判定 + like 発火 ===
-        # 早期 skip するのは「明らかに対象外」だけに絞る:
+        # 早期 skip するのは「明らかに対象外」+「fc 不明」:
         #   - 過去採用済み:再記入を防ぐ
-        #   - フォロワー数が判明していて閾値以上:大手は対象外
-        # フォロワー不明(盗聴キャッシュにまだ載っていない)は AI に流す。
-        # 取りこぼし防止 > AI コスト節約。
+        #   - フォロワー数が判明していて閾値外:大手 / 小規模すぎは対象外
+        #   - フォロワー不明:AI は画像から fc を判別できないため誤採用が多い。
+        #     hover-popover / poll-retry でも取れないケースは採用見送り(取りこぼし許容)。
         algo_st = getattr(self.cfg, "algorithm_stealth", None)
         if algo_st and getattr(algo_st, "enable_candidacy_check", True):
             fc = follower_count if isinstance(follower_count, int) else None
@@ -1163,14 +1169,21 @@ class TikTokRunner:
                 await self._force_advance_after_skip(page, candidate.unique_id)
                 return True
             min_followers_threshold = int(getattr(self.cfg.rules, "min_followers", 0) or 0)
-            if fc is not None and fc >= max_followers_threshold:
+            if fc is None:
+                reason = "stealth_candidacy:fc_unknown"
+                print(f"stealth候補外: {candidate.unique_id} / {reason}", flush=True)
+                self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
+                self.sheet_seen_ids.add(candidate.unique_id)
+                await self._force_advance_after_skip(page, candidate.unique_id)
+                return True
+            if fc >= max_followers_threshold:
                 reason = f"stealth_candidacy:follower>={max_followers_threshold}"
                 print(f"stealth候補外: {candidate.unique_id} / {reason}", flush=True)
                 self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
                 self.sheet_seen_ids.add(candidate.unique_id)
                 await self._force_advance_after_skip(page, candidate.unique_id)
                 return True
-            if fc is not None and fc < min_followers_threshold:
+            if fc < min_followers_threshold:
                 reason = f"stealth_candidacy:follower<{min_followers_threshold}"
                 print(f"stealth候補外: {candidate.unique_id} / {reason}", flush=True)
                 self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
@@ -1178,9 +1191,8 @@ class TikTokRunner:
                 await self._force_advance_after_skip(page, candidate.unique_id)
                 return True
 
-            # like はフォロワー数が判明していて閾値範囲内のときだけ発火。
-            # 不明だと「人気アカウント」の可能性もあるので like の安全網を切らない。
-            is_like_target = fc is not None and min_followers_threshold <= fc < max_followers_threshold
+            # ここに来た時点で fc は閾値範囲内が確定。like 発火対象。
+            is_like_target = True
             if is_like_target and getattr(algo_st, "enable_like", True):
                 like_prob = float(getattr(algo_st, "like_probability", 0.20))
                 like_interval = float(getattr(algo_st, "like_min_interval_sec", 90))
