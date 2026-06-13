@@ -11,11 +11,12 @@ from .rules import local_skip_reason, detect_blackband
 from ._stealth import STEALTH_INIT_JS, fire_like as _stealth_fire_like
 
 
-# 過去除外 uid の再判定で「ローカルルールで弾かれた reason」のうち、AI 画像判定に
-# バトンタッチするべき heuristic 系の prefix。uid + テキストだけの判定は誤検出が
-# 多いので、AI に画像で本人らしさを確認させる方が正確。確証性が高い NG(未成年系
-# / 外部リンク / 類似除外 / フォロワー数 等)は引き続き早期スキップする。
-_AI_OVERRIDE_RECHECK_REASON_PREFIXES: tuple[str, ...] = (
+# ローカルルールで弾かれた reason のうち、AI 画像判定にバトンタッチするべき
+# heuristic 系の prefix。uid + テキストだけの判定は誤検出が多いので、AI に画像で
+# 本人らしさを確認させる方が正確。確証性が高い NG(未成年系 / 外部リンク /
+# 類似除外 / フォロワー数 等)は引き続き早期スキップする。
+# 新規候補にも 過去除外 uid の再判定にも同じ集合を適用する。
+_AI_OVERRIDE_LOCAL_REASON_PREFIXES: tuple[str, ...] = (
     "ランダムID",
     "外国語/海外(",
 )
@@ -864,7 +865,7 @@ class TikTokRunner:
             except Exception as e:
                 print(f"[PAST_EXCLUDED_RECHECK_REPAIR_ERROR] account_id={uid} err={str(e)[:120]}", flush=True)
             local_reason = local_skip_reason(candidate, self.cfg.rules)
-            if local_reason and not local_reason.startswith(_AI_OVERRIDE_RECHECK_REASON_PREFIXES):
+            if local_reason and not local_reason.startswith(_AI_OVERRIDE_LOCAL_REASON_PREFIXES):
                 # 確証性が高い NG(未成年 / 外部リンク / 類似除外 等)は AI に振らずに skip。
                 print(f"[PAST_EXCLUDED_RECHECK_SKIP_LOCAL] account_id={uid} reason={local_reason}", flush=True)
                 await self._force_advance_after_skip(page, uid)
@@ -1163,7 +1164,8 @@ class TikTokRunner:
         except Exception as e:
             print(f"profile/hashtag repair error: {str(e)[:120]}", flush=True)
         reason = local_skip_reason(candidate, self.cfg.rules)
-        if reason:
+        if reason and not reason.startswith(_AI_OVERRIDE_LOCAL_REASON_PREFIXES):
+            # 確証性が高い NG(未成年 / 外部リンク / 類似除外 等)は AI に振らずに skip。
             print(f"ローカル除外: {candidate.unique_id} / {reason}", flush=True)
             self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
             self.sheet_seen_ids.add(candidate.unique_id)
@@ -1172,6 +1174,10 @@ class TikTokRunner:
             await self._force_advance_after_skip(page, candidate.unique_id)
             self.sheets.append("skipped", row)
             return True
+        if reason:
+            # heuristic 系("ランダムID/..." "外国語/海外(...)" 等)は uid + テキストだけの
+            # 推定で誤検出が多い。AI に画像で本人らしさを確認させる。
+            print(f"ローカル heuristic hit, AI に判定移譲: {candidate.unique_id} / {reason}", flush=True)
 
         screenshot_path = await self.scraper.screenshot_current(page, candidate.unique_id)
         candidate.screenshot_path = screenshot_path
