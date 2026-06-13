@@ -718,11 +718,15 @@ const isAd = /広告|スポンサー|Sponsored|Promoted|プロモーション|PR
 
 
 
-    async def detect_follower_count_from_feed(self, page, user_id=None):
+    async def detect_follower_count_from_feed(self, page, user_id=None, wait_sec: float = 1.5):
         """
         APIレスポンスキャッシュから、指定user_idに完全一致するフォロワー数だけ返す。
         DOM/hoverの汎用テキストは別アカウント混入の原因になるため使わない。
+
+        cache が空のときは wait_sec 内で 100ms 間隔ポーリングして応答到着を待つ。
+        動画 DOM 出現から API レスポンス到着までラグがあるケースを救う。
         """
+        import asyncio
         try:
             self.attach_follower_response_cache(page)
         except Exception:
@@ -732,20 +736,26 @@ const isAd = /広告|スポンサー|Sponsored|Promoted|プロモーション|PR
         if not uid:
             return None, ""
 
-        try:
-            cache = getattr(page, "_follower_count_cache", {}) or {}
-            if uid in cache:
-                return int(cache[uid]), "feed-api-cache"
-        except Exception:
-            pass
+        deadline = asyncio.get_event_loop().time() + max(0.0, wait_sec)
+        while True:
+            try:
+                cache = getattr(page, "_follower_count_cache", {}) or {}
+                if uid in cache:
+                    return int(cache[uid]), "feed-api-cache"
+            except Exception:
+                pass
+            if asyncio.get_event_loop().time() >= deadline:
+                return None, ""
+            await asyncio.sleep(0.1)
 
-        return None, ""
-
-    async def detect_profile_text_from_feed(self, page, user_id=None):
+    async def detect_profile_text_from_feed(self, page, user_id=None, wait_sec: float = 1.5):
         """
         プロフィールページを開かず、指定user_idに完全一致する紹介文だけ返す。
         DOM上の汎用テキストは別アカウント混入の原因になるため使わない。
+
+        cache が空のときは wait_sec 内で 100ms 間隔ポーリングして応答到着を待つ。
         """
+        import asyncio
         try:
             self.attach_profile_response_cache(page)
         except Exception:
@@ -755,14 +765,17 @@ const isAd = /広告|スポンサー|Sponsored|Promoted|プロモーション|PR
         if not uid:
             return "", ""
 
-        try:
-            cache = getattr(page, "_profile_text_cache", {}) or {}
-            if uid in cache:
-                return str(cache[uid] or ""), "feed-api-cache"
-        except Exception:
-            pass
-
-        return "", ""
+        deadline = asyncio.get_event_loop().time() + max(0.0, wait_sec)
+        while True:
+            try:
+                cache = getattr(page, "_profile_text_cache", {}) or {}
+                if uid in cache:
+                    return str(cache[uid] or ""), "feed-api-cache"
+            except Exception:
+                pass
+            if asyncio.get_event_loop().time() >= deadline:
+                return "", ""
+            await asyncio.sleep(0.1)
 
     async def screenshot_current(self, page: Page, unique_id: str) -> str:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
