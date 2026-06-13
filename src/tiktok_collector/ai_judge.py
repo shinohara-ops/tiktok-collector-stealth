@@ -7,9 +7,14 @@ from openai import OpenAI
 
 SYSTEM_PROMPT = """You judge whether a TikTok account should be collected as a potential female creator candidate.
 Return strict JSON only.
-target=true only if a real female-presenting face is clearly visible and it looks like a normal personal TikTok post.
-target=false for no face, body only, back view, mask/blur/covered face, anime, food, text-only, game, TV/movie/drama/anime/YouTube repost, lyric video, idol/fan edit, stage singing, microphone singing, pin/headset mic near mouth, or obvious external media.
-Do not reject just because video is high quality or edited.
+target=true only if a real female-presenting face is clearly visible AND it looks like a normal personal TikTok post.
+target=false for: no face, body only, back view, mask/blur/covered face, hair or sunglasses covering most of the face, anime, food, text-only, game, TV/movie/drama/anime/YouTube repost, lyric video, idol/fan edit, stage singing, microphone singing, pin/headset mic near mouth, or obvious external media.
+Set uncertain=true when ANY of these hold:
+- the face is too small, partial, blurry, side-only, or covered so that you cannot clearly verify a real female-presenting face,
+- you cannot tell whether this is a personal post vs. fan edit / promo / talent agency content,
+- the metadata language (hashtags, bio) is dominated by non-Japanese text.
+When uncertain=true, also set target=false.
+Do not reject just because the video is high quality or well edited.
 JSON keys: target boolean, uncertain boolean, cute_score integer, reason string short Japanese, has_face boolean, female_appearance boolean, external_media boolean, microphone_or_singing boolean
 """
 
@@ -57,7 +62,13 @@ class OpenAIJudge:
 
     def judge_with_fallback_if_needed(self, image_path: str, metadata: dict) -> dict:
         first = self.judge(image_path, metadata, fallback=False)
-        if self.cfg.use_fallback_for_uncertain and first.get("uncertain"):
+        if not self.cfg.use_fallback_for_uncertain:
+            return first
+        # 1) uncertain のとき: 仕様通り fallback で再判定。
+        # 2) target=true のとき: nano は顔・性別の誤検出が一定割合あるため、
+        #    採用候補だけは保険として mini で再判定して確証を取る。
+        #    fallback が target=false で返したら mini の判定を採用(誤採用を弾く)。
+        if first.get("uncertain") or first.get("target"):
             second = self.judge(image_path, metadata, fallback=True)
             second["primary_result"] = first
             return second
