@@ -100,76 +100,164 @@ async def human_swipe(page: Page) -> dict:
 
 
 async def _find_like_button(page: Page) -> dict | None:
+    """文書全体から visible な like 系要素を収集 → 中央動画のサイドバー位置に
+    最も近いものを選ぶ。古い実装はコンテナ(@リンクを含む親)前提だったが、
+    TikTok の DOM 改修で video とサイドバーが別ブランチに分かれるケースがあり、
+    container=null で button_not_found になっていた。
+    """
     try:
         return await page.evaluate(r"""
         () => {
           const vw = innerWidth, vh = innerHeight;
           const visible = (el) => {
+            if (!el) return false;
             const r = el.getBoundingClientRect();
             const s = getComputedStyle(el);
             return r.width > 16 && r.height > 16 &&
                    s.display !== 'none' && s.visibility !== 'hidden' &&
                    r.bottom > 0 && r.top < vh && r.right > 0 && r.left < vw;
           };
-          const centerDist = (r) => Math.abs((r.left + r.width/2) - vw/2) + Math.abs((r.top + r.height/2) - vh/2);
+          // 中央動画を特定
           const vids = Array.from(document.querySelectorAll('video'))
             .filter(visible)
             .map(v => ({el: v, rect: v.getBoundingClientRect()}))
-            .filter(x => x.rect.width > 120 && x.rect.height > 180)
-            .sort((a, b) => centerDist(a.rect) - centerDist(b.rect));
-          const v = vids[0]?.el || null;
-          if (!v) return null;
-          let container = null;
-          let n = v;
-          for (let i = 0; n && i < 14; i++, n = n.parentElement) {
-            const r = n.getBoundingClientRect();
-            const links = n.querySelectorAll ? n.querySelectorAll('a[href*="/@"]').length : 0;
-            if (r.height > vh * 0.45 && r.width > vw * 0.20 && links > 0) {
-              container = n;
+            .filter(x => x.rect.width > 120 && x.rect.height > 180);
+          if (!vids.length) return null;
+          vids.sort((a, b) => {
+            const dA = Math.abs((a.rect.left + a.rect.width/2) - vw/2) + Math.abs((a.rect.top + a.rect.height/2) - vh/2);
+            const dB = Math.abs((b.rect.left + b.rect.width/2) - vw/2) + Math.abs((b.rect.top + b.rect.height/2) - vh/2);
+            return dA - dB;
+          });
+          const vr = vids[0].rect;
+
+          // セレクタ候補。TikTok の data-e2e / aria-label は世代で表記揺れあり。
+          const selectors = [
+            '[data-e2e="like-icon"]',
+            '[data-e2e="browse-like-icon"]',
+            '[data-e2e*="like-icon"]',
+            'button[aria-label*="いいね" i]',
+            'button[aria-label*="like" i]',
+            'button[aria-label*="赞" i]',
+            '[role="button"][aria-label*="いいね" i]',
+            '[role="button"][aria-label*="like" i]',
+            'span[data-e2e="like-icon"]',
+          ];
+          const candidates = [];
+          for (const sel of selectors) {
+            try {
+              for (const el of document.querySelectorAll(sel)) {
+                if (!visible(el)) continue;
+                candidates.push({el, sel, rect: el.getBoundingClientRect()});
+              }
+            } catch(e) {}
+          }
+          if (!candidates.length) return null;
+
+          // 中央動画の「右サイドバー」位置(For You のレイアウト前提)に最も近いものを優先。
+          // 動画の左側 / 動画から大きく離れたものはコメント欄や別ページの like なのでペナルティ。
+          const targetX = vr.right + 30;
+          const targetY = vr.top + vr.height * 0.55;
+          candidates.forEach(c => {
+            const cx = c.rect.left + c.rect.width / 2;
+            const cy = c.rect.top + c.rect.height / 2;
+            c.score = Math.abs(cx - targetX) + Math.abs(cy - targetY);
+            if (cx < vr.right - 30) c.score += 1000;       // 動画より左 = サイドバー外
+            if (cy < vr.top - 80 || cy > vr.bottom + 80) c.score += 500; // 動画の縦範囲外
+          });
+          candidates.sort((a, b) => a.score - b.score);
+          const best = candidates[0];
+
+          // aria-pressed は要素 or 親 3 階層まで遡って判定(TikTok は入れ子構造を使う)
+          let pressed = null;
+          let n = best.el;
+          for (let i = 0; n && i < 4; i++, n = n.parentElement) {
+            if (!n.getAttribute) continue;
+            const ap = n.getAttribute('aria-pressed');
+            if (ap === 'true' || ap === 'false') {
+              pressed = ap;
               break;
             }
           }
-          if (!container) return null;
-          const sels = [
-            '[data-e2e="like-icon"]',
-            '[data-e2e="browse-like-icon"]',
-            'button[aria-label*="いいね" i]',
-            'button[aria-label*="like" i]',
-            '[aria-pressed][aria-label*="いいね" i]',
-            '[aria-pressed][aria-label*="like" i]',
-          ];
-          for (const sel of sels) {
-            const els = Array.from(container.querySelectorAll(sel)).filter(visible);
-            if (els.length) {
-              const el = els[0];
-              const pressed = el.getAttribute('aria-pressed');
-              if (pressed === 'true') {
-                return {already_liked: true, src: 'sel:'+sel};
-              }
-              let target = el.closest('button') || el;
-              const r = target.getBoundingClientRect();
-              return {
-                x: r.left + r.width/2,
-                y: r.top + r.height/2,
-                src: 'sel:'+sel,
-                already_liked: false,
-              };
-            }
+          if (pressed === 'true') {
+            return {already_liked: true, src: 'sel:' + best.sel};
           }
-          return null;
+
+          // クリック対象: 包む button があればそちらを優先(hit test 安定化)
+          const target = best.el.closest('button') || best.el;
+          const r = target.getBoundingClientRect();
+          const cx = r.left + r.width / 2;
+          const cy = r.top + r.height / 2;
+          // overlay でクリックが阻害されないかを elementFromPoint で確認
+          let top = null;
+          try { top = document.elementFromPoint(cx, cy); } catch(e) {}
+          const clickable = !top || top === target || target.contains(top) ||
+                            (top.contains && top.contains(target));
+          return {
+            x: cx, y: cy,
+            src: 'sel:' + best.sel,
+            already_liked: false,
+            clickable: clickable,
+          };
         }
         """)
     except Exception:
         return None
 
 
+async def _verify_liked(page: Page) -> bool:
+    """中央動画サイドバーの like ボタン aria-pressed=true を確認。クリック直後の
+    UI 反映ラグを許容するため、呼び出し側で軽くリトライする。"""
+    try:
+        return bool(await page.evaluate(r"""
+        () => {
+          const vw = innerWidth, vh = innerHeight;
+          const visible = (el) => {
+            if (!el) return false;
+            const r = el.getBoundingClientRect();
+            const s = getComputedStyle(el);
+            return r.width > 16 && r.height > 16 && s.display !== 'none' && s.visibility !== 'hidden';
+          };
+          const vids = Array.from(document.querySelectorAll('video'))
+            .filter(visible)
+            .map(v => ({el: v, rect: v.getBoundingClientRect()}))
+            .filter(x => x.rect.width > 120 && x.rect.height > 180);
+          if (!vids.length) return false;
+          vids.sort((a, b) => Math.abs(a.rect.left - vw/2) - Math.abs(b.rect.left - vw/2));
+          const vr = vids[0].rect;
+          const sels = [
+            '[data-e2e="like-icon"]',
+            '[data-e2e="browse-like-icon"]',
+            'button[aria-label*="いいね" i]',
+            'button[aria-label*="like" i]',
+          ];
+          for (const sel of sels) {
+            for (const el of document.querySelectorAll(sel)) {
+              if (!visible(el)) continue;
+              const r = el.getBoundingClientRect();
+              if (r.left < vr.right - 30) continue;  // サイドバー以外は無視
+              let n = el;
+              for (let i = 0; n && i < 4; i++, n = n.parentElement) {
+                if (n.getAttribute && n.getAttribute('aria-pressed') === 'true') return true;
+              }
+            }
+          }
+          return false;
+        }
+        """))
+    except Exception:
+        return False
+
+
 async def fire_like(page: Page) -> dict:
-    """中央動画カードの「いいね」を物理クリック。フォロー はしない。"""
+    """中央動画カードの「いいね」を物理クリック。フォロー はしない。
+    クリック後は aria-pressed=true を確認(最大 ~600ms リトライ)。"""
     btn = await _find_like_button(page)
     if not btn:
         return {"ok": False, "reason": "button_not_found"}
     if btn.get("already_liked"):
         return {"ok": False, "reason": "already_liked"}
+    if btn.get("clickable") is False:
+        return {"ok": False, "reason": "button_obscured"}
     try:
         jx = btn["x"] + random.uniform(-3, 3)
         jy = btn["y"] + random.uniform(-3, 3)
@@ -179,6 +267,13 @@ async def fire_like(page: Page) -> dict:
         await asyncio.sleep(random.uniform(0.04, 0.10))
         await page.mouse.up()
         await asyncio.sleep(random.uniform(0.3, 0.6))
-        return {"ok": True, "btn_src": btn.get("src", "")}
     except Exception as e:
         return {"ok": False, "reason": f"click_failed:{e!s:.120}"}
+
+    # クリック後の UI 反映を最大 ~600ms 待つ。失敗しても like 自体は飛んでる可能性が
+    # あるが、verify=False はログ用に明示する。
+    for _ in range(3):
+        if await _verify_liked(page):
+            return {"ok": True, "btn_src": btn.get("src", "")}
+        await asyncio.sleep(0.2)
+    return {"ok": False, "reason": "click_no_verify", "btn_src": btn.get("src", "")}
