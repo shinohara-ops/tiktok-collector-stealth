@@ -1,0 +1,35 @@
+from __future__ import annotations
+
+# 複数人運営アカウント(夫婦/カップル/家族/双子)を bio から検出する。
+# 個人 1 人運営での「育児/ママ/パパ」は除外したくないので、明確に「複数人」を示す
+# 強いキーワードに絞る。「家族」も親子チャンネル等の代表シグナルとして含める。
+_MULTI_PERSON_KEYWORDS: tuple[str, ...] = (
+    "夫婦",
+    "カップル",
+    "双子",
+    "兄弟",
+    "姉妹",
+    "兄妹",
+    "姉弟",
+    "親子",
+    "家族",
+    "2人で",
+    "二人で",
+    "ふたりで",
+    "2人組",
+    "二人組",
+    "家族で",
+    "家族チャンネル",
+    "親子チャンネル",
+    "夫婦チャンネル",
+    "ファミリー",
+)
+
+
+def check(bio: str) -> str | None:
+    if not bio:
+        return None
+    for kw in _MULTI_PERSON_KEYWORDS:
+        if kw in bio:
+            return f"複数人運営アカウント({kw})"
+    return None

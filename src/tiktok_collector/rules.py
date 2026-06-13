@@ -50,6 +50,7 @@ from ._rules_parts import age_foreign_agency as _age_foreign_agency
 from ._rules_parts import category_keywords as _category_keywords
 from ._rules_parts import v5_final_combos as _v5_final_combos
 from ._rules_parts import user_digits_id as _user_digits_id
+from ._rules_parts import multi_person as _multi_person
 
 
 def local_skip_reason(candidate, rules=None) -> str | None:
@@ -372,6 +373,13 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     # → src/tiktok_collector/_rules_parts/user_digits_id.py に抽出済
     # ────────────────────────────────────────────────────────────────
     if (r := _user_digits_id.check(_cs_uid_s)) is not None:
+        return r
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 複数人運営アカウント(夫婦/カップル/家族/双子 等)
+    # → src/tiktok_collector/_rules_parts/multi_person.py に抽出済
+    # ────────────────────────────────────────────────────────────────
+    if (r := _multi_person.check(_cs_bio_s)) is not None:
         return r
 
     # ────────────────────────────────────────────────────────────────
