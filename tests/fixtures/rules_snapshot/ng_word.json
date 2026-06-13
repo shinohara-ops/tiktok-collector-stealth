@@ -1028,17 +1028,6 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
-    "unique_id": "ii_da777",
-    "display_name": "ii_da777",
-    "follower_count": 733,
-    "hashtags": "あいらいふ きゃわぽっぴんどぅー 推しカメラ あいす あいすのことは愛すのみ",
-    "signature": "よっちゃん Eちゃん E田",
-    "profile_url": "https://www.tiktok.com/@ii_da777",
-    "post_url": "",
-    "expected_reason": "NGワード(推し)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
     "unique_id": "kaka_0508",
     "display_name": "kaka_0508",
     "follower_count": 1477,
@@ -1069,28 +1058,6 @@
     "profile_url": "https://www.tiktok.com/@user9800900906618",
     "post_url": "",
     "expected_reason": "NGワード(推して)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
-    "unique_id": "beer_akaboshi_sorachi",
-    "display_name": "beer_akaboshi_sorachi",
-    "follower_count": 94,
-    "hashtags": "浜崎あゆみ あゆ 懐かしい曲 好きな曲",
-    "signature": "飲むこと🍺食べること🍖推し活🩷カラオケ🎤大好き♥️ フォロー＆いいね👍️喜びます🥹 🈲勧誘🈲バトル🈲",
-    "profile_url": "https://www.tiktok.com/@beer_akaboshi_sorachi",
-    "post_url": "",
-    "expected_reason": "NGワード(推し活)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
-    "unique_id": "user9538293961661",
-    "display_name": "user9538293961661",
-    "follower_count": 368,
-    "hashtags": "踊ってみた リクエスト募集中 いれりす",
-    "signature": "推し活してます",
-    "profile_url": "https://www.tiktok.com/@user9538293961661",
-    "post_url": "",
-    "expected_reason": "NGワード(推し活)",
     "expected_model_used": "local:no-screenshot"
   },
   {
@@ -1349,6 +1316,42 @@
     "expected_reason": "ハッシュタグ/プロフィール紹介文空欄",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "NGワード(実況)"
+  },
+  {
+    "unique_id": "ii_da777",
+    "display_name": "ii_da777",
+    "follower_count": 733,
+    "hashtags": "あいらいふ きゃわぽっぴんどぅー 推しカメラ あいす あいすのことは愛すのみ",
+    "signature": "よっちゃん Eちゃん E田",
+    "profile_url": "https://www.tiktok.com/@ii_da777",
+    "post_url": "",
+    "expected_reason": "ファン/応援アカウント(推しカメラ)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(推し)"
+  },
+  {
+    "unique_id": "beer_akaboshi_sorachi",
+    "display_name": "beer_akaboshi_sorachi",
+    "follower_count": 94,
+    "hashtags": "浜崎あゆみ あゆ 懐かしい曲 好きな曲",
+    "signature": "飲むこと🍺食べること🍖推し活🩷カラオケ🎤大好き♥️ フォロー＆いいね👍️喜びます🥹 🈲勧誘🈲バトル🈲",
+    "profile_url": "https://www.tiktok.com/@beer_akaboshi_sorachi",
+    "post_url": "",
+    "expected_reason": "ファン/応援アカウント(推し活)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(推し活)"
+  },
+  {
+    "unique_id": "user9538293961661",
+    "display_name": "user9538293961661",
+    "follower_count": 368,
+    "hashtags": "踊ってみた リクエスト募集中 いれりす",
+    "signature": "推し活してます",
+    "profile_url": "https://www.tiktok.com/@user9538293961661",
+    "post_url": "",
+    "expected_reason": "ファン/応援アカウント(推し活)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(推し活)"
   },
   {
     "unique_id": "peachna.ira",

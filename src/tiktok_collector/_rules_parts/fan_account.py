@@ -20,12 +20,24 @@ _FAN_KEYWORDS: tuple[str, ...] = (
     "現場担当",
 )
 
+# タグでのみマッチさせる(タグの大文字小文字を無視)。bio に英単語として
+# 出てしまうものはここに置く。
+_FAN_TAG_ONLY_KEYWORDS: tuple[str, ...] = (
+    "ilife",  # 芸能事務所 iLiFE 所属タレントのファン/関係者タグ
+)
+
 
 def check(bio: str, tags: str) -> str | None:
     text = (bio or "") + " " + (tags or "")
-    if not text.strip():
-        return None
-    for kw in _FAN_KEYWORDS:
-        if kw in text:
-            return f"ファン/応援アカウント({kw})"
+    if text.strip():
+        for kw in _FAN_KEYWORDS:
+            if kw in text:
+                return f"ファン/応援アカウント({kw})"
+
+    if tags:
+        tags_lower = tags.lower()
+        for kw in _FAN_TAG_ONLY_KEYWORDS:
+            if kw in tags_lower:
+                return f"ファン/応援アカウント(タグ:{kw})"
+
     return None

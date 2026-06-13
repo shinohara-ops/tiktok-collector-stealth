@@ -192,6 +192,15 @@ def local_skip_reason(candidate, rules=None) -> str | None:
 
 
     # ────────────────────────────────────────────────────────────────
+    # SECTION: アイドル/タレントのファン・応援アカウント
+    # → src/tiktok_collector/_rules_parts/fan_account.py に抽出済
+    # `colored_leak_v2` の「ランダムID/海外・量産寄り」より先に置く必要がある。
+    # 後ろに置くと AI override 経由で nano が顔だけ見て採用してしまう。
+    # ────────────────────────────────────────────────────────────────
+    if (r := _fan_account.check(_cs_bio_s, _cs_tags)) is not None:
+        return r
+
+    # ────────────────────────────────────────────────────────────────
     # SECTION: 汎用 色付き除外 v2(リンク/未成年/外国語/ランダムID/fyp/中文/反復ASCII)
     # → src/tiktok_collector/_rules_parts/colored_leak_v2.py に抽出済
     # ────────────────────────────────────────────────────────────────
@@ -381,13 +390,6 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     # → src/tiktok_collector/_rules_parts/multi_person.py に抽出済
     # ────────────────────────────────────────────────────────────────
     if (r := _multi_person.check(_cs_bio_s)) is not None:
-        return r
-
-    # ────────────────────────────────────────────────────────────────
-    # SECTION: アイドル/タレントのファン・応援アカウント
-    # → src/tiktok_collector/_rules_parts/fan_account.py に抽出済
-    # ────────────────────────────────────────────────────────────────
-    if (r := _fan_account.check(_cs_bio_s, _cs_tags)) is not None:
         return r
 
     # ────────────────────────────────────────────────────────────────

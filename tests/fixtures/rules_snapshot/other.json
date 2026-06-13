@@ -120,6 +120,18 @@
     "sheet_logged_reason": "フォロワー数NG(2463)"
   },
   {
+    "unique_id": "na____nn258",
+    "display_name": "na____nn258",
+    "follower_count": 8545,
+    "hashtags": "ガンバッテンダー iLiFE アイライファー 踊ってみた アイドル",
+    "signature": "💌",
+    "profile_url": "https://www.tiktok.com/@na____nn258",
+    "post_url": "",
+    "expected_reason": "ファン/応援アカウント(タグ:ilife)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "フォロワー数NG(8545)"
+  },
+  {
     "unique_id": "amirkskd",
     "display_name": "amirkskd",
     "follower_count": 10400,
@@ -1382,17 +1394,6 @@
     "profile_url": "https://www.tiktok.com/@leoieiri_official",
     "post_url": "",
     "expected_reason": "フォロワー数NG(82300)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
-    "unique_id": "na____nn258",
-    "display_name": "na____nn258",
-    "follower_count": 8545,
-    "hashtags": "ガンバッテンダー iLiFE アイライファー 踊ってみた アイドル",
-    "signature": "💌",
-    "profile_url": "https://www.tiktok.com/@na____nn258",
-    "post_url": "",
-    "expected_reason": "フォロワー数NG(8545)",
     "expected_model_used": "local:no-screenshot"
   },
   {
