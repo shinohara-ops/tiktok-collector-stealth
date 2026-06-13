@@ -16,9 +16,14 @@ from ._stealth import STEALTH_INIT_JS, fire_like as _stealth_fire_like
 # 本人らしさを確認させる方が正確。確証性が高い NG(未成年系 / 外部リンク /
 # 類似除外 / フォロワー数 等)は引き続き早期スキップする。
 # 新規候補にも 過去除外 uid の再判定にも同じ集合を適用する。
+#
+# 「外国語/海外(...)」も以前は AI override 対象に含めていたが、明確な非日本語タグ
+# 中心のアカウント(インドネシア/トルコ/英語 etc)を AI が救出してしまうケースが
+# 多発したため、override 対象から外して早期 skip に戻した。
+# uid heuristic(`ランダムID/...`)は日本人の数字サフィックス命名で誤発火するため
+# AI 確認を継続する。
 _AI_OVERRIDE_LOCAL_REASON_PREFIXES: tuple[str, ...] = (
     "ランダムID",
-    "外国語/海外(",
 )
 
 
