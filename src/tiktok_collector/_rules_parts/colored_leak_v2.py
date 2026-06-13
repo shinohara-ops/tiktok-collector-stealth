@@ -58,6 +58,12 @@ _EXTERNAL_LINKS: list[str] = [
     "facebook.com", "mibextid",
     "onlyfans", "ofans", "fansly",
     "beacons.ai", "linktr.ee",
+    # 個人ランディングページ系(他プラットフォーム誘導の温床)。
+    # 海外個人クリエイターが Instagram/OnlyFans 等への動線として常用する。
+    "carrd.co",
+    "bento.me",
+    "bio.link",
+    "linkin.bio",
 ]
 
 _CN_PHRASES: list[str] = [
