@@ -841,6 +841,21 @@ class TikTokRunner:
                 profile_text = pt_result[0] or ""
                 profile_source = pt_result[1] if len(pt_result) > 1 and pt_result[1] else ""
 
+            # キャッシュで取れなかった分は hover ポップオーバーで補完。
+            # 取得済みの分は上書きしない。
+            if follower_count is None or not profile_text:
+                try:
+                    hover_data = await self.scraper.enrich_via_hover(page, uid)
+                except Exception as e:
+                    print(f"[PAST_EXCLUDED_RECHECK_HOVER_ERROR] account_id={uid} err={str(e)[:120]}", flush=True)
+                    hover_data = {"follower_count": None, "bio": ""}
+                if follower_count is None and hover_data.get("follower_count") is not None:
+                    follower_count = int(hover_data["follower_count"])
+                    follower_source = "hover-popover"
+                if not profile_text and hover_data.get("bio"):
+                    profile_text = hover_data["bio"]
+                    profile_source = "hover-popover"
+
             try:
                 object.__setattr__(candidate, "follower_count", follower_count if follower_count is not None else "")
                 object.__setattr__(candidate, "follower_source", follower_source or "")
@@ -1077,6 +1092,27 @@ class TikTokRunner:
 
             profile_text, profile_source = "", ""
 
+
+        # キャッシュで follower / profile_text が取れなかったときは @uid を hover して
+        # ポップオーバーから補完する。Sheets の「おすすめ」記入時にこれらの列が空欄に
+        # なる現象を防ぐ。取得済みの値は上書きしない。
+        if follower_count is None or not profile_text:
+            try:
+                hover_data = await self.scraper.enrich_via_hover(page, candidate.unique_id)
+            except Exception as e:
+                print(f"hover補完エラー: {candidate.unique_id} / {str(e)[:120]}", flush=True)
+                hover_data = {"follower_count": None, "bio": ""}
+            if follower_count is None and hover_data.get("follower_count") is not None:
+                follower_count = int(hover_data["follower_count"])
+                follower_source = "hover-popover"
+                try:
+                    object.__setattr__(candidate, "follower_count", follower_count)
+                    object.__setattr__(candidate, "follower_source", follower_source)
+                except Exception:
+                    pass
+            if not profile_text and hover_data.get("bio"):
+                profile_text = hover_data["bio"]
+                profile_source = "hover-popover"
 
 
         if profile_text:

@@ -777,6 +777,210 @@ const isAd = /広告|スポンサー|Sponsored|Promoted|プロモーション|PR
                 return "", ""
             await asyncio.sleep(0.1)
 
+    async def enrich_via_hover(self, page, user_id: str, hover_wait_sec: float = 1.5) -> dict:
+        """@uid のリンクを hover して、ポップオーバーから follower/bio を抽出する。
+        API レスポンスキャッシュが空のときのフォールバック経路。
+
+        手順:
+          1. 中央動画の近くにある `/@uid` リンクを位置スコアで特定
+          2. mouse.move で hover(クリックはしない)
+          3. ポップオーバー出現を 1.5 秒待つ
+          4. hover で誘発された API レスポンスが cache に乗っていればそれを採用
+          5. cache にもないときはポップオーバー DOM から regex で抽出
+          6. マウスを動画外に戻して popover を閉じる
+          7. 取得できた値は cache にも書き戻して再利用可能にする
+
+        Returns: {"follower_count": int|None, "bio": str}
+        """
+        import asyncio
+        uid_clean = str(user_id or "").replace("@", "").strip()
+        result = {"follower_count": None, "bio": ""}
+        if not uid_clean:
+            return result
+
+        # 1. @uid リンクの位置を特定
+        try:
+            link_pos = await page.evaluate(
+                """(uid) => {
+                  const visible = (el) => {
+                    if (!el) return false;
+                    const r = el.getBoundingClientRect();
+                    const s = getComputedStyle(el);
+                    return r.width > 16 && r.height > 16 &&
+                           s.display !== 'none' && s.visibility !== 'hidden' &&
+                           r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
+                  };
+                  const vids = Array.from(document.querySelectorAll('video'))
+                    .filter(visible)
+                    .map(v => ({el: v, rect: v.getBoundingClientRect()}))
+                    .filter(x => x.rect.width > 120 && x.rect.height > 180);
+                  if (!vids.length) return null;
+                  vids.sort((a, b) => {
+                    const dA = Math.abs((a.rect.left + a.rect.width/2) - innerWidth/2);
+                    const dB = Math.abs((b.rect.left + b.rect.width/2) - innerWidth/2);
+                    return dA - dB;
+                  });
+                  const vr = vids[0].rect;
+                  const links = Array.from(document.querySelectorAll('a[href*="/@' + uid + '"]')).filter(visible);
+                  if (!links.length) return null;
+                  links.sort((a, b) => {
+                    const ra = a.getBoundingClientRect();
+                    const rb = b.getBoundingClientRect();
+                    const da = Math.hypot(
+                      (ra.left + ra.width/2) - (vr.left + vr.width/2),
+                      (ra.top + ra.height/2) - (vr.top + vr.height/2)
+                    );
+                    const db = Math.hypot(
+                      (rb.left + rb.width/2) - (vr.left + vr.width/2),
+                      (rb.top + rb.height/2) - (vr.top + vr.height/2)
+                    );
+                    return da - db;
+                  });
+                  const link = links[0];
+                  const r = link.getBoundingClientRect();
+                  return { x: r.left + r.width/2, y: r.top + r.height/2 };
+                }""",
+                uid_clean,
+            )
+        except Exception:
+            return result
+        if not link_pos:
+            return result
+
+        # 2. hover
+        try:
+            await page.mouse.move(link_pos["x"], link_pos["y"], steps=8)
+        except Exception:
+            return result
+
+        # 3. popover 出現待ち
+        await asyncio.sleep(max(0.0, hover_wait_sec))
+
+        # 4. hover で発火した API レスポンスが cache に届いているかも
+        fc_from_cache = None
+        bio_from_cache = ""
+        try:
+            fc_cache = getattr(page, "_follower_count_cache", {}) or {}
+            if uid_clean in fc_cache:
+                fc_from_cache = int(fc_cache[uid_clean])
+        except Exception:
+            pass
+        try:
+            pt_cache = getattr(page, "_profile_text_cache", {}) or {}
+            if uid_clean in pt_cache:
+                bio_from_cache = str(pt_cache[uid_clean] or "")
+        except Exception:
+            pass
+
+        # 5. DOM ポップオーバーから抽出
+        dom_data = {"follower_count": None, "bio": ""}
+        try:
+            dom_data = await page.evaluate(
+                r"""() => {
+                  const visible = (el) => {
+                    if (!el) return false;
+                    const r = el.getBoundingClientRect();
+                    const s = getComputedStyle(el);
+                    return r.width > 50 && r.height > 30 &&
+                           s.display !== 'none' && s.visibility !== 'hidden';
+                  };
+                  // 1) 既知の data-e2e セレクタを試す
+                  let popover = null;
+                  const sels = [
+                    '[data-e2e="user-card"]',
+                    '[data-e2e="user-card-popup"]',
+                    '[data-e2e="profile-card"]',
+                    '[data-e2e*="user-card"]',
+                    '[data-e2e*="profile-card"]',
+                  ];
+                  for (const sel of sels) {
+                    for (const el of document.querySelectorAll(sel)) {
+                      if (visible(el)) { popover = el; break; }
+                    }
+                    if (popover) break;
+                  }
+                  // 2) フォールバック: position:absolute/fixed で、フォロワー文字を含むサイズ
+                  //    妥当な要素を popover とみなす
+                  if (!popover) {
+                    const all = Array.from(document.querySelectorAll('div'));
+                    for (const el of all) {
+                      if (!visible(el)) continue;
+                      const s = getComputedStyle(el);
+                      if (s.position !== 'absolute' && s.position !== 'fixed') continue;
+                      const r = el.getBoundingClientRect();
+                      if (r.width < 200 || r.width > 800) continue;
+                      if (r.height < 80 || r.height > 600) continue;
+                      const t = (el.textContent || '').slice(0, 600);
+                      if (!/(フォロワー|Followers?)/.test(t)) continue;
+                      // 動画 / メインフィードを誤検出しないように
+                      if (el.querySelectorAll('video').length > 0) continue;
+                      popover = el;
+                      break;
+                    }
+                  }
+                  if (!popover) return { follower_count: null, bio: '' };
+
+                  const popText = (popover.innerText || popover.textContent || '').trim();
+
+                  // フォロワー数 parse: "1,234 フォロワー" "1.2万 フォロワー" "1.5K Followers" 等
+                  let follower_count = null;
+                  const fmatch = popText.match(/([\d,，.]+)\s*([万KkMm億]?)\s*(?:フォロワー|Followers?)/);
+                  if (fmatch) {
+                    let num = parseFloat(fmatch[1].replace(/[,，]/g, ''));
+                    const unit = fmatch[2] || '';
+                    if (unit === '万') num *= 10000;
+                    else if (unit === '億') num *= 100000000;
+                    else if (unit.toLowerCase() === 'k') num *= 1000;
+                    else if (unit.toLowerCase() === 'm') num *= 1000000;
+                    if (!isNaN(num)) follower_count = Math.round(num);
+                  }
+
+                  // bio: stats ラベルを含まない、最長の素テキスト要素
+                  let bio = '';
+                  const cands = Array.from(popover.querySelectorAll('p, h2, h3, div, span'));
+                  for (const el of cands) {
+                    const t = (el.textContent || '').trim();
+                    if (!t || t.length < 5 || t.length > 400) continue;
+                    if (/フォロワー|Followers?|Following|フォロー中|いいね|Likes/.test(t)) continue;
+                    if (t.startsWith('@')) continue;
+                    if (t.length > bio.length) bio = t;
+                  }
+                  return { follower_count, bio };
+                }"""
+            )
+        except Exception:
+            pass
+
+        # 6. マウスを動画から外して popover を閉じる
+        try:
+            await page.mouse.move(50, 50, steps=4)
+        except Exception:
+            pass
+
+        # 7. cache 値と DOM 値をマージ(cache 値があれば優先、無ければ DOM 値)
+        final_fc = fc_from_cache if fc_from_cache is not None else dom_data.get("follower_count")
+        final_bio = bio_from_cache or dom_data.get("bio") or ""
+
+        # 取得できたものは cache にも書き戻して、後段の repair 等で再利用可能に
+        if final_fc is not None:
+            try:
+                cache = getattr(page, "_follower_count_cache", {}) or {}
+                cache[uid_clean] = int(final_fc)
+                setattr(page, "_follower_count_cache", cache)
+            except Exception:
+                pass
+        if final_bio:
+            try:
+                cache = getattr(page, "_profile_text_cache", {}) or {}
+                cache[uid_clean] = final_bio
+                setattr(page, "_profile_text_cache", cache)
+            except Exception:
+                pass
+
+        result["follower_count"] = int(final_fc) if final_fc is not None else None
+        result["bio"] = final_bio
+        return result
+
     async def screenshot_current(self, page: Page, unique_id: str) -> str:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         path = self.screenshot_dir / f"{ts}_{unique_id}.jpg"
