@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 import traceback
+from pathlib import Path
 from src.tiktok_collector.config import load_config
 from src.tiktok_collector.db import CollectorDB
 from src.tiktok_collector.sheets import SheetsClient
@@ -11,7 +13,12 @@ from src.tiktok_collector.runner import TikTokRunner
 from src.tiktok_collector import rules as rules_module
 
 
-async def main():
+# data/RESTART_CHROME が touch されていたら exit code 77 を返す。
+# 4_overnight_run.command がこの code を見て Chrome 全再起動 + main.py 再開する。
+_EXIT_RESTART_CHROME = 77
+
+
+async def main() -> int:
     print("=== TikTok Collector 起動準備 ===", flush=True)
     try:
         print("1/6 config.yaml 読み込み中...", flush=True)
@@ -59,7 +66,17 @@ async def main():
         print("\n--- 詳細 ---", flush=True)
         traceback.print_exc()
         print("\n上のエラー文をスクショで送ってください。", flush=True)
+        return 1
+
+    restart_flag = Path("data/RESTART_CHROME")
+    if restart_flag.exists():
+        try:
+            restart_flag.unlink()
+        except FileNotFoundError:
+            pass
+        return _EXIT_RESTART_CHROME
+    return 0
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    sys.exit(asyncio.run(main()))

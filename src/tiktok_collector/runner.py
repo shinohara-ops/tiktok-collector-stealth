@@ -356,10 +356,11 @@ class TikTokRunner:
         self._liked_uids: set[str] = set()
         # 過去採用 uid マップ refresh 用
         self._uid_map_last_refresh_ts = 0.0
-        # フィード詰まり検出(同じ uid 連続)+ Chrome reload による復帰
+        # フィード詰まり検出(同じ uid N 連続) → data/RESTART_CHROME を touch して
+        # main.py に exit code 77 を返させる。Chrome 全再起動 + ループ再開は
+        # 4_overnight_run.command(ラッパー)が担当する。
         self._last_seen_uid = ""
         self._same_uid_streak = 0
-        self._reload_count = 0
         # 過去除外 uid の再判定は 1 セッション 1 uid 1 回だけ。
         # 既処理が増えてくると同じ uid が何度も流れてくるので、毎回 AI 叩くと
         # コストが爆発するうえに、結局再除外で時間を浪費するだけになる。
@@ -402,6 +403,9 @@ class TikTokRunner:
             Path("data/STOP_REQUESTED").unlink()
         except FileNotFoundError:
             pass
+
+    def _restart_chrome_requested(self) -> bool:
+        return Path("data/RESTART_CHROME").exists()
 
     async def _watch_target_video(self, page):
         """採用(target=True)した動画は **最後まで** 視聴する。
@@ -550,6 +554,12 @@ class TikTokRunner:
                     print("安全停止要求を検知しました。停止します。", flush=True)
                     self.notifier.send("TikTok Collector 安全停止")
                     self._clear_stop_requested()
+                    break
+
+                if self._restart_chrome_requested():
+                    # ファイルは main.py 側で消費・削除し exit code 77 を返す。
+                    # ここでは while ループを抜けるだけ。
+                    print("Chrome 全再起動要求を検知しました。終了します。", flush=True)
                     break
 
                 if self.processed_count % self.cfg.rate.rest_every_n_posts == 0:
@@ -997,8 +1007,10 @@ class TikTokRunner:
             self.db.event("warn", "candidate取得失敗")
             return False
 
-        # === stealth: 同じ uid に連続で当たったら Chrome を reload して復帰 ===
-        # Wi-Fi 不調や TikTok 側の一時的な固まりで先に進まないケースを自動回復する。
+        # === stealth: 同じ uid に N 連続で当たったら Chrome を全再起動 ===
+        # ラッパー(4_overnight_run.command)が data/RESTART_CHROME を見て
+        # Chrome を kill → 1_launch_chrome.command で起動 → main.py 再開する。
+        # 上限なし。ユーザーが Ctrl+C しない限り無限ループ。
         if candidate.unique_id and candidate.unique_id == self._last_seen_uid:
             self._same_uid_streak += 1
         else:
@@ -1006,30 +1018,15 @@ class TikTokRunner:
         self._last_seen_uid = candidate.unique_id or ""
 
         algo_st = getattr(self.cfg, "algorithm_stealth", None)
-        stuck_threshold = int(getattr(algo_st, "stuck_reload_threshold", 3) or 3)
-        max_reloads = int(getattr(algo_st, "stuck_max_reloads", 6) or 6)
+        stuck_threshold = int(getattr(algo_st, "stuck_full_restart_threshold", 10) or 10)
         if self._same_uid_streak >= stuck_threshold:
-            self._reload_count += 1
-            if self._reload_count > max_reloads:
-                msg = f"フィード詰まりが{max_reloads}回続いたため停止 (最終 uid={candidate.unique_id})"
-                print(msg, flush=True)
-                self.notifier.send(msg)
-                Path("data/STOP_REQUESTED").touch()
-                return True
             print(
-                f"フィード詰まり検出: uid={candidate.unique_id} streak={self._same_uid_streak}"
-                f" → page.reload() #{self._reload_count}",
+                f"フィード詰まり検出: 同じ uid {stuck_threshold} 連続 → Chrome 全再起動を要求 "
+                f"(uid={candidate.unique_id})",
                 flush=True,
             )
-            self.db.event("info", f"page.reload (stuck on {candidate.unique_id})")
-            try:
-                await page.reload(wait_until="domcontentloaded", timeout=30000)
-            except Exception as e:
-                print(f"page.reload エラー: {str(e)[:160]}", flush=True)
-            await asyncio.sleep(self.cfg.browser.startup_wait_sec)
-            self._same_uid_streak = 0
-            self._last_seen_uid = ""
-            # reload で DOM が完全に切り替わったので追加スワイプは不要
+            self.db.event("info", f"restart_chrome (stuck on {candidate.unique_id})")
+            Path("data/RESTART_CHROME").touch()
             return True
 
         processed = self.db.get(candidate.unique_id)

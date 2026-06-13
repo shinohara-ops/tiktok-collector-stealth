@@ -119,7 +119,7 @@ algorithm_stealth:
   like_min_interval_sec: 90
   # 過去採用 uid マップを Sheets から再取得する間隔(秒)。複数PC運用時、他PCの追記を取り込む。
   uid_map_refresh_sec: 600
-  # 同じ uid が N 回連続で出てきたら Chrome を reload して復帰させる(Wi-Fi 不調・TikTok 側固まり対策)
-  stuck_reload_threshold: 3
-  # 1 セッションで reload する最大回数。これを超えたら停止する。
-  stuck_max_reloads: 6
+  # 同じ uid が N 回連続で出てきたら data/RESTART_CHROME を touch し、
+  # main.py を exit code 77 で終了させる。4_overnight_run.command が
+  # Chrome 全 kill → 再起動 → main.py 再開を上限なしでループ。
+  stuck_full_restart_threshold: 10

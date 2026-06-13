@@ -27,8 +27,34 @@ fi
 # Sheets の B列にこの名前が入る。複数 PC で運用するときは PC ごとに別名にする。
 # .collector_name が既にあっても起動時に毎回確認プロンプトを出して、変更したいときは
 # その場で書き換えられる(.max_followers と同じパターン)。
+# TIKTOK_NONINTERACTIVE=1 のときは対話入力をスキップして .collector_name /
+# .min_followers / .max_followers をそのまま使う(4_overnight_run.command 用)。
 if [ -z "$TIKTOK_COLLECTOR_NAME" ] && [ -f ".collector_name" ]; then
   TIKTOK_COLLECTOR_NAME="$(head -n 1 .collector_name | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+fi
+
+if [ "$TIKTOK_NONINTERACTIVE" = "1" ]; then
+  if [ -z "$TIKTOK_COLLECTOR_NAME" ]; then
+    echo "TIKTOK_NONINTERACTIVE=1 ですが記入者名が未設定です(.collector_name 無し)。"
+    echo "先に対話モードで一度起動して .collector_name を作ってください。"
+    exit 1
+  fi
+  if [ -z "$TIKTOK_MIN_FOLLOWERS" ] && [ -f ".min_followers" ]; then
+    TIKTOK_MIN_FOLLOWERS="$(head -n 1 .min_followers | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+  fi
+  if [ -z "$TIKTOK_MIN_FOLLOWERS" ]; then TIKTOK_MIN_FOLLOWERS="0"; fi
+  if [ -z "$TIKTOK_MAX_FOLLOWERS" ] && [ -f ".max_followers" ]; then
+    TIKTOK_MAX_FOLLOWERS="$(head -n 1 .max_followers | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+  fi
+  if [ -z "$TIKTOK_MAX_FOLLOWERS" ]; then TIKTOK_MAX_FOLLOWERS="2000"; fi
+  export TIKTOK_COLLECTOR_NAME TIKTOK_MIN_FOLLOWERS TIKTOK_MAX_FOLLOWERS
+  echo ""
+  echo "=== TikTokCollectorStealth 本体起動(非対話モード)==="
+  echo "記入者名: $TIKTOK_COLLECTOR_NAME"
+  echo "抽出条件: フォロワー数 ${TIKTOK_MIN_FOLLOWERS} 以上 ${TIKTOK_MAX_FOLLOWERS} 未満"
+  echo ""
+  python3 main.py
+  exit $?
 fi
 
 echo ""
