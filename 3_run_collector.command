@@ -113,40 +113,42 @@ fi
 
 echo ""
 echo "現在のフォロワー数しきい値: ${CURRENT_MIN} 以上 ${CURRENT_MAX} 未満を抽出対象"
-printf "下限を変更する場合は新しい値を入力(そのままなら Enter)> "
-read -r NEW_MIN
-NEW_MIN="$(echo "$NEW_MIN" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-if [ -n "$NEW_MIN" ]; then
-  case "$NEW_MIN" in
-    ''|*[!0-9]*)
-      echo "数値ではないため中断します: $NEW_MIN"
-      exit 1
-      ;;
-  esac
-  TIKTOK_MIN_FOLLOWERS="$NEW_MIN"
-  printf "%s\n" "$NEW_MIN" > .min_followers
-  echo "→ .min_followers に保存しました(次回からはこの値が初期値になります)"
-else
-  TIKTOK_MIN_FOLLOWERS="$CURRENT_MIN"
-fi
-export TIKTOK_MIN_FOLLOWERS
+echo "変更する場合の入力例: 10以上2500未満 / 10-2500 / 10 2500 / 2500(上限のみ)"
+printf "変更する場合は新しい値を入力(そのままなら Enter)> "
+read -r NEW_RANGE
+NEW_RANGE="$(echo "$NEW_RANGE" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
 
-printf "上限を変更する場合は新しい値を入力(そのままなら Enter)> "
-read -r NEW_MAX
-NEW_MAX="$(echo "$NEW_MAX" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-if [ -n "$NEW_MAX" ]; then
-  case "$NEW_MAX" in
-    ''|*[!0-9]*)
-      echo "数値ではないため中断します: $NEW_MAX"
+TIKTOK_MIN_FOLLOWERS="$CURRENT_MIN"
+TIKTOK_MAX_FOLLOWERS="$CURRENT_MAX"
+
+if [ -n "$NEW_RANGE" ]; then
+  # 入力文字列から数字を全部抽出する。`10以上2500未満` → "10" "2500"。
+  NUMS=()
+  for n in $(echo "$NEW_RANGE" | grep -oE '[0-9]+'); do
+    NUMS+=("$n")
+  done
+  case "${#NUMS[@]}" in
+    2)
+      TIKTOK_MIN_FOLLOWERS="${NUMS[0]}"
+      TIKTOK_MAX_FOLLOWERS="${NUMS[1]}"
+      printf "%s\n" "$TIKTOK_MIN_FOLLOWERS" > .min_followers
+      printf "%s\n" "$TIKTOK_MAX_FOLLOWERS" > .max_followers
+      echo "→ .min_followers / .max_followers に保存しました"
+      ;;
+    1)
+      # 数字が 1 個だけ:文脈なら上限とみなす(下限は現状値維持)。
+      TIKTOK_MAX_FOLLOWERS="${NUMS[0]}"
+      printf "%s\n" "$TIKTOK_MAX_FOLLOWERS" > .max_followers
+      echo "→ .max_followers のみ更新しました(下限は ${TIKTOK_MIN_FOLLOWERS} のまま)"
+      ;;
+    *)
+      echo "数値を 1〜2 個含めて入力してください。中断します: $NEW_RANGE"
       exit 1
       ;;
   esac
-  TIKTOK_MAX_FOLLOWERS="$NEW_MAX"
-  printf "%s\n" "$NEW_MAX" > .max_followers
-  echo "→ .max_followers に保存しました(次回からはこの値が初期値になります)"
-else
-  TIKTOK_MAX_FOLLOWERS="$CURRENT_MAX"
 fi
+
+export TIKTOK_MIN_FOLLOWERS
 export TIKTOK_MAX_FOLLOWERS
 
 if [ "$TIKTOK_MIN_FOLLOWERS" -ge "$TIKTOK_MAX_FOLLOWERS" ] 2>/dev/null; then
