@@ -51,6 +51,7 @@ from ._rules_parts import category_keywords as _category_keywords
 from ._rules_parts import v5_final_combos as _v5_final_combos
 from ._rules_parts import user_digits_id as _user_digits_id
 from ._rules_parts import multi_person as _multi_person
+from ._rules_parts import fan_account as _fan_account
 
 
 def local_skip_reason(candidate, rules=None) -> str | None:
@@ -380,6 +381,13 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     # → src/tiktok_collector/_rules_parts/multi_person.py に抽出済
     # ────────────────────────────────────────────────────────────────
     if (r := _multi_person.check(_cs_bio_s)) is not None:
+        return r
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: アイドル/タレントのファン・応援アカウント
+    # → src/tiktok_collector/_rules_parts/fan_account.py に抽出済
+    # ────────────────────────────────────────────────────────────────
+    if (r := _fan_account.check(_cs_bio_s, _cs_tags)) is not None:
         return r
 
     # ────────────────────────────────────────────────────────────────
