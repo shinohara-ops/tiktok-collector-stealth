@@ -1630,6 +1630,18 @@
     "sheet_logged_reason": "NGワード(ライブ配信)"
   },
   {
+    "unique_id": "mad..gaming",
+    "display_name": "mad..gaming",
+    "follower_count": 210500,
+    "hashtags": "PUBGMOBILE pubgmnextstarprogram PUBGMS29 pubgmwow",
+    "signature": "Staff at PUBG MOBILE MENA • Next Star Program Supervision • لايف يوميا 9 م مصر",
+    "profile_url": "https://www.tiktok.com/@mad..gaming",
+    "post_url": "",
+    "expected_reason": "外国語/海外(アラビア文字)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "外国語/海外(非日本語文字種)"
+  },
+  {
     "unique_id": "iam_bigboss.ss",
     "display_name": "iam_bigboss.ss",
     "follower_count": 329800,
@@ -1748,18 +1760,6 @@
     "expected_reason": "外国語/海外(英語文章Bio)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "NGワード(13歳)"
-  },
-  {
-    "unique_id": "mad..gaming",
-    "display_name": "mad..gaming",
-    "follower_count": 210500,
-    "hashtags": "PUBGMOBILE pubgmnextstarprogram PUBGMS29 pubgmwow",
-    "signature": "Staff at PUBG MOBILE MENA • Next Star Program Supervision • لايف يوميا 9 م مصر",
-    "profile_url": "https://www.tiktok.com/@mad..gaming",
-    "post_url": "",
-    "expected_reason": "外国語/海外(非日本語文字種)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "NGワード(gaming)"
   },
   {
     "unique_id": "bagusssss234",

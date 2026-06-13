@@ -52,6 +52,7 @@ from ._rules_parts import v5_final_combos as _v5_final_combos
 from ._rules_parts import user_digits_id as _user_digits_id
 from ._rules_parts import multi_person as _multi_person
 from ._rules_parts import fan_account as _fan_account
+from ._rules_parts import foreign_script_chars as _foreign_script_chars
 
 
 def local_skip_reason(candidate, rules=None) -> str | None:
@@ -198,6 +199,14 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     # 後ろに置くと AI override 経由で nano が顔だけ見て採用してしまう。
     # ────────────────────────────────────────────────────────────────
     if (r := _fan_account.check(_cs_bio_s, _cs_tags)) is not None:
+        return r
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 非日本語スクリプト文字種判定(キリル/アラビア/タイ/トルコ)
+    # → src/tiktok_collector/_rules_parts/foreign_script_chars.py に抽出済
+    # 「ランダムID」より先に呼ぶ(AI override で救出されるのを防ぐ)。
+    # ────────────────────────────────────────────────────────────────
+    if (r := _foreign_script_chars.check(_cs_uid_s, _cs_name_s, _cs_bio_s, _cs_tags)) is not None:
         return r
 
     # ────────────────────────────────────────────────────────────────
