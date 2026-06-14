@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import random
 import time
+from datetime import datetime
 from pathlib import Path
 from collections import deque
 from playwright.async_api import async_playwright
@@ -1117,12 +1119,13 @@ class TikTokRunner:
         # キャッシュで follower / profile_text が取れなかったときは @uid を hover して
         # ポップオーバーから補完する。Sheets の「おすすめ」記入時にこれらの列が空欄に
         # なる現象を防ぐ。取得済みの値は上書きしない。
+        hover_data = None
         if follower_count is None or not profile_text:
             try:
                 hover_data = await self.scraper.enrich_via_hover(page, candidate.unique_id)
             except Exception as e:
                 print(f"hover補完エラー: {candidate.unique_id} / {str(e)[:120]}", flush=True)
-                hover_data = {"follower_count": None, "bio": ""}
+                hover_data = {"follower_count": None, "bio": "", "skip_reason": "hover_exception", "popover_source": None}
             if follower_count is None and hover_data.get("follower_count") is not None:
                 follower_count = int(hover_data["follower_count"])
                 follower_source = "hover-popover"
@@ -1134,6 +1137,27 @@ class TikTokRunner:
             if not profile_text and hover_data.get("bio"):
                 profile_text = hover_data["bio"]
                 profile_source = "hover-popover"
+
+        # fc 取得経路を JSONL に永続化。失敗の偏り(no_anchor / no_fc_in_popover /
+        # hover_exception 等)を朝に集計できれば、どこを直すべきかが見える。
+        try:
+            acq = {
+                "ts": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+                "uid": candidate.unique_id,
+                "feed_cache_hit": follower_source == "feed-api-cache" and follower_count is not None,
+                "hover_attempted": hover_data is not None,
+                "hover_skip_reason": (hover_data or {}).get("skip_reason"),
+                "hover_source": (hover_data or {}).get("popover_source"),
+                "final_fc": follower_count if isinstance(follower_count, int) else None,
+                "final_source": follower_source or None,
+                "profile_source": profile_source or None,
+                "bio_len": len(profile_text or ""),
+            }
+            Path("data").mkdir(parents=True, exist_ok=True)
+            with Path("data/fc_acquisition.jsonl").open("a", encoding="utf-8") as _f:
+                _f.write(json.dumps(acq, ensure_ascii=False) + "\n")
+        except Exception:
+            pass
 
 
         if profile_text:

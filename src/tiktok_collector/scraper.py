@@ -805,12 +805,19 @@ const isAd = /広告|スポンサー|Sponsored|Promoted|プロモーション|PR
           6. マウスを動画外に戻して popover を閉じる
           7. 取得できた値は cache にも書き戻して再利用可能にする
 
-        Returns: {"follower_count": int|None, "bio": str}
+        Returns: {
+            "follower_count": int|None,
+            "bio": str,
+            "skip_reason": str|None,   # 失敗時のラベル(uid_empty / link_eval_error / no_anchor /
+                                       # mouse_move_error / no_fc_in_popover / None=成功)
+            "popover_source": str|None, # "cache" | "dom" | None
+        }
         """
         import asyncio
         uid_clean = str(user_id or "").replace("@", "").strip()
-        result = {"follower_count": None, "bio": ""}
+        result = {"follower_count": None, "bio": "", "skip_reason": None, "popover_source": None}
         if not uid_clean:
+            result["skip_reason"] = "uid_empty"
             return result
 
         # 1. @uid リンクの位置を特定
@@ -858,14 +865,17 @@ const isAd = /広告|スポンサー|Sponsored|Promoted|プロモーション|PR
                 uid_clean,
             )
         except Exception:
+            result["skip_reason"] = "link_eval_error"
             return result
         if not link_pos:
+            result["skip_reason"] = "no_anchor"
             return result
 
         # 2. hover
         try:
             await page.mouse.move(link_pos["x"], link_pos["y"], steps=8)
         except Exception:
+            result["skip_reason"] = "mouse_move_error"
             return result
 
         # 3. popover 出現待ち
@@ -994,6 +1004,10 @@ const isAd = /広告|スポンサー|Sponsored|Promoted|プロモーション|PR
 
         result["follower_count"] = int(final_fc) if final_fc is not None else None
         result["bio"] = final_bio
+        if final_fc is not None:
+            result["popover_source"] = "cache" if fc_from_cache is not None else "dom"
+        else:
+            result["skip_reason"] = "no_fc_in_popover"
         return result
 
     async def screenshot_current(self, page: Page, unique_id: str) -> str:
