@@ -1,5 +1,29 @@
 [
   {
+    "unique_id": "ryo.photographer",
+    "display_name": "ryo.photographer",
+    "follower_count": 1887,
+    "hashtags": "fireworks 花火大会 Omagari 花火 japan",
+    "signature": "インスタきてね",
+    "profile_url": "https://www.tiktok.com/@ryo.photographer",
+    "post_url": "",
+    "expected_reason": "NGワード(japan)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "SNS誘導(インスタきて)"
+  },
+  {
+    "unique_id": "o7_wq0n",
+    "display_name": "o7_wq0n",
+    "follower_count": 786,
+    "hashtags": "岐阜 ライブ 日本語ラップ おすすめ waon",
+    "signature": "岐阜 名古屋 🕊️🎧 インスタ来てね o7_wq0n⏪Instagram",
+    "profile_url": "https://www.tiktok.com/@o7_wq0n",
+    "post_url": "",
+    "expected_reason": "NGワード(日本)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "SNS誘導(インスタ来て)"
+  },
+  {
     "unique_id": "s_an4vai",
     "display_name": "s_an4vai",
     "follower_count": 529,
@@ -165,28 +189,6 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
-    "unique_id": "ryo.photographer",
-    "display_name": "ryo.photographer",
-    "follower_count": 1887,
-    "hashtags": "fireworks 花火大会 Omagari 花火 japan",
-    "signature": "インスタきてね",
-    "profile_url": "https://www.tiktok.com/@ryo.photographer",
-    "post_url": "",
-    "expected_reason": "SNS誘導(インスタきて)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
-    "unique_id": "user4537097785578",
-    "display_name": "user4537097785578",
-    "follower_count": 7,
-    "hashtags": "金欠 金欠女子 東京 いいね返す",
-    "signature": "貢いでくれる人インスタきて！ yuk1_5011先くれる人好き",
-    "profile_url": "https://www.tiktok.com/@user4537097785578",
-    "post_url": "",
-    "expected_reason": "SNS誘導(インスタきて)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
     "unique_id": "019rim",
     "display_name": "019rim",
     "follower_count": 98200,
@@ -209,15 +211,16 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
-    "unique_id": "o7_wq0n",
-    "display_name": "o7_wq0n",
-    "follower_count": 786,
-    "hashtags": "岐阜 ライブ 日本語ラップ おすすめ waon",
-    "signature": "岐阜 名古屋 🕊️🎧 インスタ来てね o7_wq0n⏪Instagram",
-    "profile_url": "https://www.tiktok.com/@o7_wq0n",
+    "unique_id": "user4537097785578",
+    "display_name": "user4537097785578",
+    "follower_count": 7,
+    "hashtags": "金欠 金欠女子 東京 いいね返す",
+    "signature": "貢いでくれる人インスタきて！ yuk1_5011先くれる人好き",
+    "profile_url": "https://www.tiktok.com/@user4537097785578",
     "post_url": "",
-    "expected_reason": "SNS誘導(インスタ来て)",
-    "expected_model_used": "local:no-screenshot"
+    "expected_reason": "user始まり数字ID(デフォルト名)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "SNS誘導(インスタきて)"
   },
   {
     "unique_id": "babytomme",

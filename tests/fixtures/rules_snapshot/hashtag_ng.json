@@ -1,5 +1,17 @@
 [
   {
+    "unique_id": "c_dennis_srj_2002",
+    "display_name": "c_dennis_srj_2002",
+    "follower_count": 46,
+    "hashtags": "女の子ベビー 可愛い にほん",
+    "signature": "時々寂しくなるけど、優しい人とお話しできたらいいな。いつでも気軽にメッセージください。",
+    "profile_url": "https://www.tiktok.com/@c_dennis_srj_2002",
+    "post_url": "",
+    "expected_reason": "NGワード(にほん)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "ハッシュタグNG(可愛い女の子)"
+  },
+  {
     "unique_id": "mi_chan20101024",
     "display_name": "@𝑀",
     "follower_count": null,
@@ -19,17 +31,6 @@
     "profile_url": "https://www.tiktok.com/@mohamad.fikri17",
     "post_url": "",
     "expected_reason": "ハッシュタグNG(fyp+同一英字連続)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
-    "unique_id": "c_dennis_srj_2002",
-    "display_name": "c_dennis_srj_2002",
-    "follower_count": 46,
-    "hashtags": "女の子ベビー 可愛い にほん",
-    "signature": "時々寂しくなるけど、優しい人とお話しできたらいいな。いつでも気軽にメッセージください。",
-    "profile_url": "https://www.tiktok.com/@c_dennis_srj_2002",
-    "post_url": "",
-    "expected_reason": "ハッシュタグNG(可愛い女の子)",
     "expected_model_used": "local:no-screenshot"
   },
   {

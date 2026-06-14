@@ -192,6 +192,30 @@
     "sheet_logged_reason": "未成年系NG(15歳)"
   },
   {
+    "unique_id": "user1427273217003",
+    "display_name": "user1427273217003",
+    "follower_count": 7,
+    "hashtags": "jc2 いいねください",
+    "signature": "みんなと仲良くしたいです あと！いいね、コメントよろしくお願いします！！フォローしてくれたらマジで嬉しい！",
+    "profile_url": "https://www.tiktok.com/@user1427273217003",
+    "post_url": "",
+    "expected_reason": "user始まり数字ID(デフォルト名)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "未成年系NG(jc)"
+  },
+  {
+    "unique_id": "user1984813259905",
+    "display_name": "user1984813259905",
+    "follower_count": 31,
+    "hashtags": "fyp 無加工 fyppppppppppppppppppppppp メイク メイク教えて",
+    "signature": "14さい フォロワー増やし中 スカウトされるように自分磨き最中",
+    "profile_url": "https://www.tiktok.com/@user1984813259905",
+    "post_url": "",
+    "expected_reason": "user始まり数字ID(デフォルト名)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "未成年系NG(14さい)"
+  },
+  {
     "unique_id": "y_nxxx0",
     "display_name": "y_nxxx0",
     "follower_count": 50300,
@@ -406,17 +430,6 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
-    "unique_id": "user1984813259905",
-    "display_name": "user1984813259905",
-    "follower_count": 31,
-    "hashtags": "fyp 無加工 fyppppppppppppppppppppppp メイク メイク教えて",
-    "signature": "14さい フォロワー増やし中 スカウトされるように自分磨き最中",
-    "profile_url": "https://www.tiktok.com/@user1984813259905",
-    "post_url": "",
-    "expected_reason": "未成年系NG(14さい)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
     "unique_id": "____3yu.10",
     "display_name": "____3yu.10",
     "follower_count": 62,
@@ -566,17 +579,6 @@
     "hashtags": "sjc やまぐち",
     "signature": "",
     "profile_url": "https://www.tiktok.com/@juri032925",
-    "post_url": "",
-    "expected_reason": "未成年系NG(jc)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
-    "unique_id": "user1427273217003",
-    "display_name": "user1427273217003",
-    "follower_count": 7,
-    "hashtags": "jc2 いいねください",
-    "signature": "みんなと仲良くしたいです あと！いいね、コメントよろしくお願いします！！フォローしてくれたらマジで嬉しい！",
-    "profile_url": "https://www.tiktok.com/@user1427273217003",
     "post_url": "",
     "expected_reason": "未成年系NG(jc)",
     "expected_model_used": "local:no-screenshot"

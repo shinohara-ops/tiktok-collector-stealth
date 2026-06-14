@@ -36,6 +36,30 @@
     "sheet_logged_reason": "フォロワー数NG(2044)"
   },
   {
+    "unique_id": "marin.feminist",
+    "display_name": "marin.feminist",
+    "follower_count": 67100,
+    "hashtags": "絵師 イラスト 画伯 おもしろ動画 ポケモン",
+    "signature": "日本女性のプライドを呼び覚ますフェミニスト💋 A feminist who awakens the pride of Japanese women. お仕事依頼はDMまでお願いいたします🙇‍♀️",
+    "profile_url": "https://www.tiktok.com/@marin.feminist",
+    "post_url": "",
+    "expected_reason": "NGワード(japan)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "外国語/海外(英語文章Bio)"
+  },
+  {
+    "unique_id": "mr.aichi_traveler",
+    "display_name": "mr.aichi_traveler",
+    "follower_count": 3507,
+    "hashtags": "絶景 日本 japan 景色 絶景スポット",
+    "signature": "📍aichi , japan 【撮影】iPhone12📱 主に三河地方を旅します👒🌻",
+    "profile_url": "https://www.tiktok.com/@mr.aichi_traveler",
+    "post_url": "",
+    "expected_reason": "NGワード(japan)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "フォロワー数NG(3507)"
+  },
+  {
     "unique_id": "aiueo___0004",
     "display_name": "aiueo___0004",
     "follower_count": 9117,
@@ -70,6 +94,66 @@
     "expected_reason": "NGワード(推し)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "公式/企業系(広報)"
+  },
+  {
+    "unique_id": "amirkskd",
+    "display_name": "amirkskd",
+    "follower_count": 10400,
+    "hashtags": "映画解説 映画レビュー ドラマ解説 日本映画",
+    "signature": "",
+    "profile_url": "https://www.tiktok.com/@amirkskd",
+    "post_url": "",
+    "expected_reason": "NGワード(日本)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "フォロワー数NG(10400)"
+  },
+  {
+    "unique_id": "kanchan_kankai",
+    "display_name": "kanchan_kankai",
+    "follower_count": 61,
+    "hashtags": "tiktoklive livehighlights くるみこてつ くるみこてつ",
+    "signature": "剣道と日本泳法を習っている武道家です。 TikTokは慣れないのですが、頑張っていきたいと思います。 よろしくお願いします。",
+    "profile_url": "https://www.tiktok.com/@kanchan_kankai",
+    "post_url": "",
+    "expected_reason": "NGワード(日本)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "配信/LIVE系(tiktoklive)"
+  },
+  {
+    "unique_id": "miyossy_films",
+    "display_name": "miyossy_films",
+    "follower_count": 92500,
+    "hashtags": "ストリートスナップ きゅるりんふれーばー 城木まりな",
+    "signature": "＼ ⭐︎ 日本一笑顔が売りのカメラマン ⭐︎ ／ ストスナ二代目メイン → @みよっぴーちゃん📸 お仕事のご依頼は下記のリットリンクから📩",
+    "profile_url": "https://www.tiktok.com/@miyossy_films",
+    "post_url": "",
+    "expected_reason": "NGワード(日本)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "フォロワー数NG(92500)"
+  },
+  {
+    "unique_id": "mu__.21.34",
+    "display_name": "mu__.21.34",
+    "follower_count": 749,
+    "hashtags": "タロットリーディング 恋愛占い",
+    "signature": "💫 日本カード占い協会 認定占い師 ⭐️タロット占い ⭐️恋愛成就を応援するYouTubeをしています みなさん自分で幸せになれるチカラ持っています💕そのお手伝いが出来れば嬉しいです！",
+    "profile_url": "https://www.tiktok.com/@mu__.21.34",
+    "post_url": "",
+    "expected_reason": "NGワード(日本)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "公式/企業系(協会)"
+  },
+  {
+    "unique_id": "sarapondesu",
+    "display_name": "sarapondesu",
+    "follower_count": 957,
+    "hashtags": "東京 板橋区のパチンコ店で大麻を所持していたとして バレーボール男子 日本代表選手 日テレnews tiktokでニュース",
+    "signature": "",
+    "profile_url": "https://www.tiktok.com/@sarapondesu",
+    "post_url": "",
+    "expected_reason": "NGワード(日本)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "公式/企業系(news)"
   },
   {
     "unique_id": "achimaru_maru",
@@ -130,17 +214,6 @@
     "expected_reason": "ファン/応援アカウント(タグ:ilife)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "フォロワー数NG(8545)"
-  },
-  {
-    "unique_id": "amirkskd",
-    "display_name": "amirkskd",
-    "follower_count": 10400,
-    "hashtags": "映画解説 映画レビュー ドラマ解説 日本映画",
-    "signature": "",
-    "profile_url": "https://www.tiktok.com/@amirkskd",
-    "post_url": "",
-    "expected_reason": "フォロワー数NG(10400)",
-    "expected_model_used": "local:no-screenshot"
   },
   {
     "unique_id": "katazikeneewww",
@@ -767,17 +840,6 @@
     "profile_url": "https://www.tiktok.com/@gonbei22",
     "post_url": "",
     "expected_reason": "フォロワー数NG(3490)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
-    "unique_id": "mr.aichi_traveler",
-    "display_name": "mr.aichi_traveler",
-    "follower_count": 3507,
-    "hashtags": "絶景 日本 japan 景色 絶景スポット",
-    "signature": "📍aichi , japan 【撮影】iPhone12📱 主に三河地方を旅します👒🌻",
-    "profile_url": "https://www.tiktok.com/@mr.aichi_traveler",
-    "post_url": "",
-    "expected_reason": "フォロワー数NG(3507)",
     "expected_model_used": "local:no-screenshot"
   },
   {
@@ -1463,17 +1525,6 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
-    "unique_id": "miyossy_films",
-    "display_name": "miyossy_films",
-    "follower_count": 92500,
-    "hashtags": "ストリートスナップ きゅるりんふれーばー 城木まりな",
-    "signature": "＼ ⭐︎ 日本一笑顔が売りのカメラマン ⭐︎ ／ ストスナ二代目メイン → @みよっぴーちゃん📸 お仕事のご依頼は下記のリットリンクから📩",
-    "profile_url": "https://www.tiktok.com/@miyossy_films",
-    "post_url": "",
-    "expected_reason": "フォロワー数NG(92500)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
     "unique_id": "yasai._.kueyo7",
     "display_name": "yasai._.kueyo7",
     "follower_count": 9252,
@@ -1727,28 +1778,6 @@
     "sheet_logged_reason": "フォロワー数NG(2727)"
   },
   {
-    "unique_id": "sarapondesu",
-    "display_name": "sarapondesu",
-    "follower_count": 957,
-    "hashtags": "東京 板橋区のパチンコ店で大麻を所持していたとして バレーボール男子 日本代表選手 日テレnews tiktokでニュース",
-    "signature": "",
-    "profile_url": "https://www.tiktok.com/@sarapondesu",
-    "post_url": "",
-    "expected_reason": "公式/企業系(news)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
-    "unique_id": "mu__.21.34",
-    "display_name": "mu__.21.34",
-    "follower_count": 749,
-    "hashtags": "タロットリーディング 恋愛占い",
-    "signature": "💫 日本カード占い協会 認定占い師 ⭐️タロット占い ⭐️恋愛成就を応援するYouTubeをしています みなさん自分で幸せになれるチカラ持っています💕そのお手伝いが出来れば嬉しいです！",
-    "profile_url": "https://www.tiktok.com/@mu__.21.34",
-    "post_url": "",
-    "expected_reason": "公式/企業系(協会)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
     "unique_id": "_15189",
     "display_name": "_15189",
     "follower_count": 98600,
@@ -1977,18 +2006,6 @@
     "sheet_logged_reason": "フォロワー数NG(541500)"
   },
   {
-    "unique_id": "marin.feminist",
-    "display_name": "marin.feminist",
-    "follower_count": 67100,
-    "hashtags": "絵師 イラスト 画伯 おもしろ動画 ポケモン",
-    "signature": "日本女性のプライドを呼び覚ますフェミニスト💋 A feminist who awakens the pride of Japanese women. お仕事依頼はDMまでお願いいたします🙇‍♀️",
-    "profile_url": "https://www.tiktok.com/@marin.feminist",
-    "post_url": "",
-    "expected_reason": "外国語/海外(英語文章Bio)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "フォロワー数NG(67100)"
-  },
-  {
     "unique_id": "pursue_beauty717",
     "display_name": "pursue_beauty717",
     "follower_count": 5713,
@@ -2119,17 +2136,6 @@
     "expected_reason": "未成年系NG(括弧年齢表記)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "フォロワー数NG(6152)"
-  },
-  {
-    "unique_id": "kanchan_kankai",
-    "display_name": "kanchan_kankai",
-    "follower_count": 61,
-    "hashtags": "tiktoklive livehighlights くるみこてつ くるみこてつ",
-    "signature": "剣道と日本泳法を習っている武道家です。 TikTokは慣れないのですが、頑張っていきたいと思います。 よろしくお願いします。",
-    "profile_url": "https://www.tiktok.com/@kanchan_kankai",
-    "post_url": "",
-    "expected_reason": "配信/LIVE系(tiktoklive)",
-    "expected_model_used": "local:no-screenshot"
   },
   {
     "unique_id": "bike.queen58",

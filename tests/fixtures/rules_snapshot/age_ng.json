@@ -43,9 +43,9 @@
     "signature": "⋆ .⟡",
     "profile_url": "https://www.tiktok.com/@nya_vanilla",
     "post_url": "",
-    "expected_reason": "NGワード(japanese)",
+    "expected_reason": "NGワード(japan)",
     "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "年齢NG(17歳)"
+    "sheet_logged_reason": "NGワード(japanese)"
   },
   {
     "unique_id": "_c_m089",
@@ -202,6 +202,18 @@
     "expected_reason": "NGワード(体育祭)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "年齢NG(ljk)"
+  },
+  {
+    "unique_id": "tkdrt8",
+    "display_name": "tkdrt8",
+    "follower_count": 950,
+    "hashtags": "soundcloud 日本語ラップ オリジナル曲 bandlab サンクラ",
+    "signature": "すいません中2ですけどサンクラやってます TKDRT 客演出たいですいつでもDMください IG tkdrt_thethethe",
+    "profile_url": "https://www.tiktok.com/@tkdrt8",
+    "post_url": "",
+    "expected_reason": "NGワード(日本)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "年齢NG(中2)"
   },
   {
     "unique_id": "2o12.6",
@@ -604,17 +616,6 @@
     "hashtags": "上手くいきますように",
     "signature": "宮崎 中2 ダンス動画と恋愛ポエムかいてる！ 目標は2万いいね！",
     "profile_url": "https://www.tiktok.com/@rikito1203",
-    "post_url": "",
-    "expected_reason": "年齢NG(中2)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
-    "unique_id": "tkdrt8",
-    "display_name": "tkdrt8",
-    "follower_count": 950,
-    "hashtags": "soundcloud 日本語ラップ オリジナル曲 bandlab サンクラ",
-    "signature": "すいません中2ですけどサンクラやってます TKDRT 客演出たいですいつでもDMください IG tkdrt_thethethe",
-    "profile_url": "https://www.tiktok.com/@tkdrt8",
     "post_url": "",
     "expected_reason": "年齢NG(中2)",
     "expected_model_used": "local:no-screenshot"

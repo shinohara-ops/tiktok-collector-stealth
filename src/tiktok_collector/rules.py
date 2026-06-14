@@ -53,6 +53,7 @@ from ._rules_parts import user_digits_id as _user_digits_id
 from ._rules_parts import multi_person as _multi_person
 from ._rules_parts import fan_account as _fan_account
 from ._rules_parts import foreign_script_chars as _foreign_script_chars
+from ._rules_parts import japan_marker as _japan_marker
 
 
 def local_skip_reason(candidate, rules=None) -> str | None:
@@ -207,6 +208,23 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     # 「ランダムID」より先に呼ぶ(AI override で救出されるのを防ぐ)。
     # ────────────────────────────────────────────────────────────────
     if (r := _foreign_script_chars.check(_cs_uid_s, _cs_name_s, _cs_bio_s, _cs_tags)) is not None:
+        return r
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: user + 6 桁以上の数字 のデフォルト ID(早期版)
+    # → src/tiktok_collector/_rules_parts/user_digits_id.py に抽出済
+    # `colored_leak_v2` の「ランダムID」より前で hit させる。同末尾でもう一度
+    # 呼ぶ重複は害にならないが、ここで返れば AI override されない。
+    # ────────────────────────────────────────────────────────────────
+    if (r := _user_digits_id.check(_cs_uid_s)) is not None:
+        return r
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 「にほん / japan / 日本」を bio/tags に含むアカウント
+    # → src/tiktok_collector/_rules_parts/japan_marker.py に抽出済
+    # 「ランダムID」より前で hit させ、AI override を回避する。
+    # ────────────────────────────────────────────────────────────────
+    if (r := _japan_marker.check(_cs_bio_s, _cs_tags)) is not None:
         return r
 
     # ────────────────────────────────────────────────────────────────

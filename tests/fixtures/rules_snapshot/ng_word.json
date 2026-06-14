@@ -298,17 +298,6 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
-    "unique_id": "shojiki_others",
-    "display_name": "shojiki_others",
-    "follower_count": 93600,
-    "hashtags": "japantravel お出かけスポット 夏休みのすごし方 国内旅行 evangelion",
-    "signature": "旅行・映画・その他話題のアカウント スイーツ→@正直レビュー 🍰 グルメ→@正直レビュー🍛 美容 → @正直レビュー💄 TikTok ショップ → @正直レビュー 🛍️",
-    "profile_url": "https://www.tiktok.com/@shojiki_others",
-    "post_url": "",
-    "expected_reason": "NGワード(evangelion)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
     "unique_id": "barrio23.3",
     "display_name": "barrio23.3",
     "follower_count": 413,
@@ -439,6 +428,30 @@
     "post_url": "",
     "expected_reason": "NGワード(hololive)",
     "expected_model_used": "local:no-screenshot"
+  },
+  {
+    "unique_id": "banpiki",
+    "display_name": "banpiki",
+    "follower_count": 5305,
+    "hashtags": "田舎 美しい 自然好き japanvibes foryoupage",
+    "signature": "日本の🇯🇵 自然の美しさを目にし、 感じることができる ⛩🌇🏔🌊🌸📸",
+    "profile_url": "https://www.tiktok.com/@banpiki",
+    "post_url": "",
+    "expected_reason": "NGワード(japan)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "外国語/海外(foryou)"
+  },
+  {
+    "unique_id": "shojiki_others",
+    "display_name": "shojiki_others",
+    "follower_count": 93600,
+    "hashtags": "japantravel お出かけスポット 夏休みのすごし方 国内旅行 evangelion",
+    "signature": "旅行・映画・その他話題のアカウント スイーツ→@正直レビュー 🍰 グルメ→@正直レビュー🍛 美容 → @正直レビュー💄 TikTok ショップ → @正直レビュー 🛍️",
+    "profile_url": "https://www.tiktok.com/@shojiki_others",
+    "post_url": "",
+    "expected_reason": "NGワード(japan)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(evangelion)"
   },
   {
     "unique_id": "aiko_japanese_01",
@@ -575,23 +588,36 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
+    "unique_id": "deannagreenytfyzhr",
+    "display_name": "deannagreenytfyzhr",
+    "follower_count": 27,
+    "hashtags": "にほん 友達を作る",
+    "signature": "自由なスタイルで生活しています。束縛のない気楽な関係で仲良くなれる友達を探しています。交流を歓迎します。",
+    "profile_url": "https://www.tiktok.com/@deannagreenytfyzhr",
+    "post_url": "",
+    "expected_reason": "NGワード(にほん)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "外国語/海外(中国語:生活)"
+  },
+  {
+    "unique_id": "i8mrc7",
+    "display_name": "i8mrc7",
+    "follower_count": 410,
+    "hashtags": "にほん",
+    "signature": "独身の私は私の世話をしてくれる日本人の彼氏を見つけたいと思っています。私は大人で穏やかなのが好きです。",
+    "profile_url": "https://www.tiktok.com/@i8mrc7",
+    "post_url": "",
+    "expected_reason": "NGワード(にほん)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(大人)"
+  },
+  {
     "unique_id": "tanukichiseimen",
     "display_name": "tanukichiseimen",
     "follower_count": 661,
     "hashtags": "香川グルメ 香川うどん たぬきち製麺",
     "signature": "香川県高松市・屋島の製麺所✨ 毎朝打ちたて、茹でたて。 讃岐の“当たり前のうまさ”を、 まっすぐに。",
     "profile_url": "https://www.tiktok.com/@tanukichiseimen",
-    "post_url": "",
-    "expected_reason": "NGワード(ぬき)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
-    "unique_id": "user4800777981999",
-    "display_name": "user4800777981999",
-    "follower_count": 2294,
-    "hashtags": "たぬき 頑張って こむぎ豆 豆柴 由布院豆柴カフェ",
-    "signature": "大分の由布院、湯の坪街道にある豆柴カフェです🐶 現在17頭の豆柴がのんびり暮らしています。",
-    "profile_url": "https://www.tiktok.com/@user4800777981999",
     "post_url": "",
     "expected_reason": "NGワード(ぬき)",
     "expected_model_used": "local:no-screenshot"
@@ -614,17 +640,6 @@
     "hashtags": "fyp グラフィックデザイナー デスクワーク デザインの旅人",
     "signature": "まむちゃんだよ〜⭐︎",
     "profile_url": "https://www.tiktok.com/@mam.mk.415320",
-    "post_url": "",
-    "expected_reason": "NGワード(むち)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
-    "unique_id": "user74736772387370",
-    "display_name": "user74736772387370",
-    "follower_count": 32,
-    "hashtags": "はむちゃんの寝相 ジャンガリアン ハムスター パールハムスター",
-    "signature": "ハムスターの動画だよ",
-    "profile_url": "https://www.tiktok.com/@user74736772387370",
     "post_url": "",
     "expected_reason": "NGワード(むち)",
     "expected_model_used": "local:no-screenshot"
@@ -718,17 +733,6 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
-    "unique_id": "user7468545446162",
-    "display_name": "user7468545446162",
-    "follower_count": 312,
-    "hashtags": "サブスク りん バブルちゃん",
-    "signature": "親管理",
-    "profile_url": "https://www.tiktok.com/@user7468545446162",
-    "post_url": "",
-    "expected_reason": "NGワード(サブスク)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
     "unique_id": "___.doxxy",
     "display_name": "___.doxxy",
     "follower_count": 436,
@@ -806,17 +810,6 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
-    "unique_id": "user8265121580580",
-    "display_name": "user8265121580580",
-    "follower_count": 390,
-    "hashtags": "ホロライブ切り抜き さくらみこ みこなま",
-    "signature": "音楽大好物🌸1年目♂35P 生き方にものすごく共感したさくらみこさんを応援するため、切り抜きや応援動画を始めました！日々自分の心に響く活動されている方を尊敬✨",
-    "profile_url": "https://www.tiktok.com/@user8265121580580",
-    "post_url": "",
-    "expected_reason": "NGワード(ホロライブ)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
     "unique_id": "15_opnc",
     "display_name": "15_opnc",
     "follower_count": 1387,
@@ -837,18 +830,6 @@
     "post_url": "",
     "expected_reason": "NGワード(マスク)",
     "expected_model_used": "local:no-screenshot"
-  },
-  {
-    "unique_id": "user2235329225547",
-    "display_name": "user2235329225547",
-    "follower_count": 122,
-    "hashtags": "おすすめ ライブ垢",
-    "signature": "らいぶあか",
-    "profile_url": "https://www.tiktok.com/@user2235329225547",
-    "post_url": "",
-    "expected_reason": "NGワード(ライブ)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "NGワード(えろい)"
   },
   {
     "unique_id": "mylovehic",
@@ -914,29 +895,6 @@
     "profile_url": "https://www.tiktok.com/@n_rin_rin",
     "post_url": "",
     "expected_reason": "NGワード(可愛い女の子)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
-    "unique_id": "i8mrc7",
-    "display_name": "i8mrc7",
-    "follower_count": 410,
-    "hashtags": "にほん",
-    "signature": "独身の私は私の世話をしてくれる日本人の彼氏を見つけたいと思っています。私は大人で穏やかなのが好きです。",
-    "profile_url": "https://www.tiktok.com/@i8mrc7",
-    "post_url": "",
-    "expected_reason": "NGワード(大人)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "NGワード(独身)"
-  },
-  {
-    "unique_id": "majikaeizo",
-    "display_name": "majikaeizo",
-    "follower_count": 225,
-    "hashtags": "時計じかけのマリッジ 婚活 恋愛 面白い おすすめ",
-    "signature": "面白い､衝撃､まじか！はぁ！？っと善意な日本人なら共感できる映像をお届けします🤪📹⏯️",
-    "profile_url": "https://www.tiktok.com/@majikaeizo",
-    "post_url": "",
-    "expected_reason": "NGワード(婚活)",
     "expected_model_used": "local:no-screenshot"
   },
   {
@@ -1050,17 +1008,6 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
-    "unique_id": "user9800900906618",
-    "display_name": "user9800900906618",
-    "follower_count": 66,
-    "hashtags": "ゆうだけにね",
-    "signature": "松永里愛🦋遠藤彩加里🍎工藤由愛🐙推してます。 ひなフェスで村田結生ちゃんに落ちました🥹",
-    "profile_url": "https://www.tiktok.com/@user9800900906618",
-    "post_url": "",
-    "expected_reason": "NGワード(推して)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
     "unique_id": "qyqlxq7",
     "display_name": "qyqlxq7",
     "follower_count": 1501,
@@ -1096,6 +1043,30 @@
     "sheet_logged_reason": "NGワード(オナ)"
   },
   {
+    "unique_id": "ishagaosieru",
+    "display_name": "ishagaosieru",
+    "follower_count": 80400,
+    "hashtags": "tiktok教室 ダイエット ためになるtiktok 美容知識 痩せる食事",
+    "signature": "👑インスタフォロワー数日本1位👑 <美容外科医×精神科医の両刀使い> 下のURL→インスタ→公式LINE追加で 🎁オンラインカウンセリング+限定動画🎁",
+    "profile_url": "https://www.tiktok.com/@ishagaosieru",
+    "post_url": "",
+    "expected_reason": "NGワード(日本)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(限定動画)"
+  },
+  {
+    "unique_id": "majikaeizo",
+    "display_name": "majikaeizo",
+    "follower_count": 225,
+    "hashtags": "時計じかけのマリッジ 婚活 恋愛 面白い おすすめ",
+    "signature": "面白い､衝撃､まじか！はぁ！？っと善意な日本人なら共感できる映像をお届けします🤪📹⏯️",
+    "profile_url": "https://www.tiktok.com/@majikaeizo",
+    "post_url": "",
+    "expected_reason": "NGワード(日本)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(婚活)"
+  },
+  {
     "unique_id": "ne_ne096",
     "display_name": "ne_ne096",
     "follower_count": 8,
@@ -1105,6 +1076,18 @@
     "post_url": "",
     "expected_reason": "NGワード(日本)",
     "expected_model_used": "local:no-screenshot"
+  },
+  {
+    "unique_id": "white_snxke",
+    "display_name": "@white_snxke",
+    "follower_count": null,
+    "hashtags": "soundcloud hiphop 日本語ラップ",
+    "signature": "",
+    "profile_url": "https://www.tiktok.com/@white_snxke",
+    "post_url": "",
+    "expected_reason": "NGワード(日本)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "フォロワー数未取得"
   },
   {
     "unique_id": "kanagatei",
@@ -1251,17 +1234,6 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
-    "unique_id": "ishagaosieru",
-    "display_name": "ishagaosieru",
-    "follower_count": 80400,
-    "hashtags": "tiktok教室 ダイエット ためになるtiktok 美容知識 痩せる食事",
-    "signature": "👑インスタフォロワー数日本1位👑 <美容外科医×精神科医の両刀使い> 下のURL→インスタ→公式LINE追加で 🎁オンラインカウンセリング+限定動画🎁",
-    "profile_url": "https://www.tiktok.com/@ishagaosieru",
-    "post_url": "",
-    "expected_reason": "NGワード(限定動画)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
     "unique_id": "_n28xy",
     "display_name": "_n28xy",
     "follower_count": 717,
@@ -1304,6 +1276,90 @@
     "post_url": "",
     "expected_reason": "NGワード(高二)",
     "expected_model_used": "local:no-screenshot"
+  },
+  {
+    "unique_id": "user2235329225547",
+    "display_name": "user2235329225547",
+    "follower_count": 122,
+    "hashtags": "おすすめ ライブ垢",
+    "signature": "らいぶあか",
+    "profile_url": "https://www.tiktok.com/@user2235329225547",
+    "post_url": "",
+    "expected_reason": "user始まり数字ID(デフォルト名)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(ライブ)"
+  },
+  {
+    "unique_id": "user4800777981999",
+    "display_name": "user4800777981999",
+    "follower_count": 2294,
+    "hashtags": "たぬき 頑張って こむぎ豆 豆柴 由布院豆柴カフェ",
+    "signature": "大分の由布院、湯の坪街道にある豆柴カフェです🐶 現在17頭の豆柴がのんびり暮らしています。",
+    "profile_url": "https://www.tiktok.com/@user4800777981999",
+    "post_url": "",
+    "expected_reason": "user始まり数字ID(デフォルト名)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(ぬき)"
+  },
+  {
+    "unique_id": "user656181662336889",
+    "display_name": "user656181662336889",
+    "follower_count": 248,
+    "hashtags": "フォローかえす ypffffffffffffffffffffff",
+    "signature": "",
+    "profile_url": "https://www.tiktok.com/@user656181662336889",
+    "post_url": "",
+    "expected_reason": "user始まり数字ID(デフォルト名)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "ランダムID/海外・量産寄り"
+  },
+  {
+    "unique_id": "user7468545446162",
+    "display_name": "user7468545446162",
+    "follower_count": 312,
+    "hashtags": "サブスク りん バブルちゃん",
+    "signature": "親管理",
+    "profile_url": "https://www.tiktok.com/@user7468545446162",
+    "post_url": "",
+    "expected_reason": "user始まり数字ID(デフォルト名)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(サブスク)"
+  },
+  {
+    "unique_id": "user74736772387370",
+    "display_name": "user74736772387370",
+    "follower_count": 32,
+    "hashtags": "はむちゃんの寝相 ジャンガリアン ハムスター パールハムスター",
+    "signature": "ハムスターの動画だよ",
+    "profile_url": "https://www.tiktok.com/@user74736772387370",
+    "post_url": "",
+    "expected_reason": "user始まり数字ID(デフォルト名)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(むち)"
+  },
+  {
+    "unique_id": "user8265121580580",
+    "display_name": "user8265121580580",
+    "follower_count": 390,
+    "hashtags": "ホロライブ切り抜き さくらみこ みこなま",
+    "signature": "音楽大好物🌸1年目♂35P 生き方にものすごく共感したさくらみこさんを応援するため、切り抜きや応援動画を始めました！日々自分の心に響く活動されている方を尊敬✨",
+    "profile_url": "https://www.tiktok.com/@user8265121580580",
+    "post_url": "",
+    "expected_reason": "user始まり数字ID(デフォルト名)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(ホロライブ)"
+  },
+  {
+    "unique_id": "user9800900906618",
+    "display_name": "user9800900906618",
+    "follower_count": 66,
+    "hashtags": "ゆうだけにね",
+    "signature": "松永里愛🦋遠藤彩加里🍎工藤由愛🐙推してます。 ひなフェスで村田結生ちゃんに落ちました🥹",
+    "profile_url": "https://www.tiktok.com/@user9800900906618",
+    "post_url": "",
+    "expected_reason": "user始まり数字ID(デフォルト名)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(推して)"
   },
   {
     "unique_id": "ohtaniandsamuraijapan",
@@ -1450,18 +1506,6 @@
     "sheet_logged_reason": "NGワード(孤独)"
   },
   {
-    "unique_id": "white_snxke",
-    "display_name": "@white_snxke",
-    "follower_count": null,
-    "hashtags": "soundcloud hiphop 日本語ラップ",
-    "signature": "",
-    "profile_url": "https://www.tiktok.com/@white_snxke",
-    "post_url": "",
-    "expected_reason": "フォロワー数未取得",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "NGワード(yah)"
-  },
-  {
     "unique_id": "yoji_noda1",
     "display_name": "@野田洋次郎",
     "follower_count": null,
@@ -1558,18 +1602,6 @@
     "sheet_logged_reason": "NGワード(teamwork)"
   },
   {
-    "unique_id": "user656181662336889",
-    "display_name": "user656181662336889",
-    "follower_count": 248,
-    "hashtags": "フォローかえす ypffffffffffffffffffffff",
-    "signature": "",
-    "profile_url": "https://www.tiktok.com/@user656181662336889",
-    "post_url": "",
-    "expected_reason": "ランダムID/海外・量産寄り",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "NGワード(16歳)"
-  },
-  {
     "unique_id": "soularrow_dance",
     "display_name": "soularrow_dance",
     "follower_count": 706,
@@ -1604,18 +1636,6 @@
     "expected_reason": "動物/ペット系(ハムスター)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "NGワード(ケツ)"
-  },
-  {
-    "unique_id": "banpiki",
-    "display_name": "banpiki",
-    "follower_count": 5305,
-    "hashtags": "田舎 美しい 自然好き japanvibes foryoupage",
-    "signature": "日本の🇯🇵 自然の美しさを目にし、 感じることができる ⛩🌇🏔🌊🌸📸",
-    "profile_url": "https://www.tiktok.com/@banpiki",
-    "post_url": "",
-    "expected_reason": "外国語/海外(foryou)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "NGワード(foryou)"
   },
   {
     "unique_id": "arizono_toshihiko",
@@ -1664,18 +1684,6 @@
     "expected_reason": "外国語/海外(中国語:日常)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "NGワード(限定動画)"
-  },
-  {
-    "unique_id": "deannagreenytfyzhr",
-    "display_name": "deannagreenytfyzhr",
-    "follower_count": 27,
-    "hashtags": "にほん 友達を作る",
-    "signature": "自由なスタイルで生活しています。束縛のない気楽な関係で仲良くなれる友達を探しています。交流を歓迎します。",
-    "profile_url": "https://www.tiktok.com/@deannagreenytfyzhr",
-    "post_url": "",
-    "expected_reason": "外国語/海外(中国語:生活)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "NGワード(歓迎します)"
   },
   {
     "unique_id": "maria.mania.0422",

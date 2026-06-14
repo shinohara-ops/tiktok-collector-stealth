@@ -7,8 +7,9 @@
     "signature": "ロブロックスやってますIDnarutodannsu95ですフレンドお願い",
     "profile_url": "https://www.tiktok.com/@user5792475666942",
     "post_url": "",
-    "expected_reason": "ID形式NG(user始まり)",
-    "expected_model_used": "local:no-screenshot"
+    "expected_reason": "user始まり数字ID(デフォルト名)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "ID形式NG(user始まり)"
   },
   {
     "unique_id": "user818177779726",
@@ -18,9 +19,9 @@
     "signature": "",
     "profile_url": "https://www.tiktok.com/@user818177779726",
     "post_url": "",
-    "expected_reason": "ランダムID/海外・量産寄り",
+    "expected_reason": "user始まり数字ID(デフォルト名)",
     "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "ID形式NG(user始まり)"
+    "sheet_logged_reason": "ランダムID/海外・量産寄り"
   },
   {
     "unique_id": "user9177805543295",
@@ -30,8 +31,8 @@
     "signature": "カワラボ関連見る用の垢あんまり使い方わかってません😇りせぴ🦄姫とここにゃん🐈娘応援中",
     "profile_url": "https://www.tiktok.com/@user9177805543295",
     "post_url": "",
-    "expected_reason": "ランダムID/海外・量産寄り",
+    "expected_reason": "user始まり数字ID(デフォルト名)",
     "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "ID形式NG(user始まり)"
+    "sheet_logged_reason": "ランダムID/海外・量産寄り"
   }
 ]
