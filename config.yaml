@@ -130,7 +130,9 @@ algorithm_stealth:
   # 連続 like を避けるための最小間隔(秒)
   like_min_interval_sec: 90
   # 過去採用 uid マップを Sheets から再取得する間隔(秒)。複数PC運用時、他PCの追記を取り込む。
-  uid_map_refresh_sec: 600
+  # 120 秒にすると、他 PC が「おすすめ」に書き込んだ uid を 2 分以内に拾える。
+  # 結果として recheck パスでの AI 浪費 + Sheets 重複スキップが減る。
+  uid_map_refresh_sec: 120
   # 同じ uid が N 回連続で出てきたら data/RESTART_CHROME を touch し、
   # main.py を exit code 77 で終了させる。4_overnight_run.command が
   # Chrome 全 kill → 再起動 → main.py 再開を上限なしでループ。
