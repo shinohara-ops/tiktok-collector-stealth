@@ -235,9 +235,9 @@
     "signature": "",
     "profile_url": "https://www.tiktok.com/@ggde0005",
     "post_url": "",
-    "expected_reason": "ランダムID/海外・量産寄り",
+    "expected_reason": "ランダムID/完全英字(海外)",
     "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "未成年系NG(括弧年齢表記)"
+    "sheet_logged_reason": "ランダムID/海外・量産寄り"
   },
   {
     "unique_id": "r854384",

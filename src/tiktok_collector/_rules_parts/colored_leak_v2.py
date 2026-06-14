@@ -31,6 +31,11 @@ from __future__ import annotations
 
 import re
 
+# `letters_only` を作るときに使う。uid_clean は既に小文字なので a-z 以外を除去。
+_LETTERS_ONLY = re.compile(r"[^a-z]")
+# y を除外した連続子音 3 文字以上。日本語ローマ字には現れない並び。
+_LONG_CONSONANT_RUN = re.compile(r"[bcdfghjklmnpqrstvwxz]{3,}")
+
 _EXPLICIT_NG_WORDS: list[str] = [
     "絡み募", "絡み募集", "地雷",
     "xuhuong", "gaixinh", "xinhdep", "cewek", "wanita", "cantik", "mencari",
@@ -139,6 +144,14 @@ def check(uid_s: str, name_s: str, bio_s: str, tags: str) -> str | None:
     uid_has_sep = ("_" in uid_s) or ("." in uid_s) or ("-" in uid_s)
     if len(uid_clean) >= 7 and uid_has_letter and uid_has_digit and not uid_has_sep:
         if not has_kana or bio_s == "" or has_ascii_tags:
+            # 英字部分(数字除く)に y を除いた連続子音が 3 文字以上ある場合は
+            # 日本人ローマ字名(amane / haruka / yui 等)ではあり得ない並びなので
+            # 「完全英字 = 海外確定」と判定して AI override の対象外にする。
+            # amanecco721 のような日本人風サフィックス命名は連続子音が 2 以下
+            # で済むので従来通り「ランダムID/海外・量産寄り」→ AI 救出経路。
+            letters_only = _LETTERS_ONLY.sub("", uid_clean)
+            if _LONG_CONSONANT_RUN.search(letters_only):
+                return "ランダムID/完全英字(海外)"
             return "ランダムID/海外・量産寄り"
 
     # E. 英字タグ中心 + 日本語なし/短文bio
