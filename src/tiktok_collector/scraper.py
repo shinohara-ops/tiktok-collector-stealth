@@ -11,6 +11,15 @@ def clean_id(s: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]", "", s or "")
 
 
+# TikTok の sec_uid(内部の base64url 風キー、`MS4wLjAB` で始まる 60+ 文字)を
+# unique_id として扱わない。普通のユーザー名としては不正なので候補から弾く。
+_SEC_UID_RE = re.compile(r"^MS4wLjAB[A-Za-z0-9_\-]{30,}$")
+
+
+def looks_like_sec_uid(uid: str) -> bool:
+    return bool(_SEC_UID_RE.match(uid or ""))
+
+
 def id_from_url(url: str) -> str:
     m = re.search(r"/@([^/?#]+)", str(url or ""))
     return clean_id(m.group(1)) if m else ""
@@ -168,6 +177,12 @@ class TikTokScraper:
                 unique_id = clean_id(m.group(1))
 
         if not unique_id:
+            return None
+
+        # sec_uid(`MS4wLjAB...` 60+ 文字)は内部識別子であり @username では
+        # ないので候補から外す。Sheets / DB に残った歴史的データから sec_uid が
+        # 過去除外 recheck に流れてくるパターンも遮断できる。
+        if looks_like_sec_uid(unique_id):
             return None
 
         body_text = ((data or {}).get("text") or "")[:3000]
