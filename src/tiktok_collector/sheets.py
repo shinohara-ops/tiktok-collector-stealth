@@ -158,7 +158,69 @@ class SheetsClient:
         for tab in self.tabs.values():
             self._ensure_header(tab)
 
+        # 採用書き込みの帯域別タブも保証する(空 list なら no-op)。
+        self._ensure_recommended_range_tabs()
+
         self._format_tabs()
+
+    def _recommended_range_tab_names(self) -> list[str]:
+        """config.google_sheets.recommended_tab_ranges からタブ名を取り出す。"""
+        raw = getattr(self.cfg, "recommended_tab_ranges", []) or []
+        out: list[str] = []
+        for entry in raw:
+            if isinstance(entry, dict):
+                name = entry.get("name") or ""
+            else:
+                name = ""
+            if name:
+                out.append(name)
+        return out
+
+    def _resolve_recommended_tab_name(self, follower_count) -> str:
+        """`follower_count` から該当帯域タブ名を返す。
+        範囲未設定 / 範囲外 / fc 不明時は `tabs.recommended` にフォールバック。
+        半開区間 [min, max)。
+        """
+        default = self.tabs.get("recommended", "おすすめ")
+        raw = getattr(self.cfg, "recommended_tab_ranges", []) or []
+        if not raw:
+            return default
+        try:
+            if follower_count is None or str(follower_count) == "":
+                return default
+            fc = int(follower_count)
+        except (TypeError, ValueError):
+            return default
+        for entry in raw:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                lo = int(entry.get("min", 0))
+                hi = int(entry.get("max", 0))
+            except (TypeError, ValueError):
+                continue
+            name = entry.get("name") or ""
+            if name and lo <= fc < hi:
+                return name
+        return default
+
+    def _ensure_recommended_range_tabs(self) -> None:
+        """帯域別タブが無ければ作成 + ヘッダー設定。既存「おすすめ」と同じ HEADERS。"""
+        names = self._recommended_range_tab_names()
+        if not names:
+            return
+        existing = self._get_sheet_titles()
+        requests = []
+        for name in names:
+            if name not in existing:
+                requests.append({"addSheet": {"properties": {"title": name}}})
+        if requests:
+            self.service.spreadsheets().batchUpdate(
+                spreadsheetId=self.spreadsheet_id,
+                body={"requests": requests},
+            ).execute()
+        for name in names:
+            self._ensure_header(name)
 
     def _ensure_header(self, tab: str):
         ng_tab = self.tabs.get(NG_KEYWORDS_TAB_KEY)
@@ -256,7 +318,13 @@ class SheetsClient:
         ids = self._sheet_id_by_title()
         ng_tab = self.tabs.get(NG_KEYWORDS_TAB_KEY)
         requests = []
-        for tab in self.tabs.values():
+        # メイン tabs + 帯域別タブをまとめて整形。重複名は 1 回だけ処理。
+        target_tabs = list(self.tabs.values()) + self._recommended_range_tab_names()
+        seen_format_tabs: set[str] = set()
+        for tab in target_tabs:
+            if tab in seen_format_tabs:
+                continue
+            seen_format_tabs.add(tab)
             if ng_tab and tab == ng_tab:
                 # NGワードタブは候補ログとはレイアウトが違うのでスキップ
                 continue
@@ -320,6 +388,7 @@ class SheetsClient:
         """
         共有シート上の既出IDを、タブ種別ごとに読み込む。
         ローカルDBがない新規PCでも、おすすめ済みはスキップ、除外済みは興味なし対象にできるようにする。
+        帯域別タブ(recommended_tab_ranges)は全て "recommended" 扱いでマージする。
         """
         status_map = {}
         tab_status = {
@@ -328,10 +397,12 @@ class SheetsClient:
             "blackband": "blackband",
             "pending": "pending",
         }
+        scanned: set[str] = set()
         for key, tab in self.tabs.items():
             if str(key) == NG_KEYWORDS_TAB_KEY:
                 # NGワードタブは候補ログではないのでスキップ
                 continue
+            scanned.add(tab)
             status = tab_status.get(str(key), str(key))
             try:
                 resp = self.service.spreadsheets().values().get(
@@ -348,6 +419,23 @@ class SheetsClient:
                             status_map[uid] = status
             except Exception:
                 pass
+        # 帯域別おすすめタブをすべて "recommended" 扱いで追加。
+        for tab in self._recommended_range_tab_names():
+            if tab in scanned:
+                continue
+            scanned.add(tab)
+            try:
+                resp = self.service.spreadsheets().values().get(
+                    spreadsheetId=self.spreadsheet_id,
+                    range=f"{tab}!C2:C"
+                ).execute()
+                for row in resp.get("values", []):
+                    if row and str(row[0]).strip():
+                        uid = str(row[0]).strip().replace("@", "")
+                        if uid and uid not in ["ユーザーID", "user_id", "unique_id"]:
+                            status_map[uid] = "recommended"
+            except Exception:
+                pass
         return status_map
 
     def _normalize_uid_for_dedupe(self, value) -> str:
@@ -356,10 +444,15 @@ class SheetsClient:
     def _fresh_existing_uids_all_tabs(self) -> set[str]:
         """
         別PCの追記も拾うため、記入直前に共有シート全タブのユーザーID列を再取得する。
-        C列=ユーザーID前提。
+        メイン tabs + 帯域別タブを両方スキャン。C列=ユーザーID前提。
         """
         uids = set()
-        for tab in self.tabs.values():
+        scan_tabs = list(self.tabs.values()) + self._recommended_range_tab_names()
+        seen_tabs: set[str] = set()
+        for tab in scan_tabs:
+            if tab in seen_tabs:
+                continue
+            seen_tabs.add(tab)
             try:
                 resp = self.service.spreadsheets().values().get(
                     spreadsheetId=self.spreadsheet_id,
@@ -383,6 +476,16 @@ class SheetsClient:
 
     def append(self, tab_key: str, row: list):
         tab = self.tabs[tab_key]
+        return self._append_to_tab(tab, row)
+
+    def append_recommended(self, row: list, follower_count) -> dict:
+        """採用書き込み専用。follower_count に応じて帯域別タブを選ぶ。
+        帯域定義が空 or fc 不明なら従来通り tabs.recommended に書く。
+        """
+        tab = self._resolve_recommended_tab_name(follower_count)
+        return self._append_to_tab(tab, row)
+
+    def _append_to_tab(self, tab: str, row: list):
         row = list(row)
 
         cleaned = []

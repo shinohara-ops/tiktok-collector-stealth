@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 import os
@@ -35,6 +35,11 @@ class OpenAIConfig:
 class GoogleSheetsConfig:
     spreadsheet_id: str
     tabs: dict
+    # 採用書き込み時の振り分け先タブ。各エントリは半開区間 [min, max) で、
+    # follower_count に応じてここの `name` のタブに書き込む。タブが無ければ
+    # 起動時に自動作成 + ヘッダー設定。空 list/省略時は従来通り tabs.recommended に
+    # まとめて書く。
+    recommended_tab_ranges: list = field(default_factory=list)
     auth_mode: str = "oauth"
     oauth_client_json: str = "./credentials/oauth_client.json"
     oauth_token_json: str = "./credentials/token.json"

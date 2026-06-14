@@ -967,9 +967,9 @@ class TikTokRunner:
                 print(f"[PAST_EXCLUDED_RECOVERED_DB_FAIL] account_id={uid} err={str(e)[:120]}", flush=True)
 
             try:
-                self.sheets.append(
-                    "recommended",
+                self.sheets.append_recommended(
                     candidate.to_row(self.cfg.collector_name, reason=reason, score=score, model_used=model_used),
+                    candidate.follower_count,
                 )
                 self.written_count += 1
             except Exception as e:
@@ -1291,7 +1291,10 @@ class TikTokRunner:
                 print(f"profile/hashtag repair error: {str(e)[:120]}", flush=True)
             print(f"おすすめ記入: {candidate.unique_id}", flush=True)
             self.db.mark(candidate.unique_id, "recommended", reason, candidate.profile_url, candidate.post_url, screenshot_path)
-            self.sheets.append("recommended", candidate.to_row(self.cfg.collector_name, reason=reason, score=score, model_used=model_used))
+            self.sheets.append_recommended(
+                candidate.to_row(self.cfg.collector_name, reason=reason, score=score, model_used=model_used),
+                candidate.follower_count,
+            )
             self.sheet_seen_ids.add(candidate.unique_id)
             self.written_count += 1
             await self._watch_target_video(page)

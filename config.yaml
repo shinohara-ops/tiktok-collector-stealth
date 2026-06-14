@@ -33,6 +33,16 @@ google_sheets:
     skipped: 除外ログ
     ng_keywords: NGワード
   ng_keywords_cache_ttl_sec: 600
+  # 採用書き込みのフォロワー帯振り分け。`tabs.recommended` (おすすめ) は履歴として
+  # 残し、新規採用は follower_count に応じて下の帯域別タブに書く。半開区間 [min, max)。
+  # 起動時にタブが無ければ自動作成 + ヘッダー設定。空 list にすると従来の単一タブ運用。
+  recommended_tab_ranges:
+    - { min: 0,     max: 1000,      name: "おすすめ0-1000" }
+    - { min: 1000,  max: 2000,      name: "おすすめ1000-2000" }
+    - { min: 2000,  max: 5000,      name: "おすすめ2000-5000" }
+    - { min: 5000,  max: 10000,     name: "おすすめ5000-10000" }
+    - { min: 10000, max: 50000,     name: "おすすめ10000-50000" }
+    - { min: 50000, max: 999999999, name: "おすすめ50000+" }
 slack:
   enabled: false
   webhook_url: ''
