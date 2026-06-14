@@ -467,11 +467,45 @@ class SheetsClient:
                 print(f"記入直前の共有既出チェック取得エラー: tab={tab} error={str(e)[:120]}", flush=True)
         return uids
 
-    def _is_duplicate_uid_before_append(self, uid: str) -> bool:
+    def _fresh_existing_recommended_uids(self) -> set[str]:
+        """採用書き込み専用の重複チェック。「おすすめ」+ 帯域別タブだけスキャン。
+        除外ログを含めると「過去除外 → AI 救出 → 再採用」のパスで毎回重複扱いされ、
+        Sheets には書かれず終わる。除外ログにあっても、おすすめ系タブに未登録なら
+        書き込み OK。
+        """
+        uids: set[str] = set()
+        scan_tabs: list[str] = []
+        main_rec = self.tabs.get("recommended")
+        if main_rec:
+            scan_tabs.append(main_rec)
+        scan_tabs.extend(self._recommended_range_tab_names())
+        seen_tabs: set[str] = set()
+        for tab in scan_tabs:
+            if tab in seen_tabs:
+                continue
+            seen_tabs.add(tab)
+            try:
+                resp = self.service.spreadsheets().values().get(
+                    spreadsheetId=self.spreadsheet_id,
+                    range=f"{tab}!C2:C"
+                ).execute()
+                for row in resp.get("values", []):
+                    if row and str(row[0]).strip():
+                        uid = self._normalize_uid_for_dedupe(row[0])
+                        if uid and uid not in {"ユーザーID", "user_id", "unique_id", "ID", "id"}:
+                            uids.add(uid)
+            except Exception as e:
+                print(f"記入直前のおすすめ既出チェック取得エラー: tab={tab} error={str(e)[:120]}", flush=True)
+        return uids
+
+    def _is_duplicate_uid_before_append(self, uid: str, scope: str = "all") -> bool:
         uid = self._normalize_uid_for_dedupe(uid)
         if not uid:
             return False
-        existing = self._fresh_existing_uids_all_tabs()
+        if scope == "recommended_only":
+            existing = self._fresh_existing_recommended_uids()
+        else:
+            existing = self._fresh_existing_uids_all_tabs()
         return uid in existing
 
     def append(self, tab_key: str, row: list):
@@ -480,12 +514,14 @@ class SheetsClient:
 
     def append_recommended(self, row: list, follower_count) -> dict:
         """採用書き込み専用。follower_count に応じて帯域別タブを選ぶ。
-        帯域定義が空 or fc 不明なら従来通り tabs.recommended に書く。
+        重複チェックは「おすすめ系タブのみ」(除外ログを含めない)。
+        過去除外を AI が救出するケースで、除外ログに残った uid が
+        二重書き込み判定に巻き込まれて Sheets に何も書かれない現象を回避する。
         """
         tab = self._resolve_recommended_tab_name(follower_count)
-        return self._append_to_tab(tab, row)
+        return self._append_to_tab(tab, row, dup_scope="recommended_only")
 
-    def _append_to_tab(self, tab: str, row: list):
+    def _append_to_tab(self, tab: str, row: list, dup_scope: str = "all"):
         row = list(row)
 
         cleaned = []
@@ -506,8 +542,8 @@ class SheetsClient:
         except Exception:
             uid = ""
 
-        if uid and self._is_duplicate_uid_before_append(uid):
-            print(f"[PRE_APPEND_DUPLICATE_SKIP] user_id={uid} tab={tab}", flush=True)
+        if uid and self._is_duplicate_uid_before_append(uid, scope=dup_scope):
+            print(f"[PRE_APPEND_DUPLICATE_SKIP] user_id={uid} tab={tab} scope={dup_scope}", flush=True)
             return {"duplicate_skipped": True, "uid": uid, "tab": tab}
 
         if not row[0]:
