@@ -534,7 +534,13 @@ class TikTokRunner:
             await asyncio.sleep(self.cfg.browser.startup_wait_sec)
 
             while True:
-                if (time.time() - start_ts) > self.cfg.browser.max_runtime_minutes * 60:
+                # max_runtime_minutes <= 0 のときは無制限。寝てる間ループ運用の既定。
+                max_runtime_sec = self.cfg.browser.max_runtime_minutes * 60
+                if max_runtime_sec > 0 and (time.time() - start_ts) > max_runtime_sec:
+                    print(
+                        f"最大稼働時間 {self.cfg.browser.max_runtime_minutes} 分に到達したため停止します。",
+                        flush=True,
+                    )
                     self.notifier.send("最大稼働時間に到達したため停止")
                     break
 
