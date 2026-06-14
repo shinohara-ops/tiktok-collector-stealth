@@ -783,7 +783,16 @@ class TikTokRunner:
             return False
         if processed is None:
             processed = self.db.get(uid)
-        status = str((processed or {}).get("status") or self.sheet_status_by_id.get(uid, "") or "")
+        # Sheets 上「recommended」(おすすめ系タブに既出) なら、ローカル DB が古くて
+        # まだ skipped のままでも recommended として扱う。
+        # 別 PC が採用した uid をこちらの DB が知らない状態で recheck パスに流すと、
+        # AI コストを無駄に払って最後に Sheets 重複でスキップになる。
+        db_status = str((processed or {}).get("status") or "")
+        sheet_status = str(self.sheet_status_by_id.get(uid, "") or "")
+        if sheet_status == "recommended" or db_status == "recommended":
+            status = "recommended"
+        else:
+            status = db_status or sheet_status
         if status == "recommended":
             # follow=following なら完視聴シグナルを送らない。フォロー中アカウントを
             # 完視聴すると、TikTok はフォロー中の似た系統ばかり次に出すようになり、
