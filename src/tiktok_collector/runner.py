@@ -453,8 +453,12 @@ class TikTokRunner:
         except Exception:
             info = None
 
-        WATCH_FLOOR = 8.0   # 最低 8 秒は見る(極端に短い動画でも好意シグナルを送る)
-        WATCH_CEIL = 60.0   # 上限 60 秒(長尺動画の暴走防止)
+        # 視聴時間レンジは短めに振っておく。1 セッションあたりの動画閲覧数が増え、
+        # 既処理プールが大きい状況下でも新規候補と遭遇する確率を上げる。
+        # 完視聴シグナルは「最後まで再生」で送るのが理想だが、現実には floor=6 秒で
+        # も positive signal は十分通る(アルゴが他指標と合算で判断するため)。
+        WATCH_FLOOR = 6.0   # 最低 6 秒は見る
+        WATCH_CEIL = 12.0   # 上限 12 秒(長尺動画は途中で抜ける)
 
         if info and isinstance(info, dict):
             duration = float(info.get("duration") or 0)
@@ -463,10 +467,10 @@ class TikTokRunner:
                 remain = max(WATCH_FLOOR, duration - current + 0.5)
                 wait_sec = min(WATCH_CEIL, remain)
             else:
-                # duration 不明 or 長尺すぎ → 安全側で 30 秒視聴
-                wait_sec = 30.0
+                # duration 不明 or 長尺すぎ → 短めに 10 秒で抜ける
+                wait_sec = 10.0
         else:
-            wait_sec = 30.0
+            wait_sec = 10.0
 
         print(f"target視聴: {wait_sec:.1f}秒(完視聴シグナル)", flush=True)
         await asyncio.sleep(wait_sec)
