@@ -162,7 +162,9 @@ class TikTokScraper:
           // === スポンサード広告検出を強化 ===
           // container の text には含まれないことが多いので、video 近傍の DOM を
           // 直接走査する。「広告」ラベル + 典型的な CTA ボタン両方を見る。
-          if (!isAd && video) {
+          // video が見つからない広告(画像系スポンサード等)では vr はビューポート
+          // 全体になるので、adZoneOk は実質全画面スキャンになる。
+          if (!isAd) {
             const adZoneOk = (r) => {
               return r.right > Math.max(0, vr.left - 40) &&
                      r.left < Math.min(vw, vr.right + 600) &&
