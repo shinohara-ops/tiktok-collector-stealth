@@ -36,18 +36,6 @@
     "sheet_logged_reason": "未成年系NG(14才)"
   },
   {
-    "unique_id": "nyannyanchuu0",
-    "display_name": "nyannyanchuu0",
-    "follower_count": 25,
-    "hashtags": "おすすめ 中3 マディソン",
-    "signature": "14歳です♡名古屋に生存しています𐔌ᐡᴗ͈ ̫ ᴗ͈ᐡ𐦯",
-    "profile_url": "https://www.tiktok.com/@nyannyanchuu0",
-    "post_url": "",
-    "expected_reason": "NGワード(14歳)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "未成年系NG(14歳)"
-  },
-  {
     "unique_id": "nyx._u.o",
     "display_name": "nyx._u.o",
     "follower_count": 127,
@@ -178,6 +166,30 @@
     "expected_reason": "NGワード(fypシ)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "未成年系NG(年齢+ハート表記)"
+  },
+  {
+    "unique_id": "nyannyanchuu0",
+    "display_name": "nyannyanchuu0",
+    "follower_count": 25,
+    "hashtags": "おすすめ 中3 マディソン",
+    "signature": "14歳です♡名古屋に生存しています𐔌ᐡᴗ͈ ̫ ᴗ͈ᐡ𐦯",
+    "profile_url": "https://www.tiktok.com/@nyannyanchuu0",
+    "post_url": "",
+    "expected_reason": "NGワード(中3)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(14歳)"
+  },
+  {
+    "unique_id": "toto_offaka",
+    "display_name": "toto_offaka",
+    "follower_count": 3373,
+    "hashtags": "新中3 11 14さい",
+    "signature": "オフ垢 会えます→@四葉 斗 X→@Heroines_toto",
+    "profile_url": "https://www.tiktok.com/@toto_offaka",
+    "post_url": "",
+    "expected_reason": "NGワード(中3)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "未成年系NG(14さい)"
   },
   {
     "unique_id": "shunta_shy",
@@ -414,17 +426,6 @@
     "hashtags": "埼玉",
     "signature": "埼玉 14さい",
     "profile_url": "https://www.tiktok.com/@reisa8335",
-    "post_url": "",
-    "expected_reason": "未成年系NG(14さい)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
-    "unique_id": "toto_offaka",
-    "display_name": "toto_offaka",
-    "follower_count": 3373,
-    "hashtags": "新中3 11 14さい",
-    "signature": "オフ垢 会えます→@四葉 斗 X→@Heroines_toto",
-    "profile_url": "https://www.tiktok.com/@toto_offaka",
     "post_url": "",
     "expected_reason": "未成年系NG(14さい)",
     "expected_model_used": "local:no-screenshot"

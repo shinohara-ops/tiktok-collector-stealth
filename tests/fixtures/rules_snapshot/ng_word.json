@@ -744,17 +744,6 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
-    "unique_id": "haru_mie_e",
-    "display_name": "haru_mie_e",
-    "follower_count": 691,
-    "hashtags": "お笑い お笑いライブ スタンダップコメディ standupcomedy 炎上",
-    "signature": "声がデカくない中国人❤️ スタンダップコメディアン Stand-up Comedian",
-    "profile_url": "https://www.tiktok.com/@haru_mie_e",
-    "post_url": "",
-    "expected_reason": "NGワード(スタンダップコメディ)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
     "unique_id": "nodachannel.com415",
     "display_name": "nodachannel.com415",
     "follower_count": 158100,
@@ -830,6 +819,18 @@
     "post_url": "",
     "expected_reason": "NGワード(マスク)",
     "expected_model_used": "local:no-screenshot"
+  },
+  {
+    "unique_id": "haru_mie_e",
+    "display_name": "haru_mie_e",
+    "follower_count": 691,
+    "hashtags": "お笑い お笑いライブ スタンダップコメディ standupcomedy 炎上",
+    "signature": "声がデカくない中国人❤️ スタンダップコメディアン Stand-up Comedian",
+    "profile_url": "https://www.tiktok.com/@haru_mie_e",
+    "post_url": "",
+    "expected_reason": "NGワード(ライブ)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(スタンダップコメディ)"
   },
   {
     "unique_id": "mylovehic",

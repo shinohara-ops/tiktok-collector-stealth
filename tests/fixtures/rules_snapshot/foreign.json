@@ -180,6 +180,30 @@
     "sheet_logged_reason": "外国語/海外(中国語:私信)"
   },
   {
+    "unique_id": "mahiru_automobile",
+    "display_name": "mahiru_automobile",
+    "follower_count": 363200,
+    "hashtags": "北新地 ミニクラブ 北新地クラブ",
+    "signature": "ワンマンライブツアー 8/30(土)大阪・10/10(金)東京 ・2026. 1/31(土)三重 チケット購入サイトURLは ⬇️インスタプロフィールへ",
+    "profile_url": "https://www.tiktok.com/@mahiru_automobile",
+    "post_url": "",
+    "expected_reason": "NGワード(ライブ)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "外国語/海外(繁体字)"
+  },
+  {
+    "unique_id": "sora__shidore",
+    "display_name": "sora__shidore",
+    "follower_count": 3405,
+    "hashtags": "ディズニーシー ディズニーシー25周年 ディズニーフード パークフード ディズニーレストラン",
+    "signature": "Netflix『ラブ・デッドライン』出演 香港・上海・カリフォルニアディズニー年パ🏰🎀 ライブコマース10年目です🌼",
+    "profile_url": "https://www.tiktok.com/@sora__shidore",
+    "post_url": "",
+    "expected_reason": "NGワード(ライブ)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "外国語/海外(香港)"
+  },
+  {
     "unique_id": "keidch2",
     "display_name": "keidch2",
     "follower_count": 749,
@@ -226,6 +250,18 @@
     "expected_reason": "NGワード(日本)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "フォロワー数NG(6783)"
+  },
+  {
+    "unique_id": "feilvbihs965088",
+    "display_name": "feilvbihs965088",
+    "follower_count": 6,
+    "hashtags": "tiktok 高1",
+    "signature": "今天也是被甜品和阳光治愈的一天。",
+    "profile_url": "https://www.tiktok.com/@feilvbihs965088",
+    "post_url": "",
+    "expected_reason": "NGワード(高1)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "ランダムID/完全英字(海外)"
   },
   {
     "unique_id": "qttwmw",
@@ -510,18 +546,6 @@
     "hashtags": "단신 이혼하다 한국",
     "signature": "저는 한국말밖에 몰라요.\"문자 주시면 최대한 빨리 답장드릴게요\"",
     "profile_url": "https://www.tiktok.com/@eowrlahga2",
-    "post_url": "",
-    "expected_reason": "ランダムID/完全英字(海外)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "ランダムID/海外・量産寄り"
-  },
-  {
-    "unique_id": "feilvbihs965088",
-    "display_name": "feilvbihs965088",
-    "follower_count": 6,
-    "hashtags": "tiktok 高1",
-    "signature": "今天也是被甜品和阳光治愈的一天。",
-    "profile_url": "https://www.tiktok.com/@feilvbihs965088",
     "post_url": "",
     "expected_reason": "ランダムID/完全英字(海外)",
     "expected_model_used": "local:no-screenshot",
@@ -905,7 +929,7 @@
     "display_name": "pibble_realm",
     "follower_count": 84600,
     "hashtags": "pibble pibblesoftiktok fyp dog trending",
-    "signature": "🐶 AI Pibble multiverse Business: pibble.realm@gmail.com",
+    "signature": "🐶 AI Pibble multiverse Business: [redacted]@example.com",
     "profile_url": "https://www.tiktok.com/@pibble_realm",
     "post_url": "",
     "expected_reason": "外国語/海外(fyp+日本語要素薄い)",
@@ -1756,18 +1780,6 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
-    "unique_id": "mahiru_automobile",
-    "display_name": "mahiru_automobile",
-    "follower_count": 363200,
-    "hashtags": "北新地 ミニクラブ 北新地クラブ",
-    "signature": "ワンマンライブツアー 8/30(土)大阪・10/10(金)東京 ・2026. 1/31(土)三重 チケット購入サイトURLは ⬇️インスタプロフィールへ",
-    "profile_url": "https://www.tiktok.com/@mahiru_automobile",
-    "post_url": "",
-    "expected_reason": "外国語/海外(繁体字)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "外国語/海外(taipei)"
-  },
-  {
     "unique_id": "shunji_daze_",
     "display_name": "@しゅんずぃ",
     "follower_count": null,
@@ -1876,7 +1888,7 @@
     "display_name": "afraidofonlygod",
     "follower_count": 170400,
     "hashtags": "darkfantasy goldenbrown fyp fujiikaze 藤井風 ジョイマン",
-    "signature": "Backup of @afraidofnoonebutgod 🇺🇦🇺🇸🇻🇦 | jdfmack1@gmail.com | DM for Promo Founder of @Renewed - Quit P*rn in 30d",
+    "signature": "Backup of @afraidofnoonebutgod 🇺🇦🇺🇸🇻🇦 | [redacted]@example.com | DM for Promo Founder of @Renewed - Quit P*rn in 30d",
     "profile_url": "https://www.tiktok.com/@afraidofonlygod",
     "post_url": "",
     "expected_reason": "外国語/海外(英語文章Bio)",
@@ -2006,17 +2018,6 @@
     "profile_url": "https://www.tiktok.com/@liz_love4",
     "post_url": "",
     "expected_reason": "外国語/海外(韓国語文章)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
-    "unique_id": "sora__shidore",
-    "display_name": "sora__shidore",
-    "follower_count": 3405,
-    "hashtags": "ディズニーシー ディズニーシー25周年 ディズニーフード パークフード ディズニーレストラン",
-    "signature": "Netflix『ラブ・デッドライン』出演 香港・上海・カリフォルニアディズニー年パ🏰🎀 ライブコマース10年目です🌼",
-    "profile_url": "https://www.tiktok.com/@sora__shidore",
-    "post_url": "",
-    "expected_reason": "外国語/海外(香港)",
     "expected_model_used": "local:no-screenshot"
   },
   {

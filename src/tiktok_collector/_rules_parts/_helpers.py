@@ -27,6 +27,31 @@ from typing import Callable, Optional
 _ng_keyword_provider: Optional[Callable[[str], list[str]]] = None
 _ng_keyword_meta_provider: Optional[Callable[[str], list[dict]]] = None
 
+# Sheets「NGワード」タブで 1 文字エントリ(`i`, `a`, `o` 等)が登録されると、
+# 部分一致判定が事実上 free-pass で全候補にヒットする(過去 186 件 `NGワード(i)`)。
+# 安全弁として 1 文字エントリは無効化して、1 セッション 1 度だけ警告を出す。
+_NG_TOO_SHORT_WARNED: set[str] = set()
+
+
+def _is_too_short_ng_word(word: str) -> bool:
+    """部分一致 NG 判定で危険なほど短いワードかどうか。
+    現状は「strip 後 1 文字以下」を弾く(英字/かな/数字とも)。"""
+    return len(str(word or "").strip()) <= 1
+
+
+def _warn_too_short_ng_word(word: str, source: str) -> None:
+    """1 文字エントリ検出時に 1 度だけ標準出力に警告。
+    複数経路から呼ばれても、同じ word は 1 度だけ。"""
+    key = f"{source}:{word}"
+    if key in _NG_TOO_SHORT_WARNED:
+        return
+    _NG_TOO_SHORT_WARNED.add(key)
+    print(
+        f"[NG_WORD_TOO_SHORT_IGNORED] word={word!r} source={source} "
+        f"(Sheets「NGワード」タブの 1 文字エントリは部分一致で全候補にヒットするため無効化)",
+        flush=True,
+    )
+
 
 def set_ng_keyword_provider(provider: Optional[Callable[[str], list[str]]]) -> None:
     global _ng_keyword_provider
@@ -116,7 +141,16 @@ def _load_extra_words(rules, key: str) -> list:
         except Exception:
             sheet_words = []
 
-    return yaml_words + sheet_words
+    # 1 文字エントリ(`i` 等)は部分一致で全候補にヒットするので Sheets 側からは除外。
+    # YAML 側は人手で管理されている前提で素通し。
+    filtered_sheet: list = []
+    for w in sheet_words:
+        if _is_too_short_ng_word(w):
+            _warn_too_short_ng_word(str(w), source=f"load_extra_words:{key}")
+            continue
+        filtered_sheet.append(w)
+
+    return yaml_words + filtered_sheet
 
 
 def _foreign_score(text: str) -> int:
@@ -146,18 +180,44 @@ def _looks_like_foreign(text: str) -> bool:
 
 
 def _age_ng(text: str) -> str:
+    # 「200X年生まれ」短縮形(2桁): 09-16 → 2009-2016 born = 2026 時点で 10-17 歳 (未成年) → NG
+    # 01-08 は 2001-2008 born = 18-25 歳 (成人) なので NG にしない。
     patterns = [
-        "#08", "#09", "#10", "#11", "#12", "#13", "#14", "#15",
-        "08line", "09line", "10line", "11line", "12line", "13line", "14line", "15line",
+        "#09", "#10", "#11", "#12", "#13", "#14", "#15", "#16",
+        "09line", "10line", "11line", "12line", "13line", "14line", "15line", "16line",
         "fjk", "sjk", "ljk", "jk", "jc", "js",
         "高校生", "中学生", "受験生", "通信制高校",
         "17歳", "16歳", "15歳", "14歳", "13歳",
-        "2008", "2009", "2010", "2011", "2012",
+        # 2009-2016 born = 未成年 → NG。2008 は 18 歳なので NG にしない。
+        "2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016",
         "中一", "中二", "中三",
         "中1", "中2", "中3",
         "中学一年", "中学二年", "中学三年",
         "中学1年", "中学2年", "中学3年",
         "中学1年生", "中学2年生", "中学3年生",
+        # 高校1-2年は 15-17 歳。高3は18歳に届く可能性ありで除外しない。
+        "高一", "高二",
+        "高1", "高2",
+        "高校一年", "高校二年",
+        "高校1年", "高校2年",
+        "高校一年生", "高校二年生",
+        "高校1年生", "高校2年生",
+        # 小学生(6-12 歳)
+        "小学生",
+        "小一", "小二", "小三", "小四", "小五", "小六",
+        "小1", "小2", "小3", "小4", "小5", "小6",
+        "小学一年", "小学二年", "小学三年", "小学四年", "小学五年", "小学六年",
+        "小学1年", "小学2年", "小学3年", "小学4年", "小学5年", "小学6年",
+        "小学一年生", "小学二年生", "小学三年生", "小学四年生", "小学五年生", "小学六年生",
+        "小学1年生", "小学2年生", "小学3年生", "小学4年生", "小学5年生", "小学6年生",
+        # 「09年生まれ」短縮 → 2009-2016 born = 未成年。01-08 は対象外。
+        "09年生まれ", "10年生まれ", "11年生まれ", "12年生まれ",
+        "13年生まれ", "14年生まれ", "15年生まれ", "16年生まれ",
+        "2009年生まれ", "2010年生まれ", "2011年生まれ", "2012年生まれ",
+        "2013年生まれ", "2014年生まれ", "2015年生まれ", "2016年生まれ",
+        # 「09年」短縮形(=2009 生まれ)。10-16 は「○年住んでる」等の期間表現で
+        # 誤爆する余地があるが、ユーザー方針で全部 NG に倒す。
+        "09年", "10年", "11年", "12年", "13年", "14年", "15年", "16年",
     ]
     hit = _contains_any(text, patterns)
     if hit:
@@ -225,17 +285,33 @@ def _check_scoped_ng_words(candidate, category: str) -> Optional[str]:
         word = str(entry.get("word", "") or "").strip()
         if not word:
             continue
+        # 1 文字エントリは部分一致で全候補にヒットするので無効化(安全弁)。
+        if _is_too_short_ng_word(word):
+            _warn_too_short_ng_word(word, source=f"scoped_ng:{category}")
+            continue
         if entry.get("bio_empty_required") and not bio_is_empty:
             continue
         scope = str(entry.get("scope", "all") or "all").lower()
         word_l = word.lower()
-        hit = False
-        if scope == "hashtag":
-            hit = word_l in hashtags_lower
-        elif scope == "bio":
-            hit = word_l in bio_lower
-        else:  # all
-            hit = word_l in full_text
+        # 短い英数字エントリ(`to`, `and`, `inc`, `pr` 等)は単語境界マッチ。
+        # raw substring だと `tokyo`, `tomorrow`, `landscape`, `andrea` 等で大量誤検知する。
+        # 単語の前後が英数字でなければヒット扱い(`_contains_any` と同じロジック)。
+        use_word_boundary = bool(re.fullmatch(r"[a-z0-9]{2,4}", word_l))
+        if use_word_boundary:
+            pattern = rf"(?<![a-z0-9]){re.escape(word_l)}(?![a-z0-9])"
+            if scope == "hashtag":
+                hit = bool(re.search(pattern, hashtags_lower))
+            elif scope == "bio":
+                hit = bool(re.search(pattern, bio_lower))
+            else:  # all
+                hit = bool(re.search(pattern, full_text))
+        else:
+            if scope == "hashtag":
+                hit = word_l in hashtags_lower
+            elif scope == "bio":
+                hit = word_l in bio_lower
+            else:  # all
+                hit = word_l in full_text
         if hit:
             return f"NGワード({word})"
     return None
