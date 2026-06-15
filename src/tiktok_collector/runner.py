@@ -660,39 +660,63 @@ class TikTokRunner:
         print(f"[FORCE_ADVANCE_AFTER_SKIP_FAILED] account_id={uid}", flush=True)
         return False
 
-    async def _attempt_stuck_recovery(self, page, stuck_uid: str) -> bool:
+    async def _attempt_stuck_recovery(self, page, stuck_uid: str, attempt_no: int = 1) -> bool:
         """フィード詰まり時、手動で抜け出すときの手順を再現する 1 回分の操作。
-        手順:
-          1. ArrowUp で 1 つ前の投稿に戻る
-          2. ArrowDown で stuck していた投稿に戻る
-          3. 大きくスワイプ(wheel + ArrowDown を複数回)で次の投稿へ進める
-          4. uid を再取得 — 変わっていれば成功、同じなら失敗
-        待機を長め(1.5s)に取るのは、各操作後に DOM/動画再生が安定するのを待つため。
+        attempt_no で段階的にアグレッシブに:
+          1: ArrowUp 1 回 → ArrowDown 1 回 → スワイプ(従来動作)
+          2: ArrowUp 2 回(2つ前まで戻る) → スワイプ 3 回
+          3+: ページリロード(最終手段)
+        各段階の最後で uid を再取得し、変わっていれば成功・同じなら失敗。
         """
         try:
-            # 1. 一つ前へ
-            await page.keyboard.press("ArrowUp")
-            await page.wait_for_timeout(1500)
-            # 2. 戻る(stuck していた投稿に再度遭遇)
-            await page.keyboard.press("ArrowDown")
-            await page.wait_for_timeout(1500)
-            # 3. 大きくスワイプ — 複数経路で確実に進める
-            for _ in range(3):
+            if attempt_no >= 3:
+                # 最終手段: ページリロード
+                print(f"[STUCK_RECOVERY] attempt={attempt_no} uid={stuck_uid} → page.reload()", flush=True)
                 try:
-                    await page.mouse.wheel(0, 1500)
-                    await page.wait_for_timeout(300)
-                except Exception:
-                    pass
-            for _ in range(3):
-                try:
-                    await page.keyboard.press("ArrowDown")
-                    await page.wait_for_timeout(300)
-                except Exception:
-                    pass
-            # 動画再生 + DOM 更新待ち
-            await page.wait_for_timeout(1500)
+                    await page.reload(wait_until="domcontentloaded")
+                except Exception as e:
+                    print(f"[STUCK_RECOVERY] reload 失敗: {str(e)[:120]}", flush=True)
+                await page.wait_for_timeout(3000)
+            elif attempt_no >= 2:
+                # 2 段階目: 2 つ前まで戻る → 強めに 3 回スワイプ
+                print(f"[STUCK_RECOVERY] attempt={attempt_no} uid={stuck_uid} → ArrowUp×2 + swipe×3", flush=True)
+                await page.keyboard.press("ArrowUp")
+                await page.wait_for_timeout(1500)
+                await page.keyboard.press("ArrowUp")
+                await page.wait_for_timeout(1500)
+                for _ in range(3):
+                    try:
+                        await page.mouse.wheel(0, 1800)
+                        await page.wait_for_timeout(500)
+                    except Exception:
+                        pass
+                    try:
+                        await page.keyboard.press("ArrowDown")
+                        await page.wait_for_timeout(500)
+                    except Exception:
+                        pass
+                await page.wait_for_timeout(1500)
+            else:
+                # 1 段階目(従来動作): 1 つ前 → 戻る → 大きくスワイプ
+                await page.keyboard.press("ArrowUp")
+                await page.wait_for_timeout(1500)
+                await page.keyboard.press("ArrowDown")
+                await page.wait_for_timeout(1500)
+                for _ in range(3):
+                    try:
+                        await page.mouse.wheel(0, 1500)
+                        await page.wait_for_timeout(300)
+                    except Exception:
+                        pass
+                for _ in range(3):
+                    try:
+                        await page.keyboard.press("ArrowDown")
+                        await page.wait_for_timeout(300)
+                    except Exception:
+                        pass
+                await page.wait_for_timeout(1500)
         except Exception as e:
-            print(f"[STUCK_RECOVERY_ERROR] uid={stuck_uid} err={str(e)[:120]}", flush=True)
+            print(f"[STUCK_RECOVERY_ERROR] uid={stuck_uid} attempt={attempt_no} err={str(e)[:120]}", flush=True)
             return False
 
         # uid 変化チェック
@@ -1134,7 +1158,7 @@ class TikTokRunner:
                     f"{done}/{max_recovery} (uid={stuck_uid})",
                     flush=True,
                 )
-                ok = await self._attempt_stuck_recovery(page, stuck_uid)
+                ok = await self._attempt_stuck_recovery(page, stuck_uid, attempt_no=done)
                 if ok:
                     print(f"フィード詰まり: リカバリ成功 (uid={stuck_uid})", flush=True)
                     # 抜けたので streak をリセット。次回 _process_one では
@@ -1155,11 +1179,20 @@ class TikTokRunner:
                 f"→ Chrome 全再起動を要求 (uid={stuck_uid})",
                 flush=True,
             )
-            self.db.event(
-                "info",
-                f"restart_chrome (stuck on {stuck_uid} after {max_recovery} recovery attempts)",
-            )
-            Path("data/RESTART_CHROME").touch()
+            # ★ touch を最優先で確実にやる。db.event が落ちても restart は走る。
+            #   過去に readonly DB で db.event が例外を投げ、後続の touch に到達せず
+            #   無限ループになる事象があった。
+            try:
+                Path("data/RESTART_CHROME").touch()
+            except Exception as e:
+                print(f"[RESTART_CHROME_TOUCH_FAIL] err={str(e)[:120]}", flush=True)
+            try:
+                self.db.event(
+                    "info",
+                    f"restart_chrome (stuck on {stuck_uid} after {max_recovery} recovery attempts)",
+                )
+            except Exception as e:
+                print(f"[RESTART_CHROME_DB_EVENT_FAIL] err={str(e)[:120]}", flush=True)
             return True
 
         processed = self.db.get(candidate.unique_id)
