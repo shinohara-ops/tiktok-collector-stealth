@@ -102,11 +102,15 @@ class AlgorithmStealthConfig:
     # 書き込み二重防止は別途 _fresh_existing_uids_all_tabs で担保されているので、
     # ここは「無駄に AI を回さない」ための最適化目的。
     uid_map_refresh_sec: float = 600.0
-    # 同じ uid に N 回連続で当たったら、フィード詰まりと判断して
-    # data/RESTART_CHROME を touch し main.py を exit code 77 で終了させる。
+    # 同じ uid に N 回連続で当たったら、まずリカバリ操作を試行する。
+    # リカバリは uid ごとに stuck_recovery_max_attempts 回まで。
+    # 全部失敗したら data/RESTART_CHROME を touch し main.py を exit code 77 で終了。
     # 4_overnight_run.command(ラッパー)が Chrome を kill → 再起動 →
-    # main.py 再開を上限なくループする。寝てる間運用専用の挙動。
+    # main.py 再開を上限なくループする。
     stuck_full_restart_threshold: int = 10
+    # リカバリ最大試行回数(uid ごと)。手順: ArrowUp → ArrowDown → 大きくスワイプ。
+    # 0 にすると即 Chrome 再起動。
+    stuck_recovery_max_attempts: int = 3
 
 
 @dataclass

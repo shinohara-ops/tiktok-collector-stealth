@@ -10,6 +10,7 @@ from collections import deque
 from playwright.async_api import async_playwright
 from .scraper import TikTokScraper
 from .rules import local_skip_reason, detect_blackband
+from ._rules_parts import user_digits_id as _user_digits_id
 from ._stealth import STEALTH_INIT_JS, fire_like as _stealth_fire_like
 
 
@@ -369,6 +370,15 @@ class TikTokRunner:
         # 既処理が増えてくると同じ uid が何度も流れてくるので、毎回 AI 叩くと
         # コストが爆発するうえに、結局再除外で時間を浪費するだけになる。
         self._past_excluded_rechecked: set[str] = set()
+        # fc 取得失敗(キャッシュ未到達 / hover anchor 不在 等)はセッション開始直後に
+        # 集中する。1 回失敗で永久ロックすると閾値変更後の取りこぼしが大量に出るので、
+        # uid ごとに最大 N 回まではリトライを許す。N 回超えたら諦めて永久 skip 入り。
+        self._past_excluded_fc_retry_count: dict[str, int] = {}
+        self._past_excluded_fc_retry_cap: int = 3
+        # フィード詰まり(同じ uid N 連続)時のリカバリ試行回数。
+        # 即 Chrome 再起動ではなく、まず手動相当の操作(前へ戻る→戻る→大きくスワイプ)を
+        # uid ごとに最大 3 回試す。3 回とも失敗したら Chrome 再起動を要求する。
+        self._stuck_recovery_attempts: dict[str, int] = {}
 
     def _maybe_refresh_uid_map(self) -> None:
         """過去採用 uid マップを定期的に Sheets から再取得する。
@@ -650,6 +660,49 @@ class TikTokRunner:
         print(f"[FORCE_ADVANCE_AFTER_SKIP_FAILED] account_id={uid}", flush=True)
         return False
 
+    async def _attempt_stuck_recovery(self, page, stuck_uid: str) -> bool:
+        """フィード詰まり時、手動で抜け出すときの手順を再現する 1 回分の操作。
+        手順:
+          1. ArrowUp で 1 つ前の投稿に戻る
+          2. ArrowDown で stuck していた投稿に戻る
+          3. 大きくスワイプ(wheel + ArrowDown を複数回)で次の投稿へ進める
+          4. uid を再取得 — 変わっていれば成功、同じなら失敗
+        待機を長め(1.5s)に取るのは、各操作後に DOM/動画再生が安定するのを待つため。
+        """
+        try:
+            # 1. 一つ前へ
+            await page.keyboard.press("ArrowUp")
+            await page.wait_for_timeout(1500)
+            # 2. 戻る(stuck していた投稿に再度遭遇)
+            await page.keyboard.press("ArrowDown")
+            await page.wait_for_timeout(1500)
+            # 3. 大きくスワイプ — 複数経路で確実に進める
+            for _ in range(3):
+                try:
+                    await page.mouse.wheel(0, 1500)
+                    await page.wait_for_timeout(300)
+                except Exception:
+                    pass
+            for _ in range(3):
+                try:
+                    await page.keyboard.press("ArrowDown")
+                    await page.wait_for_timeout(300)
+                except Exception:
+                    pass
+            # 動画再生 + DOM 更新待ち
+            await page.wait_for_timeout(1500)
+        except Exception as e:
+            print(f"[STUCK_RECOVERY_ERROR] uid={stuck_uid} err={str(e)[:120]}", flush=True)
+            return False
+
+        # uid 変化チェック
+        try:
+            recheck = await self.scraper.current_candidate(page)
+        except Exception:
+            return False
+        new_uid = recheck.unique_id if recheck and getattr(recheck, "unique_id", "") else ""
+        return bool(new_uid and new_uid != stuck_uid)
+
     def _is_allowed_negative_feedback_target(self, status: str, reason: str = "") -> bool:
         """
         TikTokの「興味なし」を押す対象を、明確NGカテゴリだけに限定する。
@@ -798,6 +851,19 @@ class TikTokRunner:
         else:
             status = db_status or sheet_status
         if status == "recommended":
+            # 過去採用済みでも、現行ルールで「ハード NG」になる uid は完視聴シグナルを送らない。
+            # 例: user始まり数字ID(user1164647411 等)はルール追加前に採用されたケースが
+            # 残っており、今 positive signal を送ると同系統の user{digits} が大量に流入する。
+            hard_ng = _user_digits_id.check(uid)
+            if hard_ng:
+                print(f"[PAST_RECOMMENDED_HARD_NG_SKIP] account_id={uid} reason={hard_ng}", flush=True)
+                try:
+                    self.db.touch_seen(uid)
+                except Exception:
+                    pass
+                await self._force_advance_after_skip(page, uid)
+                return True
+
             # follow=following なら完視聴シグナルを送らない。フォロー中アカウントを
             # 完視聴すると、TikTok はフォロー中の似た系統ばかり次に出すようになり、
             # 「新規候補が見つからずフォロー中アカウントしか出ない」状態に陥る。
@@ -848,12 +914,11 @@ class TikTokRunner:
             # 可能性もある。スワイプを先にやってから AI を裏で叩いて、target=True
             # なら recommended に昇格する。重要なのは「視聴時間は最短化」。
             # 同セッション内で同 uid を 2 度再判定しない(AI コスト & 過剰視聴防止)。
+            # ただし fc 取得失敗で集合に入った場合は、後段でリトライ判定する。
             if uid in self._past_excluded_rechecked:
                 print(f"[PAST_EXCLUDED_SKIP] account_id={uid} status={status} reason={prev_reason}", flush=True)
                 await self._force_advance_after_skip(page, uid)
                 return True
-
-            self._past_excluded_rechecked.add(uid)
 
             # フォロワー数 / プロフィール紹介文 を並列で取得(視聴時間短縮)。
             # 通常フロー(L877〜)と同じ取得関数を使うので、recovered 行も
@@ -910,9 +975,21 @@ class TikTokRunner:
             max_followers_threshold = int(getattr(self.cfg.rules, "max_followers", 2000) or 2000)
             min_followers_threshold = int(getattr(self.cfg.rules, "min_followers", 0) or 0)
             if follower_count is None:
-                print(f"[PAST_EXCLUDED_RECHECK_SKIP_FC_UNKNOWN] account_id={uid}", flush=True)
+                # セッション開始直後はキャッシュが冷えていて fc を取れないことが多い。
+                # 1 回失敗で永久ロックすると閾値変更後の取りこぼしが大量に出るため、
+                # uid ごとに N 回までは集合に入れずリトライさせる。N 回超えたら諦める。
+                cnt = self._past_excluded_fc_retry_count.get(uid, 0) + 1
+                self._past_excluded_fc_retry_count[uid] = cnt
+                if cnt >= self._past_excluded_fc_retry_cap:
+                    self._past_excluded_rechecked.add(uid)
+                    print(f"[PAST_EXCLUDED_RECHECK_SKIP_FC_UNKNOWN] account_id={uid} attempts={cnt} (permanent)", flush=True)
+                else:
+                    print(f"[PAST_EXCLUDED_RECHECK_SKIP_FC_UNKNOWN] account_id={uid} attempts={cnt}/{self._past_excluded_fc_retry_cap} (will retry)", flush=True)
                 await self._force_advance_after_skip(page, uid)
                 return True
+            # ここに来た時点で fc は取得済み。閾値判定や AI 判定に進む前に、
+            # この uid は「セッション内で 1 度評価した」と確定させる(AI コスト防止)。
+            self._past_excluded_rechecked.add(uid)
             if follower_count >= max_followers_threshold:
                 print(f"[PAST_EXCLUDED_RECHECK_SKIP_BIG_FOLLOWER] account_id={uid} fc={follower_count}", flush=True)
                 await self._force_advance_after_skip(page, uid)
@@ -1043,12 +1120,45 @@ class TikTokRunner:
         algo_st = getattr(self.cfg, "algorithm_stealth", None)
         stuck_threshold = int(getattr(algo_st, "stuck_full_restart_threshold", 10) or 10)
         if self._same_uid_streak >= stuck_threshold:
+            # まずはリカバリを試す。手動で stuck から抜け出すときの手順
+            # (ArrowUp で 1 つ前 → ArrowDown で戻る → 大きくスワイプ)を最大 N 回。
+            # 全部失敗したら Chrome 全再起動を要求する。
+            stuck_uid = candidate.unique_id or ""
+            max_recovery = int(getattr(algo_st, "stuck_recovery_max_attempts", 3) or 3)
+            done = self._stuck_recovery_attempts.get(stuck_uid, 0)
+            if done < max_recovery:
+                done += 1
+                self._stuck_recovery_attempts[stuck_uid] = done
+                print(
+                    f"フィード詰まり: 同じ uid {stuck_threshold} 連続 → リカバリ試行 "
+                    f"{done}/{max_recovery} (uid={stuck_uid})",
+                    flush=True,
+                )
+                ok = await self._attempt_stuck_recovery(page, stuck_uid)
+                if ok:
+                    print(f"フィード詰まり: リカバリ成功 (uid={stuck_uid})", flush=True)
+                    # 抜けたので streak をリセット。次回 _process_one では
+                    # 新しい uid を見るはず。
+                    self._same_uid_streak = 0
+                    self._last_seen_uid = ""
+                    return True
+                # 失敗。次回また同 uid に当たれば streak はさらに伸びるので
+                # ここで return True して main loop の追加 swipe を抑止する。
+                print(
+                    f"フィード詰まり: リカバリ失敗 ({done}/{max_recovery}) (uid={stuck_uid})",
+                    flush=True,
+                )
+                return True
+            # 上限到達 → Chrome 全再起動を要求
             print(
-                f"フィード詰まり検出: 同じ uid {stuck_threshold} 連続 → Chrome 全再起動を要求 "
-                f"(uid={candidate.unique_id})",
+                f"フィード詰まり検出: 同じ uid {stuck_threshold} 連続 + リカバリ {max_recovery} 回失敗 "
+                f"→ Chrome 全再起動を要求 (uid={stuck_uid})",
                 flush=True,
             )
-            self.db.event("info", f"restart_chrome (stuck on {candidate.unique_id})")
+            self.db.event(
+                "info",
+                f"restart_chrome (stuck on {stuck_uid} after {max_recovery} recovery attempts)",
+            )
             Path("data/RESTART_CHROME").touch()
             return True
 
@@ -1086,6 +1196,20 @@ class TikTokRunner:
             self.sheet_seen_ids.add(candidate.unique_id)
             row = candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:follow-unknown")
             await self._negative_feedback_for_current_exclusion(page, candidate, "skipped", reason)
+            await self._force_advance_after_skip(page, candidate.unique_id)
+            self.sheets.append("skipped", row)
+            return True
+
+        # スポンサード広告は AI に投げずローカルで即除外。
+        # scraper が「広告」ラベル / 典型的 CTA ボタン(チェックする/詳細はこちら等) /
+        # 本文中の広告/スポンサー文字列のいずれかを検知している。
+        if bool(getattr(candidate, "is_ad", False)):
+            signal = str(getattr(candidate, "ad_signal", "") or "unknown")
+            reason = f"広告(Sponsored)/{signal}"
+            print(f"ローカル除外: {candidate.unique_id} / {reason}", flush=True)
+            self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
+            self.sheet_seen_ids.add(candidate.unique_id)
+            row = candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:ad-detected")
             await self._force_advance_after_skip(page, candidate.unique_id)
             self.sheets.append("skipped", row)
             return True

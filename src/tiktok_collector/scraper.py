@@ -156,7 +156,67 @@ class TikTokScraper:
           if (!text) text = (document.body.innerText || '').slice(0, 3000);
 
           const compact = (text || '').replace(/\s+/g, '');
-          const isAd = /広告|スポンサー|Sponsored|Promoted|プロモーション|PR投稿|タイアップ|提供/.test(compact);
+          let isAd = /広告|スポンサー|Sponsored|Promoted|プロモーション|PR投稿|タイアップ|提供/.test(compact);
+          let adSignal = isAd ? 'caption-text' : '';
+
+          // === スポンサード広告検出を強化 ===
+          // container の text には含まれないことが多いので、video 近傍の DOM を
+          // 直接走査する。「広告」ラベル + 典型的な CTA ボタン両方を見る。
+          if (!isAd && video) {
+            const adZoneOk = (r) => {
+              return r.right > Math.max(0, vr.left - 40) &&
+                     r.left < Math.min(vw, vr.right + 600) &&
+                     r.bottom > Math.max(0, vr.top - 40) &&
+                     r.top < Math.min(vh, vr.bottom + 200);
+            };
+
+            // a) 「広告」「Sponsored」テキストを単独要素として持つ短い span/div
+            //    (本文に紛れた広告という単語との区別: textContent 16 文字以下)
+            try {
+              const labelEls = Array.from(document.querySelectorAll('span,div,p'))
+                .filter(visible)
+                .filter(el => adZoneOk(el.getBoundingClientRect()));
+              for (const el of labelEls) {
+                const t = (el.innerText || el.textContent || '').trim();
+                if (t.length > 0 && t.length <= 16 &&
+                    /^(広告|スポンサー|Sponsored|Promoted|プロモーション|PR|広告\s*$)/.test(t)) {
+                  isAd = true;
+                  adSignal = 'label:' + t.slice(0, 20);
+                  break;
+                }
+              }
+            } catch (e) {}
+
+            // b) スポンサード CTA ボタンの典型文字列
+            //    通常投稿には出ない強シグナル
+            if (!isAd) {
+              const ctaPatterns = [
+                'チェックする', '詳細はこちら', '詳しくはこちら', '今すぐダウンロード',
+                'インストール', '申し込む', '申し込み', '予約する', '購入する', '購入はこちら',
+                '今すぐ購入', '無料体験', '資料請求', '会員登録', 'お問い合わせ', 'もっと知る',
+                'アプリを開く', 'アプリで開く', 'app を開く',
+                'Shop now', 'Learn more', 'Download', 'Install', 'Sign up', 'Get app',
+                'Visit site', 'Buy now', 'Apply now', 'Book now', 'Order now', 'Subscribe',
+              ];
+              try {
+                const buttons = Array.from(document.querySelectorAll('button, a, [role="button"]'))
+                  .filter(visible)
+                  .filter(el => adZoneOk(el.getBoundingClientRect()));
+                for (const btn of buttons) {
+                  const bt = (btn.innerText || btn.textContent || '').trim();
+                  if (!bt) continue;
+                  for (const pat of ctaPatterns) {
+                    if (bt.toLowerCase().includes(pat.toLowerCase())) {
+                      isAd = true;
+                      adSignal = 'cta:' + pat;
+                      break;
+                    }
+                  }
+                  if (isAd) break;
+                }
+              } catch (e) {}
+            }
+          }
 
           return {
             uniqueId,
@@ -165,6 +225,7 @@ class TikTokScraper:
             displayName: profile && profile.text ? profile.text.split('\n')[0].trim() : uniqueId,
             text,
             isAd,
+            adSignal,
             pageUrl: location.href
           };
         }
@@ -195,7 +256,7 @@ class TikTokScraper:
         if post_url and post_id and post_id != unique_id:
             post_url = ""
 
-        return Candidate(
+        candidate = Candidate(
             unique_id=unique_id,
             display_name=display_name,
             profile_url=profile_url,
@@ -204,6 +265,13 @@ class TikTokScraper:
             caption=body_text[:500],
             is_ad=bool((data or {}).get("isAd", False)),
         )
+        # ad 検出シグナル(caption-text / label:広告 / cta:チェックする 等)を
+        # ログ用に保持。Candidate モデルには無いフィールドなので動的に持たせる。
+        try:
+            object.__setattr__(candidate, "ad_signal", str((data or {}).get("adSignal", "") or ""))
+        except Exception:
+            pass
+        return candidate
 
     async def enrich_profile(self, context: BrowserContext, candidate: Candidate) -> Candidate:
         """
