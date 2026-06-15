@@ -28,6 +28,13 @@ pip install -r requirements.txt
 echo "本体 collector 用の依存をインストール中(openai / google-api / pillow 等)..."
 pip install -r requirements_collector.txt
 
+# update.command の最後で snapshot test を走らせるため pytest も入れる。
+# 入れていないと初回 update.command で "No module named pytest" になり社員さんを不安にさせる。
+if [ -f requirements_dev.txt ]; then
+  echo "dev 用依存(pytest 等)をインストール中..."
+  pip install -r requirements_dev.txt
+fi
+
 # CDP接続方式なのでPlaywright純正Chromiumは不要(170MB DLを省略)。
 # 実Chrome (/Applications/Google Chrome.app) を 1_launch_chrome.command で起動する。
 
