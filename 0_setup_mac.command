@@ -2,9 +2,18 @@
 # 初回セットアップ。venv作成 + Playwright導入。
 # CDP接続するだけなので chromium バイナリ自体はDLしなくてもOKだが、
 # 念のため入れておく(失敗しても無視)。
+#
+# ★ 初回のみ: このファイルを右クリック→「開く」で起動してください。
+#   以降の .command ファイルは普通にダブルクリックで開けるようになります。
 
 set -e
 cd "$(dirname "$0")"
+
+# --- Gatekeeper 隔離フラグを除去 ---
+# zip で渡した場合に付く com.apple.quarantine を剥がす。
+# これをしないと他の .command が「開発元を確認できない」で弾かれる。
+xattr -dr com.apple.quarantine . 2>/dev/null || true
+chmod +x ./*.command 2>/dev/null || true
 
 echo "=== TikTokCollectorStealth セットアップ ==="
 
