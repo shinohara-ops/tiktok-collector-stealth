@@ -20,6 +20,8 @@ _STREAM_WORDS: list[str] = [
     # ライブ配信系。`live` は短英字なので _contains_any 側で単語境界マッチになり、
     # `delivery` / `lively` / `believer` 等の誤爆を避ける。
     "live", "ライブ",
+    # ライバー系(ポコチャライバー/tiktokライバー 等のハッシュタグで頻出)
+    "ライバー", "ポコチャ",
 ]
 
 _FULLWIDTH_TO_HALFWIDTH = str.maketrans("０１２３４５６７８９", "0123456789")
