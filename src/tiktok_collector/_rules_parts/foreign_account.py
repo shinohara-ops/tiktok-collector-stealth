@@ -52,6 +52,16 @@ _VIETNAMESE_ACCENT = re.compile(
 )
 _KANA_ONLY = re.compile(r"[ぁ-んァ-ヶ]")
 _JP_HANZI_KANA = re.compile(r"[ぁ-んァ-ヶ一-龥]")
+_ASCII_LETTER = re.compile(r"[a-zA-Z]")
+
+
+def _is_english_only_nonjp(text: str) -> bool:
+    """Non-empty, has at least one ASCII letter, and no Japanese (kana/kanji)."""
+    if not text.strip():
+        return False
+    if _JP_HANZI_KANA.search(text):
+        return False
+    return bool(_ASCII_LETTER.search(text))
 _HANGUL = re.compile(r"[가-힯]")
 _HANGUL_TOKEN = re.compile(r"[가-힯]{2,}")
 
@@ -121,6 +131,12 @@ def check(uid_s: str, name_s: str, bio_s: str, tags: str) -> str | None:
         return "外国語/海外(英語文章Bio)"
     if not _JP_HANZI_KANA.search(full) and _english_sentence_like(full):
         return "外国語/海外(英語文章)"
+
+    # 8.5 Bio と Tags が両方記入済みかつ両方 ASCII 英語のみ → 海外アカウント。
+    # 「タグだけ英語でBio空欄」は除外しない(日本人も英語タグを使う)。
+    # 1-8 が先に発火しないケース(短い英語Bio+短い英語タグ)の補完。
+    if bio_s and tags and _is_english_only_nonjp(bio_s) and _is_english_only_nonjp(tags):
+        return "外国語/海外(英語のみBio+Tags)"
 
     # 9. Korean
     hangul_count = len(_HANGUL.findall(full))
