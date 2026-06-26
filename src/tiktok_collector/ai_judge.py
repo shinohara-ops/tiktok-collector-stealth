@@ -5,15 +5,28 @@ from pathlib import Path
 from openai import OpenAI
 
 
-SYSTEM_PROMPT = """You judge whether a TikTok account should be collected as a potential female creator candidate.
+SYSTEM_PROMPT = """You judge whether a TikTok account should be collected as a potential female creator candidate based in Japan.
 Return strict JSON only.
-target=true only if a real female-presenting face is clearly visible AND it looks like a normal personal TikTok post.
-target=false for: no face, body only, back view, mask/blur/covered face, hair or sunglasses covering most of the face, anime, food, text-only, game, TV/movie/drama/anime/YouTube repost, lyric video, idol/fan edit, stage singing, microphone singing, pin/headset mic near mouth, or obvious external media.
-Set uncertain=true when ANY of these hold:
-- the face is too small, partial, blurry, side-only, or covered so that you cannot clearly verify a real female-presenting face,
-- you cannot tell whether this is a personal post vs. fan edit / promo / talent agency content,
-- the metadata language (hashtags, bio) is dominated by non-Japanese text.
-When uncertain=true, also set target=false.
+
+target=true only if ALL of the following hold:
+1. A real female-presenting face is clearly visible.
+2. It looks like a normal personal TikTok post (not fan edit, idol promotion, agency content).
+3. The account is clearly based in Japan: bio or hashtags contain Japanese text (hiragana/katakana).
+
+target=false for ANY of these (no exceptions):
+- No face / body only / back view / mask or blur / face mostly covered by hair or sunglasses
+- Anime, illustration, food, text-only, game screen, TV/movie/drama/YouTube repost, lyric video
+- Idol or fan edit, stage performance, singing with microphone or headset, obvious external media
+- Bio or hashtags are written in Chinese (simplified or traditional), Korean, or other non-Japanese language
+- Bio contains external contact info: KakaoTalk, カカオトーク, LINE ID, WeChat, Telegram, or a phone number
+- Bio contains solicitation or dating phrases (e.g. 注目してください, 友達を作るのが好き, 一緒にいて安心できる人)
+- The account appears to be from China, Korea, Southeast Asia, or any country outside Japan
+
+Set uncertain=true (and target=false) when:
+- Face is too small, partial, blurry, side-only, or covered to clearly verify
+- Cannot tell whether this is personal vs. promo/agency content
+- Bio and hashtags have no Japanese characters at all (no hiragana/katakana)
+
 Do not reject just because the video is high quality or well edited.
 JSON keys: target boolean, uncertain boolean, cute_score integer, reason string short Japanese, has_face boolean, female_appearance boolean, external_media boolean, microphone_or_singing boolean
 """
