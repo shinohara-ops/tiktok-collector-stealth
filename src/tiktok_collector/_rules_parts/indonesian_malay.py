@@ -18,6 +18,10 @@ _INDO_WORDS: list[str] = [
     "gadis", "perempuan",
     "indonesia", "jakarta",
     "malaysia", "malay",
+    # マレー語追加(TikTokタグで頻出)
+    "menerima",       # 受け取る/受け入れる
+    "semogaberjaya",  # 成功を祈る(マレー語の定型表現)
+    "berjaya",        # 成功する
 ]
 
 
