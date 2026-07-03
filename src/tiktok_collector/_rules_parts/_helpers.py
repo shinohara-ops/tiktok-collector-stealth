@@ -26,6 +26,7 @@ from typing import Callable, Optional
 
 _ng_keyword_provider: Optional[Callable[[str], list[str]]] = None
 _ng_keyword_meta_provider: Optional[Callable[[str], list[dict]]] = None
+_yellow_excluded_provider: Optional[Callable[[], frozenset]] = None
 
 # Sheets「NGワード」タブで 1 文字エントリ(`i`, `a`, `o` 等)が登録されると、
 # 部分一致判定が事実上 free-pass で全候補にヒットする(過去 186 件 `NGワード(i)`)。
@@ -63,6 +64,26 @@ def set_ng_keyword_meta_provider(provider: Optional[Callable[[str], list[dict]]]
     set_ng_keyword_provider と独立で、両方登録できる。未登録なら scoped 判定は無効。"""
     global _ng_keyword_meta_provider
     _ng_keyword_meta_provider = provider
+
+
+def set_yellow_excluded_provider(provider: Optional[Callable[[], frozenset]]) -> None:
+    """Sheets の黄色セル除外 UID セットを供給するフック。
+    main.py が sheets.get_yellow_excluded_uids を渡す。未登録なら黄色除外は無効。"""
+    global _yellow_excluded_provider
+    _yellow_excluded_provider = provider
+
+
+def _check_yellow_excluded(uid: str) -> Optional[str]:
+    """uid が黄色除外セットに含まれていれば reason 文字列を返す。含まれていなければ None。"""
+    if _yellow_excluded_provider is None:
+        return None
+    try:
+        ids = _yellow_excluded_provider()
+        if uid and uid in ids:
+            return f"黄色除外ID({uid})"
+    except Exception:
+        pass
+    return None
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -185,6 +206,7 @@ def _age_ng(text: str) -> str:
     patterns = [
         "#09", "#10", "#11", "#12", "#13", "#14", "#15", "#16",
         "09line", "10line", "11line", "12line", "13line", "14line", "15line", "16line",
+        "09世代", "10世代", "11世代", "12世代", "13世代", "14世代", "15世代", "16世代",
         "fjk", "sjk", "ljk", "jk", "jc", "js",
         "高校生", "中学生", "受験生", "通信制高校",
         "17歳", "16歳", "15歳", "14歳", "13歳",

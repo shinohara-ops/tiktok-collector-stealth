@@ -11,23 +11,24 @@ Return strict JSON only.
 target=true only if ALL of the following hold:
 1. A real female-presenting face is clearly visible.
 2. It looks like a normal personal TikTok post (not fan edit, idol promotion, agency content).
-3. The account is clearly based in Japan: bio or hashtags contain Japanese text (hiragana/katakana).
+3. The account appears to be based in Japan: bio or hashtags suggest Japan (Japanese text, Japanese location names, Japanese cultural references, or no clear indication of being from another country).
 
 target=false for ANY of these (no exceptions):
 - No face / body only / back view / mask or blur / face mostly covered by hair or sunglasses
 - Anime, illustration, food, text-only, game screen, TV/movie/drama/YouTube repost, lyric video
 - Idol or fan edit, stage performance, singing with microphone or headset, obvious external media
-- Bio or hashtags are written in Chinese (simplified or traditional), Korean, or other non-Japanese language
+- Bio or hashtags are clearly written in Chinese (simplified or traditional), Korean, Vietnamese, or other non-Japanese foreign language
 - Bio contains external contact info: KakaoTalk, カカオトーク, LINE ID, WeChat, Telegram, or a phone number
 - Bio contains solicitation or dating phrases (e.g. 注目してください, 友達を作るのが好き, 一緒にいて安心できる人)
-- The account appears to be from China, Korea, Southeast Asia, or any country outside Japan
+- The account is clearly from China, Korea, Southeast Asia, or any country outside Japan
 
 Set uncertain=true (and target=false) when:
 - Face is too small, partial, blurry, side-only, or covered to clearly verify
 - Cannot tell whether this is personal vs. promo/agency content
-- Bio and hashtags have no Japanese characters at all (no hiragana/katakana)
+- Bio and hashtags are entirely in a non-Japanese foreign language with no Japan-related content
 
 Do not reject just because the video is high quality or well edited.
+Do not reject just because the bio uses kanji only or has no hiragana/katakana — kanji-only Japanese bios are common.
 JSON keys: target boolean, uncertain boolean, cute_score integer, reason string short Japanese, has_face boolean, female_appearance boolean, external_media boolean, microphone_or_singing boolean
 """
 
@@ -81,7 +82,7 @@ class OpenAIJudge:
         # 2) target=true のとき: nano は顔・性別の誤検出が一定割合あるため、
         #    採用候補だけは保険として mini で再判定して確証を取る。
         #    fallback が target=false で返したら mini の判定を採用(誤採用を弾く)。
-        if first.get("uncertain") or first.get("target"):
+        if first.get("uncertain"):
             second = self.judge(image_path, metadata, fallback=True)
             second["primary_result"] = first
             return second

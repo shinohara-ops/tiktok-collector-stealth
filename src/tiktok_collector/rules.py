@@ -20,6 +20,8 @@ from ._rules_parts._helpers import (
     _check_scoped_ng_words,
     set_ng_keyword_provider,
     set_ng_keyword_meta_provider,
+    set_yellow_excluded_provider,
+    _check_yellow_excluded,
 )
 
 from ._rules_parts import similar_excluded as _similar_excluded
@@ -54,6 +56,7 @@ from ._rules_parts import multi_person as _multi_person
 from ._rules_parts import fan_account as _fan_account
 from ._rules_parts import foreign_script_chars as _foreign_script_chars
 from ._rules_parts import japan_marker as _japan_marker
+from ._rules_parts import dating_scam as _dating_scam
 
 
 def local_skip_reason(candidate, rules=None) -> str | None:
@@ -153,6 +156,27 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     # → src/tiktok_collector/_rules_parts/colored_excluded_ids.py に抽出済
     # ────────────────────────────────────────────────────────────────
     if (r := _colored_excluded_ids.check_2764(_cs_uid_s)) is not None:
+        return r
+
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: Sheets 黄色セル除外(海外・なりすまし)
+    # config.yellow_excluded_tab / start_row で指定したシートの黄色背景行 UID を
+    # 起動時ロード + 1時間TTLで自動除外する。プロバイダ未登録時は noop。
+    # ────────────────────────────────────────────────────────────────
+    if (r := _check_yellow_excluded(_cs_uid_s)) is not None:
+        return r
+
+
+    # ────────────────────────────────────────────────────────────────
+    # SECTION: 出会い系・なりすまし・海外誘導アカウント
+    # おすすめに混入した2パターンを検出:
+    #   1. テンプレBio型 — 「よかったらご連絡ください」等の定型句
+    #   2. 中国語/海外出会い系タグ — 獨身/靚女/单身交友 等
+    # ────────────────────────────────────────────────────────────────
+    if (r := _dating_scam.check_bio(_cs_bio_s)) is not None:
+        return r
+    if (r := _dating_scam.check_tags(_cs_low)) is not None:
         return r
 
 

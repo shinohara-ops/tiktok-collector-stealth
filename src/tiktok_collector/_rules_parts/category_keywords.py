@@ -24,6 +24,7 @@ _LIVE_WORDS: list[str] = [
     "tiktok live", "tiktoklive", "ライバー", "17ライブ", "pococha", "ポコチャ",
     "showroom", "ふわっち", "ツイキャス", "ミクチャ", "palmu", "iriam",
     "グループ配信",
+    "枠作り", "枠主", "毎日配信", "新人ライバー",
 ]
 
 _MUSIC_WORDS: list[str] = [

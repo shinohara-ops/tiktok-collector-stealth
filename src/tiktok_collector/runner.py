@@ -369,12 +369,13 @@ class TikTokRunner:
         # 過去除外 uid の再判定は 1 セッション 1 uid 1 回だけ。
         # 既処理が増えてくると同じ uid が何度も流れてくるので、毎回 AI 叩くと
         # コストが爆発するうえに、結局再除外で時間を浪費するだけになる。
-        self._past_excluded_rechecked: set[str] = set()
+        self._past_excluded_recheck_count: dict[str, int] = {}
+        self._past_excluded_recheck_cap: int = 3
         # fc 取得失敗(キャッシュ未到達 / hover anchor 不在 等)はセッション開始直後に
         # 集中する。1 回失敗で永久ロックすると閾値変更後の取りこぼしが大量に出るので、
         # uid ごとに最大 N 回まではリトライを許す。N 回超えたら諦めて永久 skip 入り。
         self._past_excluded_fc_retry_count: dict[str, int] = {}
-        self._past_excluded_fc_retry_cap: int = 3
+        self._past_excluded_fc_retry_cap: int = 8
         # フィード詰まり(同じ uid N 連続)時のリカバリ試行回数。
         # 即 Chrome 再起動ではなく、まず手動相当の操作(前へ戻る→戻る→大きくスワイプ)を
         # uid ごとに最大 3 回試す。3 回とも失敗したら Chrome 再起動を要求する。
@@ -939,7 +940,7 @@ class TikTokRunner:
             # なら recommended に昇格する。重要なのは「視聴時間は最短化」。
             # 同セッション内で同 uid を 2 度再判定しない(AI コスト & 過剰視聴防止)。
             # ただし fc 取得失敗で集合に入った場合は、後段でリトライ判定する。
-            if uid in self._past_excluded_rechecked:
+            if self._past_excluded_recheck_count.get(uid, 0) >= self._past_excluded_recheck_cap:
                 print(f"[PAST_EXCLUDED_SKIP] account_id={uid} status={status} reason={prev_reason}", flush=True)
                 await self._force_advance_after_skip(page, uid)
                 return True
@@ -1005,15 +1006,14 @@ class TikTokRunner:
                 cnt = self._past_excluded_fc_retry_count.get(uid, 0) + 1
                 self._past_excluded_fc_retry_count[uid] = cnt
                 if cnt >= self._past_excluded_fc_retry_cap:
-                    self._past_excluded_rechecked.add(uid)
-                    print(f"[PAST_EXCLUDED_RECHECK_SKIP_FC_UNKNOWN] account_id={uid} attempts={cnt} (permanent)", flush=True)
+                    print(f"[PAST_EXCLUDED_RECHECK_SKIP_FC_UNKNOWN] account_id={uid} attempts={cnt} (giving up this pass)", flush=True)
                 else:
                     print(f"[PAST_EXCLUDED_RECHECK_SKIP_FC_UNKNOWN] account_id={uid} attempts={cnt}/{self._past_excluded_fc_retry_cap} (will retry)", flush=True)
                 await self._force_advance_after_skip(page, uid)
                 return True
             # ここに来た時点で fc は取得済み。閾値判定や AI 判定に進む前に、
             # この uid は「セッション内で 1 度評価した」と確定させる(AI コスト防止)。
-            self._past_excluded_rechecked.add(uid)
+            self._past_excluded_recheck_count[uid] = self._past_excluded_recheck_count.get(uid, 0) + 1
             if follower_count >= max_followers_threshold:
                 print(f"[PAST_EXCLUDED_RECHECK_SKIP_BIG_FOLLOWER] account_id={uid} fc={follower_count}", flush=True)
                 await self._force_advance_after_skip(page, uid)

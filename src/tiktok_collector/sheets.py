@@ -4,6 +4,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+import httplib2
+from google_auth_httplib2 import AuthorizedHttp
 from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials as OAuthCredentials
 from google.oauth2.service_account import Credentials as ServiceAccountCredentials
@@ -22,6 +24,7 @@ HEADERS = [
 NG_KEYWORDS_HEADERS = ["カテゴリ", "ワード", "適用範囲", "Bio空必須", "有効", "メモ"]
 NG_KEYWORDS_TAB_KEY = "ng_keywords"
 NG_KEYWORDS_DEFAULT_TTL_SEC = 600
+YELLOW_EXCLUDED_DEFAULT_TTL_SEC = 3600
 
 NG_COL_CATEGORY = 0
 NG_COL_WORD = 1
@@ -72,6 +75,20 @@ _NG_FALSEY_LOWER = {"無効", "不要", "false", "0", "no", "off"}
 NG_SCOPE_VALUES = {"all", "hashtag", "bio"}
 
 
+def _is_yellow_bg(bg: dict) -> bool:
+    """Google Sheets API の backgroundColor dict から黄色系かどうかを判定。
+    色コンポーネントが 0 のとき API はキーを省略する(デフォルト 0)。
+    そのため get('blue', 0.0) とする(1.0 にすると省略=0 を白と誤判定する)。
+    空 dict (色指定なし) は False を返す。
+    """
+    if not bg:
+        return False
+    r = float(bg.get("red", 0.0))
+    g = float(bg.get("green", 0.0))
+    b = float(bg.get("blue", 0.0))   # 省略 = 0
+    return r >= 0.75 and g >= 0.70 and b <= 0.50
+
+
 def _ng_is_truthy(s: str) -> bool:
     return s.strip().lower() in _NG_TRUTHY_LOWER or s.strip() in _NG_TRUTHY_LOWER
 
@@ -86,14 +103,27 @@ class SheetsClient:
     def __init__(self, cfg):
         self.cfg = cfg
         creds = self._load_credentials()
-        self.service = build("sheets", "v4", credentials=creds)
+        authorized_http = AuthorizedHttp(creds, http=httplib2.Http(timeout=60))
+        self.service = build("sheets", "v4", http=authorized_http)
         self.spreadsheet_id = cfg.spreadsheet_id
         self.tabs = cfg.tabs
         self._ng_cache: dict[str, list[str]] = {}
         self._ng_meta_cache: dict[str, list[dict]] = {}
         self._ng_cache_ts: float = 0.0
         self._ng_cache_ttl: float = float(getattr(cfg, "ng_keywords_cache_ttl_sec", NG_KEYWORDS_DEFAULT_TTL_SEC) or NG_KEYWORDS_DEFAULT_TTL_SEC)
-        self._ensure_tabs()
+        self._yellow_excluded_cache: frozenset[str] = frozenset()
+        self._yellow_excluded_cache_ts: float = 0.0
+        self._yellow_excluded_ttl: float = float(getattr(cfg, "yellow_excluded_cache_ttl_sec", YELLOW_EXCLUDED_DEFAULT_TTL_SEC) or YELLOW_EXCLUDED_DEFAULT_TTL_SEC)
+        for attempt in range(3):
+            try:
+                self._ensure_tabs()
+                break
+            except Exception as e:
+                if attempt < 2:
+                    print(f"Google Sheets接続エラー、10秒後にリトライします ({attempt + 1}/3)...", flush=True)
+                    time.sleep(10)
+                else:
+                    raise
 
     def _load_credentials(self):
         auth_mode = str(getattr(self.cfg, "auth_mode", "oauth") or "oauth").strip().lower()
@@ -121,7 +151,12 @@ class SheetsClient:
             creds = OAuthCredentials.from_authorized_user_file(str(token_path), SCOPES)
 
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
+            try:
+                creds.refresh(Request())
+            except Exception:
+                print("Google認証トークンの更新に失敗しました。再認証を開始します...", flush=True)
+                token_path.unlink(missing_ok=True)
+                creds = None
 
         if not creds or not creds.valid:
             if not client_path.exists():
@@ -640,5 +675,56 @@ class SheetsClient:
         """
         self._refresh_ng_caches()
         return self._ng_meta_cache
+
+    def get_yellow_excluded_uids(self) -> frozenset[str]:
+        """config の yellow_excluded_tab / yellow_excluded_start_row で指定した
+        シートの start_row 行目以降を取得し、黄色背景セルを持つ行のユーザーID(列C)を返す。
+        TTL(デフォルト1時間)内は前回フェッチ結果を再利用する。
+        tab が空 / start_row が 0 の場合は空 frozenset を返す(=無効)。
+        """
+        tab = str(getattr(self.cfg, "yellow_excluded_tab", "") or "").strip()
+        start_row = int(getattr(self.cfg, "yellow_excluded_start_row", 0) or 0)
+        if not tab or start_row <= 0:
+            return frozenset()
+
+        now = time.time()
+        if self._yellow_excluded_cache_ts and (now - self._yellow_excluded_cache_ts) < self._yellow_excluded_ttl:
+            return self._yellow_excluded_cache
+
+        range_notation = f"'{tab}'!A{start_row}:M"
+        try:
+            response = self.service.spreadsheets().get(
+                spreadsheetId=self.spreadsheet_id,
+                ranges=[range_notation],
+                includeGridData=True,
+            ).execute()
+        except Exception as e:
+            print(f"黄色除外ID読込失敗(キャッシュ流用): {str(e)[:160]}", flush=True)
+            return self._yellow_excluded_cache
+
+        uids: set[str] = set()
+        for sheet in response.get("sheets", []):
+            for data_range in sheet.get("data", []):
+                for row_data in data_range.get("rowData", []):
+                    values = row_data.get("values", [])
+                    row_is_yellow = any(
+                        _is_yellow_bg(
+                            (cell.get("userEnteredFormat") or {}).get("backgroundColor") or {}
+                        )
+                        for cell in values
+                    )
+                    if not row_is_yellow:
+                        continue
+                    if len(values) <= 2:
+                        continue
+                    # 列C(0-indexed=2)がユーザーID
+                    uid_val = str(values[2].get("formattedValue", "")).strip().replace("@", "")
+                    if uid_val and uid_val not in {"ユーザーID", "user_id", "unique_id"}:
+                        uids.add(uid_val)
+
+        self._yellow_excluded_cache = frozenset(uids)
+        self._yellow_excluded_cache_ts = now
+        print(f"黄色除外ID読込: {len(uids)}件 from {tab}!A{start_row}:M", flush=True)
+        return self._yellow_excluded_cache
 
 

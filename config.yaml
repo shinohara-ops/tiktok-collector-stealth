@@ -14,7 +14,7 @@ openai:
   # コスト最適化: 大半は nano(最安) で判定、uncertain=true のときだけ mini に
   # エスカレーション。完全 mini と比べて大幅にコスト削減しつつ、ボーダーライン
   # ケースの品質はそのまま保つハイブリッド構成。
-  primary_model: gpt-4.1-nano
+  primary_model: gpt-4o-mini
   fallback_model: gpt-4o-mini
   use_fallback_for_uncertain: true
   timeout_sec: 20
@@ -33,6 +33,12 @@ google_sheets:
     skipped: 除外ログ
     ng_keywords: NGワード
   ng_keywords_cache_ttl_sec: 600
+  # 黄色セル除外: yellow_excluded_tab のシートで yellow_excluded_start_row 行目以降に
+  # 黄色背景セルを持つ行のユーザーIDを自動除外する(海外アカウント・なりすまし対策)。
+  # タブ名を空文字にするか start_row を 0 にすると無効。
+  yellow_excluded_tab: おすすめ
+  yellow_excluded_start_row: 8358
+  yellow_excluded_cache_ttl_sec: 3600
   # 採用書き込みのフォロワー帯振り分け。`tabs.recommended` (おすすめ) は履歴として
   # 残し、新規採用は follower_count に応じて下の帯域別タブに書く。半開区間 [min, max)。
   # 起動時にタブが無ければ自動作成 + ヘッダー設定。空 list にすると従来の単一タブ運用。
@@ -121,7 +127,7 @@ browser_stealth:
 # stealth 版アルゴ。候補性判定と like のみ。follow はしない。
 algorithm_stealth:
   # 候補性判定: 過去採用済みでない & フォロワー数 < rules.max_followers のときだけ候補
-  enable_candidacy_check: true
+  enable_candidacy_check: false
   # 候補のうち like_probability で like を発火(0.0〜1.0)
   # 候補(=フォロワー数判明+閾値未満)に対して強めに好意シグナルを送り、
   # TikTokおすすめが似た傾向のアカウントに偏るようにする。

@@ -51,6 +51,15 @@ async def main() -> int:
                 return []
         rules_module.set_ng_keyword_meta_provider(_ng_meta_provider)
 
+        # 黄色セル除外: config.yellow_excluded_tab の指定行以降で黄色背景を持つ行のUID を除外。
+        # 海外アカウント・なりすましアカウントをシートで黄色マークするだけで自動除外される。
+        def _yellow_provider() -> frozenset:
+            try:
+                return sheets.get_yellow_excluded_uids()
+            except Exception:
+                return frozenset()
+        rules_module.set_yellow_excluded_provider(_yellow_provider)
+
         print("4/6 Slack通知準備中...", flush=True)
         notifier = Notifier(cfg.slack)
 

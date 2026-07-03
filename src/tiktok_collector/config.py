@@ -45,6 +45,11 @@ class GoogleSheetsConfig:
     oauth_token_json: str = "./credentials/token.json"
     service_account_json: str = "./credentials/service_account.json"
     ng_keywords_cache_ttl_sec: int = 600
+    # 黄色セル除外: 指定タブの start_row 行目以降でセル背景が黄色の行のUIDを自動除外。
+    # 空文字または 0 で無効。
+    yellow_excluded_tab: str = ""
+    yellow_excluded_start_row: int = 0
+    yellow_excluded_cache_ttl_sec: int = 3600
 
 
 @dataclass
