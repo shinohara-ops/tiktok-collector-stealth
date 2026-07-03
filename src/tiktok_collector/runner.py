@@ -380,6 +380,7 @@ class TikTokRunner:
         # 即 Chrome 再起動ではなく、まず手動相当の操作(前へ戻る→戻る→大きくスワイプ)を
         # uid ごとに最大 3 回試す。3 回とも失敗したら Chrome 再起動を要求する。
         self._stuck_recovery_attempts: dict[str, int] = {}
+        self._last_openai_quota_notify_ts: float = 0.0
 
     def _maybe_refresh_uid_map(self) -> None:
         """過去採用 uid マップを定期的に Sheets から再取得する。
@@ -409,6 +410,21 @@ class TikTokRunner:
             print(f"uidマップ更新失敗(stale 継続): {str(e)[:160]}", flush=True)
             # 失敗しても次の周期まで待つ。リトライ嵐を避ける。
             self._uid_map_last_refresh_ts = now
+
+    def _notify_openai_quota_exceeded(self, err: Exception) -> None:
+        err_str = str(err)
+        if "429" not in err_str and "quota" not in err_str.lower():
+            return
+        now = time.time()
+        if now - self._last_openai_quota_notify_ts < 3600:
+            return
+        self._last_openai_quota_notify_ts = now
+        msg = "⚠️ OpenAI APIクォータ超過 — AI判定が停止しています。請求ページで残高を確認してください。"
+        print(msg, flush=True)
+        try:
+            self.notifier.send(msg)
+        except Exception:
+            pass
 
     def _stop_requested(self) -> bool:
         return Path("data/STOP_REQUESTED").exists()
@@ -1062,6 +1078,7 @@ class TikTokRunner:
                 if isinstance(result, dict) and "cute_score" in result:
                     result["cute_score"] = _clamp_ai_score_0_10(result.get("cute_score", ""))
             except Exception as e:
+                self._notify_openai_quota_exceeded(e)
                 print(f"[PAST_EXCLUDED_RECHECK_ERROR] account_id={uid} err={str(e)[:120]}", flush=True)
                 await self._force_advance_after_skip(page, uid)
                 return True
@@ -1467,6 +1484,7 @@ class TikTokRunner:
             if isinstance(result, dict) and "cute_score" in result:
                 result["cute_score"] = _clamp_ai_score_0_10(result.get("cute_score", ""))
         except Exception as e:
+            self._notify_openai_quota_exceeded(e)
             reason = "AI未判定/保留: " + str(e)[:120]
             print(f"AI保留: {candidate.unique_id} / {reason}", flush=True)
             self.db.mark(candidate.unique_id, "pending", reason, candidate.profile_url, candidate.post_url, screenshot_path)
