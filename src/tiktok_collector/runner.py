@@ -1412,25 +1412,6 @@ class TikTokRunner:
                 await self._force_advance_after_skip(page, candidate.unique_id)
                 return True
 
-            # ここに来た時点で fc は閾値範囲内が確定。like 発火対象。
-            is_like_target = True
-            if is_like_target and getattr(algo_st, "enable_like", True):
-                like_prob = float(getattr(algo_st, "like_probability", 0.20))
-                like_interval = float(getattr(algo_st, "like_min_interval_sec", 90))
-                now_mono = time.monotonic()
-                if (
-                    candidate.unique_id not in self._liked_uids
-                    and random.random() < like_prob
-                    and (now_mono - self._last_like_ts) >= like_interval
-                ):
-                    try:
-                        like_result = await _stealth_fire_like(page)
-                        print(f"stealth like: {candidate.unique_id} / {like_result}", flush=True)
-                        if like_result.get("ok"):
-                            self._last_like_ts = now_mono
-                            self._liked_uids.add(candidate.unique_id)
-                    except Exception as e:
-                        print(f"stealth like error: {str(e)[:120]}", flush=True)
 
         # minimal pause before judgement: 判定前に動画を停止し、対象外視聴を増やさない
 
@@ -1460,6 +1441,27 @@ class TikTokRunner:
             # heuristic 系("ランダムID/..." "外国語/海外(...)" 等)は uid + テキストだけの
             # 推定で誤検出が多い。AI に画像で本人らしさを確認させる。
             print(f"ローカル heuristic hit, AI に判定移譲: {candidate.unique_id} / {reason}", flush=True)
+
+        # ローカルルール通過(または heuristic hit で AI 移譲)= like 発火対象。
+        # 確定 NG(外国語Bio・未成年等)を除外した後に like を送ることで
+        # TikTok アルゴに「除外対象が好き」という誤ったシグナルを送らない。
+        if algo_st and getattr(algo_st, "enable_like", True):
+            like_prob = float(getattr(algo_st, "like_probability", 0.20))
+            like_interval = float(getattr(algo_st, "like_min_interval_sec", 90))
+            now_mono = time.monotonic()
+            if (
+                candidate.unique_id not in self._liked_uids
+                and random.random() < like_prob
+                and (now_mono - self._last_like_ts) >= like_interval
+            ):
+                try:
+                    like_result = await _stealth_fire_like(page)
+                    print(f"stealth like: {candidate.unique_id} / {like_result}", flush=True)
+                    if like_result.get("ok"):
+                        self._last_like_ts = now_mono
+                        self._liked_uids.add(candidate.unique_id)
+                except Exception as e:
+                    print(f"stealth like error: {str(e)[:120]}", flush=True)
 
         screenshot_path = await self.scraper.screenshot_current(page, candidate.unique_id)
         candidate.screenshot_path = screenshot_path
