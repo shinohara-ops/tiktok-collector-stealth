@@ -13,6 +13,10 @@
 #        - 133: SIGTRAP(Apple Silicon で SSL/Chrome クラッシュ時に発生)
 #        - 134: SIGABRT(Chrome 異常終了) → 同上
 #        - 139: SIGSEGV(Playwright/Chrome セグフォルト) → 同上
+#        - 137: SIGKILL(OOM キラー等) → 同上
+#        - 143: SIGTERM(OS 終了指示) → 同上
+#        - 1  : Python 例外 / 起動失敗 → Chrome kill して再試行。
+#               MAX_CONSEC_ERR1 回連続すると停止(設定エラー等の永続障害を検知)
 #        - 0  : 正常終了。ラッパーも終了
 #        - 130: Ctrl+C。ラッパーも終了
 #        - その他: 予期せぬ異常。ラッパーも終了(調査用)
@@ -27,6 +31,10 @@ set -u
 cd "$(dirname "$0")"
 
 export TIKTOK_NONINTERACTIVE=1
+
+# exit code 1 が連続した回数。MAX_CONSEC_ERR1 回連続で永続障害とみなして停止。
+CONSEC_ERR1=0
+MAX_CONSEC_ERR1=3
 
 cleanup() {
   echo ""
@@ -64,16 +72,33 @@ while true; do
 
   case "$CODE" in
     77)
+      CONSEC_ERR1=0
       echo "stuck → 専用 Chrome を kill して再起動します"
       pkill -f "remote-debugging-port=9222" || true
       sleep 5
       ;;
     133|134|139)
-      echo "クラッシュ (exit $CODE / SIGSEGV or 強制終了) → 専用 Chrome を kill して再起動します"
+      echo "クラッシュ (exit $CODE / シグナル強制終了) → 専用 Chrome を kill して再起動します"
       pkill -f "remote-debugging-port=9222" || true
       sleep 10
       ;;
+    137|143)
+      echo "SIGKILL/SIGTERM (exit $CODE / OS 強制終了) → 専用 Chrome を kill して再起動します"
+      pkill -f "remote-debugging-port=9222" || true
+      sleep 15
+      ;;
+    1)
+      CONSEC_ERR1=$((CONSEC_ERR1 + 1))
+      if [ "$CONSEC_ERR1" -ge "$MAX_CONSEC_ERR1" ]; then
+        echo "exit 1 が ${MAX_CONSEC_ERR1} 回連続しました。設定エラー等の永続障害の可能性があります。ループを抜けます(調査推奨)"
+        exit 1
+      fi
+      echo "exit 1 (例外 / 起動失敗, ${CONSEC_ERR1}/${MAX_CONSEC_ERR1}) → 専用 Chrome を kill して再起動します"
+      pkill -f "remote-debugging-port=9222" || true
+      sleep 15
+      ;;
     0)
+      CONSEC_ERR1=0
       echo "正常終了。ループを抜けます。"
       exit 0
       ;;
