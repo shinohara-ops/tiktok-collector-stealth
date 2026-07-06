@@ -502,6 +502,14 @@ class TikTokRunner:
         print(f"target視聴: {wait_sec:.1f}秒(完視聴シグナル)", flush=True)
         await asyncio.sleep(wait_sec)
 
+    async def _watch_neutral_video(self, page):
+        """除外済み・フォロワー範囲外アカウントへの中立シグナル視聴。
+        即スワイプすると TikTok アルゴが「この系統嫌い」と読むため、
+        2〜3.5 秒だけ見てから抜ける。採用(完視聴)より弱い通過シグナル。"""
+        wait_sec = random.uniform(2.0, 3.5)
+        print(f"中立視聴: {wait_sec:.1f}秒", flush=True)
+        await asyncio.sleep(wait_sec)
+
     async def run(self):
         self._clear_stop_requested()
         self.notifier.send("TikTok Collector 起動")
@@ -582,10 +590,12 @@ class TikTokRunner:
                 self._maybe_refresh_uid_map()
 
                 already_advanced = False
+                _timed_out = False
                 try:
                     already_advanced = bool(await asyncio.wait_for(self._process_one(page), timeout=90))
                 except asyncio.TimeoutError:
                     print("1投稿の処理が90秒を超えたため次へ進みます。", flush=True)
+                    _timed_out = True
                 except Exception as e:
                     print(f"処理エラー: {str(e)[:160]}", flush=True)
 
@@ -614,7 +624,31 @@ class TikTokRunner:
                 # ここで二重に next_post すると 2 動画進んでしまう(連続2スワイプ)。
                 # 内部スワイプ済みは True を返す約束なので、True のときは skip する。
                 if not already_advanced:
-                    await self.scraper.next_post(page)
+                    # タイムアウト後は CDP が未完のままでブラウザがブロックしている
+                    # 可能性があるため、next_post 自体にも短めのタイムアウトを設ける。
+                    # 失敗したらページ再ナビゲートで回復を試み、それも無理なら再起動。
+                    _next_timeout = 20 if _timed_out else None
+                    try:
+                        if _next_timeout:
+                            await asyncio.wait_for(self.scraper.next_post(page), timeout=_next_timeout)
+                        else:
+                            await self.scraper.next_post(page)
+                    except Exception as e:
+                        print(f"next_post 失敗: {str(e)[:120]}", flush=True)
+                        try:
+                            print("ページ再ナビゲートでリカバリ試行中...", flush=True)
+                            await asyncio.wait_for(
+                                page.goto(self.cfg.browser.start_url, wait_until="domcontentloaded"),
+                                timeout=20,
+                            )
+                            print("ページ再ナビゲート完了。", flush=True)
+                        except Exception as nav_e:
+                            print(f"再ナビゲートも失敗: {str(nav_e)[:120]} → Chrome再起動を要求", flush=True)
+                            try:
+                                Path("data/RESTART_CHROME").touch()
+                            except Exception:
+                                pass
+                            break
                 await asyncio.sleep(self.cfg.browser.action_delay_sec)
 
             await context.close()
@@ -932,193 +966,20 @@ class TikTokRunner:
             await self._force_advance_after_skip(page, uid)
             return True
         if self._is_excluded_status(status):
-            prev_reason = str((processed or {}).get("reason") or "")
+            # 過去除外 → AI再判定なし。2〜3秒の中立視聴でアルゴシグナルを保ちスキップ。
+            # 即スワイプすると「この系統嫌い」とアルゴに読まれ類似候補が枯渇する。
+            print(f"[PAST_EXCLUDED_NEUTRAL_WATCH] account_id={uid} status={status}", flush=True)
+            self.sheet_seen_ids.add(uid)
             try:
                 self.db.touch_seen(uid)
             except Exception:
                 pass
-
-            # follow=following なら再判定も視聴もしない(救済して完視聴したら
-            # フォロー中アカウントだらけになりフィードが偏る)。dedup セット
-            # の前にチェックすることで、ユーザーがセッション中に対象アカウントを
-            # アンフォローした場合は次の遭遇で正常に再判定パスに入れる。
-            try:
-                follow_state = await self.scraper.detect_follow_state_local(page)
-            except Exception:
-                follow_state = "unknown"
-            if follow_state == "following":
-                print(f"[PAST_EXCLUDED_FOLLOWING_SKIP] account_id={uid} status={status} reason={prev_reason}", flush=True)
-                await self._force_advance_after_skip(page, uid)
-                return True
-
-            # 過去に除外したが、今出ている動画は別かもしれず、過去判定が誤りだった
-            # 可能性もある。スワイプを先にやってから AI を裏で叩いて、target=True
-            # なら recommended に昇格する。重要なのは「視聴時間は最短化」。
-            # 同セッション内で同 uid を 2 度再判定しない(AI コスト & 過剰視聴防止)。
-            # ただし fc 取得失敗で集合に入った場合は、後段でリトライ判定する。
-            if self._past_excluded_recheck_count.get(uid, 0) >= self._past_excluded_recheck_cap:
-                print(f"[PAST_EXCLUDED_SKIP] account_id={uid} status={status} reason={prev_reason}", flush=True)
-                await self._force_advance_after_skip(page, uid)
-                return True
-
-            # フォロワー数 / プロフィール紹介文 を並列で取得(視聴時間短縮)。
-            # 通常フロー(L877〜)と同じ取得関数を使うので、recovered 行も
-            # フォロワー / bio 入りで Sheets に書ける。
-            try:
-                fc_result, pt_result = await asyncio.gather(
-                    self.scraper.detect_follower_count_from_feed(page, uid),
-                    self.scraper.detect_profile_text_from_feed(page, uid),
-                    return_exceptions=True,
-                )
-            except Exception:
-                fc_result, pt_result = None, None
-
-            follower_count = None
-            follower_source = ""
-            if isinstance(fc_result, tuple):
-                if isinstance(fc_result[0], int):
-                    follower_count = fc_result[0]
-                follower_source = fc_result[1] if len(fc_result) > 1 and fc_result[1] else ""
-            profile_text = ""
-            profile_source = ""
-            if isinstance(pt_result, tuple):
-                profile_text = pt_result[0] or ""
-                profile_source = pt_result[1] if len(pt_result) > 1 and pt_result[1] else ""
-
-            # キャッシュで取れなかった分は hover ポップオーバーで補完。
-            # 取得済みの分は上書きしない。
-            if follower_count is None or not profile_text:
-                try:
-                    hover_data = await self.scraper.enrich_via_hover(page, uid)
-                except Exception as e:
-                    print(f"[PAST_EXCLUDED_RECHECK_HOVER_ERROR] account_id={uid} err={str(e)[:120]}", flush=True)
-                    hover_data = {"follower_count": None, "bio": ""}
-                if follower_count is None and hover_data.get("follower_count") is not None:
-                    follower_count = int(hover_data["follower_count"])
-                    follower_source = "hover-popover"
-                if not profile_text and hover_data.get("bio"):
-                    profile_text = hover_data["bio"]
-                    profile_source = "hover-popover"
-
-            try:
-                object.__setattr__(candidate, "follower_count", follower_count if follower_count is not None else "")
-                object.__setattr__(candidate, "follower_source", follower_source or "")
-                if profile_text:
-                    object.__setattr__(candidate, "signature", profile_text)
-                    object.__setattr__(candidate, "bio", profile_text)
-                    object.__setattr__(candidate, "profile_text_source", profile_source or "")
-            except Exception:
-                pass
-
-            # フォロワー閾値ガード: 大手 / 小規模すぎる / 取得失敗のアカウントは再判定対象外。
-            # 取得失敗時に AI に流していたが、AI も画像から fc を判別できないため
-            # 採用してしまうケースが多かった。取りこぼし許容に倒して採用見送り。
-            max_followers_threshold = int(getattr(self.cfg.rules, "max_followers", 2000) or 2000)
-            min_followers_threshold = int(getattr(self.cfg.rules, "min_followers", 0) or 0)
-            if follower_count is None:
-                # セッション開始直後はキャッシュが冷えていて fc を取れないことが多い。
-                # 1 回失敗で永久ロックすると閾値変更後の取りこぼしが大量に出るため、
-                # uid ごとに N 回までは集合に入れずリトライさせる。N 回超えたら諦める。
-                cnt = self._past_excluded_fc_retry_count.get(uid, 0) + 1
-                self._past_excluded_fc_retry_count[uid] = cnt
-                if cnt >= self._past_excluded_fc_retry_cap:
-                    print(f"[PAST_EXCLUDED_RECHECK_SKIP_FC_UNKNOWN] account_id={uid} attempts={cnt} (giving up this pass)", flush=True)
-                else:
-                    print(f"[PAST_EXCLUDED_RECHECK_SKIP_FC_UNKNOWN] account_id={uid} attempts={cnt}/{self._past_excluded_fc_retry_cap} (will retry)", flush=True)
-                await self._force_advance_after_skip(page, uid)
-                return True
-            # ここに来た時点で fc は取得済み。閾値判定や AI 判定に進む前に、
-            # この uid は「セッション内で 1 度評価した」と確定させる(AI コスト防止)。
-            self._past_excluded_recheck_count[uid] = self._past_excluded_recheck_count.get(uid, 0) + 1
-            if follower_count >= max_followers_threshold:
-                print(f"[PAST_EXCLUDED_RECHECK_SKIP_BIG_FOLLOWER] account_id={uid} fc={follower_count}", flush=True)
-                await self._force_advance_after_skip(page, uid)
-                return True
-            if follower_count < min_followers_threshold:
-                print(f"[PAST_EXCLUDED_RECHECK_SKIP_SMALL_FOLLOWER] account_id={uid} fc={follower_count} min={min_followers_threshold}", flush=True)
-                await self._force_advance_after_skip(page, uid)
-                return True
-
-            # プロフィール / ハッシュタグを最新状態に揃えてから現行 ローカルルール で再評価。
-            # 過去の除外理由が今でも有効か(NG ワード追加など)を反映する。
-            try:
-                candidate = await _repair_candidate_profile_and_hashtags(page, candidate, getattr(self, "scraper", None))
-            except Exception as e:
-                print(f"[PAST_EXCLUDED_RECHECK_REPAIR_ERROR] account_id={uid} err={str(e)[:120]}", flush=True)
-            local_reason = local_skip_reason(candidate, self.cfg.rules)
-            if local_reason and not local_reason.startswith(_AI_OVERRIDE_LOCAL_REASON_PREFIXES):
-                # 確証性が高い NG(未成年 / 外部リンク / 類似除外 等)は AI に振らずに skip。
-                print(f"[PAST_EXCLUDED_RECHECK_SKIP_LOCAL] account_id={uid} reason={local_reason}", flush=True)
-                await self._force_advance_after_skip(page, uid)
-                return True
-            if local_reason:
-                # heuristic 系("ランダムID/..." "外国語/海外(...)" 等)は uid + テキストだけの
-                # 推定なので誤検出が多い。AI に画像で本人らしさを確認させる。
-                print(f"[PAST_EXCLUDED_RECHECK_LOCAL_AI_OVERRIDE] account_id={uid} reason={local_reason} → asking AI", flush=True)
-
-            # ここまで来てやっと AI 再判定対象。スクショは swipe 前のみ可能。
-            print(f"[PAST_EXCLUDED_RECHECK] account_id={uid} prev_status={status} reason={prev_reason} fc={follower_count}", flush=True)
-            screenshot_path = None
-            try:
-                screenshot_path = await self.scraper.screenshot_current(page, uid)
-            except Exception as e:
-                print(f"[PAST_EXCLUDED_RECHECK_NO_SCREENSHOT] account_id={uid} err={str(e)[:120]}", flush=True)
-
-            if not screenshot_path:
-                await self._force_advance_after_skip(page, uid)
-                return True
-
-            # AI を同期実行。target=True なら完視聴(positive signal)、target=False なら即 swipe。
-            # 背景化しない理由: 救済確定時に動画がまだ画面上にある状態で _watch_target_video を呼ぶ
-            # 必要があるため。背景タスクで判定する場合は既にスワイプ済みで完視聴できない。
-            try:
-                result = await asyncio.to_thread(
-                    self.ai.judge_with_fallback_if_needed, screenshot_path, candidate.dict()
-                )
-                if isinstance(result, dict) and "cute_score" in result:
-                    result["cute_score"] = _clamp_ai_score_0_10(result.get("cute_score", ""))
-            except Exception as e:
-                self._notify_openai_quota_exceeded(e)
-                print(f"[PAST_EXCLUDED_RECHECK_ERROR] account_id={uid} err={str(e)[:120]}", flush=True)
-                await self._force_advance_after_skip(page, uid)
-                return True
-
-            if not result.get("target"):
-                print(f"[PAST_EXCLUDED_RECHECK_REJECT] account_id={uid} (still excluded)", flush=True)
-                await self._force_advance_after_skip(page, uid)
-                return True
-
-            # 救済確定: DB/Sheets 更新 → 完視聴 → swipe(target=True 通常フローと同等)
-            score = str(result.get("cute_score", ""))
-            reason = str(result.get("reason", ""))
-            model_used = str(result.get("model_used", ""))
-            print(f"[PAST_EXCLUDED_RECOVERED] account_id={uid} score={score} reason={reason}", flush=True)
-
-            try:
-                self.db.mark(uid, "recommended", reason, candidate.profile_url, candidate.post_url, screenshot_path)
-            except Exception as e:
-                print(f"[PAST_EXCLUDED_RECOVERED_DB_FAIL] account_id={uid} err={str(e)[:120]}", flush=True)
-
-            try:
-                self.sheets.append_recommended(
-                    candidate.to_row(self.cfg.collector_name, reason=reason, score=score, model_used=model_used),
-                    candidate.follower_count,
-                )
-                self.written_count += 1
-            except Exception as e:
-                print(f"[PAST_EXCLUDED_RECOVERED_SHEET_FAIL] account_id={uid} err={str(e)[:120]}", flush=True)
-
-            await self._watch_target_video(page)
+            await self._watch_neutral_video(page)
             await self._force_advance_after_skip(page, uid)
             return True
         if status:
-            print(f"既処理スキップ: {uid} / status={status}", flush=True)
-            try:
-                self.db.touch_seen(uid)
-            except Exception:
-                pass
-            await self._force_advance_after_skip(page, uid)
-            return True
+            # pending 等(AIエラー保留) → _process_one で再判定(hover あり)
+            return False
         return False
 
     async def _process_one(self, page) -> bool:
@@ -1292,20 +1153,46 @@ class TikTokRunner:
 
 
         try:
-
-
             profile_text, profile_source = await self.scraper.detect_profile_text_from_feed(page, candidate.unique_id)
-
-
         except Exception:
-
-
             profile_text, profile_source = "", ""
 
+        if profile_text:
+            try:
+                object.__setattr__(candidate, "signature", profile_text)
+                object.__setattr__(candidate, "bio", profile_text)
+                object.__setattr__(candidate, "profile_text_source", profile_source or "")
+            except Exception:
+                pass
 
-        # キャッシュで follower / profile_text が取れなかったときは @uid を hover して
-        # ポップオーバーから補完する。Sheets の「おすすめ」記入時にこれらの列が空欄に
-        # なる現象を防ぐ。取得済みの値は上書きしない。
+        # ローカルルール判定を hover より先に実施。
+        # NGワード / 未成年 等のハード除外は hover を呼ばずに即スキップ。
+        # hover はローカルルールを通過した新規アカウントのみ実施する。
+        await _start_pause_guard(page)
+
+        try:
+            candidate = await _repair_candidate_profile_and_hashtags(page, candidate, getattr(self, "scraper", None))
+        except Exception as e:
+            print(f"profile/hashtag repair error: {str(e)[:120]}", flush=True)
+
+        reason = local_skip_reason(candidate, self.cfg.rules)
+        if reason and not reason.startswith(_AI_OVERRIDE_LOCAL_REASON_PREFIXES):
+            # 確証性が高い NG(未成年 / 外部リンク / 類似除外 等)は AI に振らずに即スキップ。
+            print(f"ローカル除外: {candidate.unique_id} / {reason}", flush=True)
+            self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
+            self.sheet_seen_ids.add(candidate.unique_id)
+            row = candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:no-screenshot")
+            await self._negative_feedback_for_current_exclusion(page, candidate, "skipped", reason)
+            await self._force_advance_after_skip(page, candidate.unique_id)
+            self.sheets.append("skipped", row)
+            return True
+        if reason:
+            # heuristic 系("ランダムID/..." "外国語/海外(...)" 等)は uid + テキストだけの
+            # 推定で誤検出が多い。AI に画像で本人らしさを確認させる。
+            print(f"ローカル heuristic hit, AI に判定移譲: {candidate.unique_id} / {reason}", flush=True)
+
+        # ローカルルール通過後のみ hover 補完を実施(新規アカウントのみ対象)。
+        # 過去処理済みアカウントは _handle_already_processed_candidate で先に処理済み。
         hover_data = None
         if follower_count is None or not profile_text:
             try:
@@ -1325,8 +1212,7 @@ class TikTokRunner:
                 profile_text = hover_data["bio"]
                 profile_source = "hover-popover"
 
-        # fc 取得経路を JSONL に永続化。失敗の偏り(no_anchor / no_fc_in_popover /
-        # hover_exception 等)を朝に集計できれば、どこを直すべきかが見える。
+        # fc 取得経路を JSONL に永続化。
         try:
             acq = {
                 "ts": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
@@ -1346,44 +1232,16 @@ class TikTokRunner:
         except Exception:
             pass
 
-
-        if profile_text:
-
-
-            try:
-
-
-                object.__setattr__(candidate, "signature", profile_text)
-
-
-                object.__setattr__(candidate, "bio", profile_text)
-
-
-                object.__setattr__(candidate, "profile_text_source", profile_source or "")
-
-
-            except Exception:
-
-
-                pass
-
-
-
-        # === stealth: 候補性判定 + like 発火 ===
-        # 早期 skip するのは「明らかに対象外」+「fc 不明」:
-        #   - 過去採用済み:再記入を防ぐ
-        #   - フォロワー数が判明していて閾値外:大手 / 小規模すぎは対象外
-        #   - フォロワー不明:AI は画像から fc を判別できないため誤採用が多い。
-        #     hover-popover / poll-retry でも取れないケースは採用見送り(取りこぼし許容)。
+        # === stealth: フォロワー数判定(ローカルルールの後に実施)===
+        # フォロワー数だけが対象外の場合は中立視聴(2〜3秒)してスキップ。
+        # ローカルルールより手前で除外されたアカウントは即スキップ済みのため、
+        # ここでの除外はアルゴへの「嫌い」シグナルにならない中立扱いとする。
         algo_st = getattr(self.cfg, "algorithm_stealth", None)
         if algo_st and getattr(algo_st, "enable_candidacy_check", True):
             fc = follower_count if isinstance(follower_count, int) else None
             is_past_adopted = self.sheet_status_by_id.get(candidate.unique_id) == "recommended"
             max_followers_threshold = int(getattr(self.cfg.rules, "max_followers", 2000) or 2000)
             if is_past_adopted:
-                # 他PCで採用された uid。完視聴して positive signal を送る。
-                # db.mark はしない(sheet 側の recommended 状態を local "skipped" で
-                # 上書きしないため)。sheet_seen_ids には入れて Sheets 重複追記を防ぐ。
                 print(f"stealth past_adopted: {candidate.unique_id} (watch for signal)", flush=True)
                 self.sheet_seen_ids.add(candidate.unique_id)
                 await self._watch_target_video(page)
@@ -1395,6 +1253,7 @@ class TikTokRunner:
                 print(f"stealth候補外: {candidate.unique_id} / {reason}", flush=True)
                 self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
                 self.sheet_seen_ids.add(candidate.unique_id)
+                await self._watch_neutral_video(page)
                 await self._force_advance_after_skip(page, candidate.unique_id)
                 return True
             if fc >= max_followers_threshold:
@@ -1402,6 +1261,7 @@ class TikTokRunner:
                 print(f"stealth候補外: {candidate.unique_id} / {reason}", flush=True)
                 self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
                 self.sheet_seen_ids.add(candidate.unique_id)
+                await self._watch_neutral_video(page)
                 await self._force_advance_after_skip(page, candidate.unique_id)
                 return True
             if fc < min_followers_threshold:
@@ -1409,38 +1269,9 @@ class TikTokRunner:
                 print(f"stealth候補外: {candidate.unique_id} / {reason}", flush=True)
                 self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
                 self.sheet_seen_ids.add(candidate.unique_id)
+                await self._watch_neutral_video(page)
                 await self._force_advance_after_skip(page, candidate.unique_id)
                 return True
-
-
-        # minimal pause before judgement: 判定前に動画を停止し、対象外視聴を増やさない
-
-
-
-        await _start_pause_guard(page)
-
-
-
-        # profile/hashtag repair before local rules
-        try:
-            candidate = await _repair_candidate_profile_and_hashtags(page, candidate, getattr(self, "scraper", None))
-        except Exception as e:
-            print(f"profile/hashtag repair error: {str(e)[:120]}", flush=True)
-        reason = local_skip_reason(candidate, self.cfg.rules)
-        if reason and not reason.startswith(_AI_OVERRIDE_LOCAL_REASON_PREFIXES):
-            # 確証性が高い NG(未成年 / 外部リンク / 類似除外 等)は AI に振らずに skip。
-            print(f"ローカル除外: {candidate.unique_id} / {reason}", flush=True)
-            self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
-            self.sheet_seen_ids.add(candidate.unique_id)
-            row = candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:no-screenshot")
-            await self._negative_feedback_for_current_exclusion(page, candidate, "skipped", reason)
-            await self._force_advance_after_skip(page, candidate.unique_id)
-            self.sheets.append("skipped", row)
-            return True
-        if reason:
-            # heuristic 系("ランダムID/..." "外国語/海外(...)" 等)は uid + テキストだけの
-            # 推定で誤検出が多い。AI に画像で本人らしさを確認させる。
-            print(f"ローカル heuristic hit, AI に判定移譲: {candidate.unique_id} / {reason}", flush=True)
 
         screenshot_path = await self.scraper.screenshot_current(page, candidate.unique_id)
         candidate.screenshot_path = screenshot_path
