@@ -997,15 +997,14 @@ class TikTokRunner:
             await self._force_advance_after_skip(page, uid)
             return True
         if self._is_excluded_status(status):
-            # 過去除外 → AI再判定なし。2〜3秒の中立視聴でアルゴシグナルを保ちスキップ。
-            # 即スワイプすると「この系統嫌い」とアルゴに読まれ類似候補が枯渇する。
-            print(f"[PAST_EXCLUDED_NEUTRAL_WATCH] account_id={uid} status={status}", flush=True)
+            # 過去除外 → 即スワイプ。_start_pause_guard で動画は0.001x済みなので
+            # ここで中立視聴すると逆に「少し興味あり」シグナルになる。
+            print(f"[PAST_EXCLUDED_SKIP] account_id={uid} status={status}", flush=True)
             self.sheet_seen_ids.add(uid)
             try:
                 self.db.touch_seen(uid)
             except Exception:
                 pass
-            await self._watch_neutral_video(page)
             await self._force_advance_after_skip(page, uid)
             return True
         if status:
@@ -1042,8 +1041,8 @@ class TikTokRunner:
 
         # 候補確定直後に超スロー再生を開始 — 短い動画(3〜5秒)がFC取得や
         # AI判定の待ち時間中に完視聴されるのを防ぐ。
-        # 採用時は _watch_target_video → _stop_pause_guard で1.0xに戻す。
-        # 中立視聴も _watch_neutral_video → _stop_pause_guard で1.0xに戻す。
+        # 採用時のみ _watch_target_video → _stop_pause_guard で1.0xに戻す。
+        # 除外は0.001xのまま即スワイプ → 採用との視聴量コントラストを明確化。
         await _start_pause_guard(page)
 
         # === stealth: 同じ uid に N 連続で当たったら Chrome を全再起動 ===
@@ -1281,7 +1280,6 @@ class TikTokRunner:
                 print(f"stealth候補外: {candidate.unique_id} / {reason}", flush=True)
                 self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
                 self.sheet_seen_ids.add(candidate.unique_id)
-                await self._watch_neutral_video(page)
                 await self._force_advance_after_skip(page, candidate.unique_id)
                 return True
             if fc >= max_followers_threshold:
@@ -1289,7 +1287,6 @@ class TikTokRunner:
                 print(f"stealth候補外: {candidate.unique_id} / {reason}", flush=True)
                 self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
                 self.sheet_seen_ids.add(candidate.unique_id)
-                await self._watch_neutral_video(page)
                 await self._force_advance_after_skip(page, candidate.unique_id)
                 return True
             if fc < min_followers_threshold:
@@ -1297,7 +1294,6 @@ class TikTokRunner:
                 print(f"stealth候補外: {candidate.unique_id} / {reason}", flush=True)
                 self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
                 self.sheet_seen_ids.add(candidate.unique_id)
-                await self._watch_neutral_video(page)
                 await self._force_advance_after_skip(page, candidate.unique_id)
                 return True
 
