@@ -346,7 +346,7 @@ async def _repair_candidate_profile_and_hashtags(page, candidate, scraper=None):
 
     if not hashtags_text:
         try:
-            dom_text = await page.locator("body").inner_text(timeout=2500)
+            dom_text = await page.locator("body").inner_text(timeout=500)
             found = re.findall(r"#([A-Za-z0-9_ぁ-んァ-ン一-龥ー]+)", dom_text or "")
             ng = {"おすすめ", "フォロー中", "LIVE", "ライブ", "検索"}
             found = [x for x in found if x not in ng]
@@ -511,6 +511,16 @@ class TikTokRunner:
 
         print(f"target視聴: {wait_sec:.1f}秒(完視聴シグナル)", flush=True)
         await asyncio.sleep(wait_sec)
+
+    def _bg_sheets(self, tab: str, row) -> None:
+        """sheets.append をバックグラウンド実行(スキップ系パス用)。
+        append_recommended は重複チェック精度のため同期のまま。"""
+        async def _run():
+            try:
+                await asyncio.get_event_loop().run_in_executor(None, self.sheets.append, tab, row)
+            except Exception as e:
+                print(f"[SHEETS_BG_ERROR] tab={tab} err={str(e)[:120]}", flush=True)
+        asyncio.ensure_future(_run())
 
     async def _watch_neutral_video(self, page):
         """除外済み・フォロワー範囲外アカウントへの中立シグナル視聴。
@@ -1099,7 +1109,7 @@ class TikTokRunner:
             if candidate.unique_id not in self.sheet_seen_ids:
                 self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
                 self.sheet_seen_ids.add(candidate.unique_id)
-                self.sheets.append("skipped", candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:ad-detected"))
+                self._bg_sheets("skipped", candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:ad-detected"))
             await self._force_advance_after_skip(page, candidate.unique_id)
             return True
 
@@ -1110,7 +1120,7 @@ class TikTokRunner:
             if candidate.unique_id not in self.sheet_seen_ids:
                 self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
                 self.sheet_seen_ids.add(candidate.unique_id)
-                self.sheets.append("skipped", candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:official-id"))
+                self._bg_sheets("skipped", candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:official-id"))
             await self._force_advance_after_skip(page, candidate.unique_id)
             return True
 
@@ -1138,7 +1148,7 @@ class TikTokRunner:
             # 既処理スキップと同じ速度感を出すのが狙い。
             await self._negative_feedback_for_current_exclusion(page, candidate, "skipped", reason)
             await self._force_advance_after_skip(page, candidate.unique_id)
-            self.sheets.append("skipped", row)
+            self._bg_sheets("skipped", row)
             return True
 
         if follow_state != "not_following":
@@ -1149,7 +1159,7 @@ class TikTokRunner:
             row = candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:follow-unknown")
             await self._negative_feedback_for_current_exclusion(page, candidate, "skipped", reason)
             await self._force_advance_after_skip(page, candidate.unique_id)
-            self.sheets.append("skipped", row)
+            self._bg_sheets("skipped", row)
             return True
 
 
@@ -1195,7 +1205,7 @@ class TikTokRunner:
             row = candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:no-screenshot")
             await self._negative_feedback_for_current_exclusion(page, candidate, "skipped", reason)
             await self._force_advance_after_skip(page, candidate.unique_id)
-            self.sheets.append("skipped", row)
+            self._bg_sheets("skipped", row)
             return True
         if reason:
             # heuristic 系("ランダムID/..." "外国語/海外(...)" 等)は uid + テキストだけの
@@ -1297,7 +1307,7 @@ class TikTokRunner:
             reason = "黒帯検出"
             print(f"黒帯確認: {candidate.unique_id}", flush=True)
             self.db.mark(candidate.unique_id, "blackband", reason, candidate.profile_url, candidate.post_url, screenshot_path)
-            self.sheets.append("blackband", candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:blackband"))
+            self._bg_sheets("blackband", candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:blackband"))
             self.sheet_seen_ids.add(candidate.unique_id)
             return False
 
@@ -1311,7 +1321,7 @@ class TikTokRunner:
             reason = "AI未判定/保留: " + str(e)[:120]
             print(f"AI保留: {candidate.unique_id} / {reason}", flush=True)
             self.db.mark(candidate.unique_id, "pending", reason, candidate.profile_url, candidate.post_url, screenshot_path)
-            self.sheets.append("pending", candidate.to_row(self.cfg.collector_name, reason=reason, model_used="pending:no-ai"))
+            self._bg_sheets("pending", candidate.to_row(self.cfg.collector_name, reason=reason, model_used="pending:no-ai"))
             self.sheet_seen_ids.add(candidate.unique_id)
             return False
 
@@ -1357,7 +1367,7 @@ class TikTokRunner:
             model_used = str(result.get("model_used", ""))
             print(f"AI除外: {candidate.unique_id} / {reason}", flush=True)
             self.db.mark(candidate.unique_id, "skipped_ai", reason, candidate.profile_url, candidate.post_url, screenshot_path)
-            self.sheets.append("skipped", candidate.to_row(self.cfg.collector_name, reason=reason, score=str(result.get("cute_score", "")), model_used=model_used))
+            self._bg_sheets("skipped", candidate.to_row(self.cfg.collector_name, reason=reason, score=str(result.get("cute_score", "")), model_used=model_used))
             self.sheet_seen_ids.add(candidate.unique_id)
             await self._negative_feedback_for_current_exclusion(page, candidate, "skipped_ai", reason)
         # target=True 採用後 or AI除外後はこの関数内ではスワイプしない → main loop が next_post する
