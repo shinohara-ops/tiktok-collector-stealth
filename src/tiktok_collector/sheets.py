@@ -103,7 +103,7 @@ class SheetsClient:
     def __init__(self, cfg):
         self.cfg = cfg
         creds = self._load_credentials()
-        authorized_http = AuthorizedHttp(creds, http=httplib2.Http(timeout=60))
+        authorized_http = AuthorizedHttp(creds, http=httplib2.Http(timeout=15))
         self.service = build("sheets", "v4", http=authorized_http)
         self.spreadsheet_id = cfg.spreadsheet_id
         self.tabs = cfg.tabs
@@ -484,6 +484,7 @@ class SheetsClient:
         uids = set()
         scan_tabs = list(self.tabs.values()) + self._recommended_range_tab_names()
         seen_tabs: set[str] = set()
+        consec_errors = 0
         for tab in scan_tabs:
             if tab in seen_tabs:
                 continue
@@ -498,8 +499,13 @@ class SheetsClient:
                         uid = self._normalize_uid_for_dedupe(row[0])
                         if uid and uid not in {"ユーザーID", "user_id", "unique_id", "ID", "id"}:
                             uids.add(uid)
+                consec_errors = 0
             except Exception as e:
                 print(f"記入直前の共有既出チェック取得エラー: tab={tab} error={str(e)[:120]}", flush=True)
+                consec_errors += 1
+                if consec_errors >= 2:
+                    print("Sheets 連続エラー: 既出チェックを打ち切ります(ネットワーク障害の可能性)", flush=True)
+                    break
         return uids
 
     def _fresh_existing_recommended_uids(self) -> set[str]:
@@ -515,6 +521,7 @@ class SheetsClient:
             scan_tabs.append(main_rec)
         scan_tabs.extend(self._recommended_range_tab_names())
         seen_tabs: set[str] = set()
+        consec_errors = 0
         for tab in scan_tabs:
             if tab in seen_tabs:
                 continue
@@ -529,8 +536,13 @@ class SheetsClient:
                         uid = self._normalize_uid_for_dedupe(row[0])
                         if uid and uid not in {"ユーザーID", "user_id", "unique_id", "ID", "id"}:
                             uids.add(uid)
+                consec_errors = 0
             except Exception as e:
                 print(f"記入直前のおすすめ既出チェック取得エラー: tab={tab} error={str(e)[:120]}", flush=True)
+                consec_errors += 1
+                if consec_errors >= 2:
+                    print("Sheets 連続エラー: おすすめ既出チェックを打ち切ります(ネットワーク障害の可能性)", flush=True)
+                    break
         return uids
 
     def _is_duplicate_uid_before_append(self, uid: str, scope: str = "all") -> bool:
