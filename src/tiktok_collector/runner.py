@@ -1008,13 +1008,17 @@ class TikTokRunner:
                 await self._force_advance_after_skip(page, uid)
                 return True
 
-            # 過去採用済みアカウントの動画は **完視聴** してからスワイプ。
-            # 即スワイプすると TikTok アルゴから「以前好きだった系統を今は拒否」と
-            # 読まれ、似た傾向の新規候補が枯渇する。既処理が増えるほどこの侵食が
-            # 効いて、新規 recommended がどんどん減る悪循環になる。
-            # 完視聴(complete view)は TikTok の最強好意シグナル。
-            print(f"[WATCH_RECOMMENDED_ALREADY_PROCESSED] account_id={uid}", flush=True)
-            await self._watch_target_video(page)
+            # 過去採用済みアカウントは seen_count に応じて完視聴 / 中立視聴を切り替える。
+            # 同じアカウントを毎回完視聴し続けると TikTok が「このアカウントだけ見たい」と
+            # 学習して探索が止まるため、再登場回数が多いときは中立視聴に切り替える。
+            # seen_count は touch_seen() 呼び出し前の値(= これまでの再登場回数)を使う。
+            seen_count = int((processed or {}).get("seen_count") or 0)
+            if seen_count <= 2:
+                print(f"[WATCH_RECOMMENDED_ALREADY_PROCESSED] account_id={uid} seen={seen_count}", flush=True)
+                await self._watch_target_video(page)
+            else:
+                print(f"[WATCH_RECOMMENDED_ALREADY_PROCESSED_NEUTRAL] account_id={uid} seen={seen_count}", flush=True)
+                await self._watch_neutral_video(page)
             await self._force_advance_after_skip(page, uid)
             return True
         if self._is_excluded_status(status):
