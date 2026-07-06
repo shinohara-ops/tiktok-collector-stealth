@@ -34,6 +34,16 @@ if [ ! -d ".git" ]; then
   exit 1
 fi
 
+# ─── 0. .command ファイルのローカル変更を破棄 ──────────────────────────
+# .command はリポジトリで中央管理するため、ローカル変更は pull 前に捨てる。
+# こうすることで stash → pull → stash pop の流れで .command が旧版に
+# 上書きされる問題を根本的に防ぐ。
+CMDS=$(git ls-files '*.command')
+if [ -n "$CMDS" ]; then
+  echo "[0/4] .command ファイルをリモート版に揃えます(ローカル変更を破棄)"
+  echo "$CMDS" | xargs git checkout --
+fi
+
 # ─── 1. ローカル変更があったら退避 ─────────────────────────────
 STASHED=0
 if ! git diff --quiet || ! git diff --cached --quiet; then
