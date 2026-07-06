@@ -82,8 +82,7 @@ async def _start_pause_guard(page):
     try:
         await page.evaluate("""
         () => {
-          if (window.__tiktokPauseGuardMinimal) return;
-          window.__tiktokPauseGuardMinimal = setInterval(() => {
+          const _applySlowPlay = () => {
             try {
               const vw = innerWidth, vh = innerHeight;
               const v = Array.from(document.querySelectorAll('video'))
@@ -93,7 +92,10 @@ async def _start_pause_guard(page):
                 .filter(x => x.area > 5000).sort((a,b) => b.area - a.area)[0]?.v;
               if (v && v.playbackRate > 0.002) v.playbackRate = 0.001;
             } catch(e) {}
-          }, 300);
+          };
+          if (window.__tiktokPauseGuardMinimal) return;
+          _applySlowPlay();
+          window.__tiktokPauseGuardMinimal = setInterval(_applySlowPlay, 100);
         }
         """)
     except Exception:
