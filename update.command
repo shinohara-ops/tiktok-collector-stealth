@@ -77,6 +77,14 @@ else
   echo "[3/4] 復元する退避なし(スキップ)"
 fi
 
+# stash pop でローカルの旧版 .command が pull 済み新版を上書きする場合があるため、
+# .command ファイルは常に HEAD(pull 後の最新版)を強制適用する。
+CMDS="$(git ls-files '*.command')"
+if [ -n "$CMDS" ]; then
+  echo "→ .command ファイルをリモート版に揃えます"
+  echo "$CMDS" | xargs git checkout HEAD --
+fi
+
 # ─── 4. Python 依存を更新 ───────────────────────────────────
 cd "$HERE"
 if [ ! -d ".venv" ]; then
