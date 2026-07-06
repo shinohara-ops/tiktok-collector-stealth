@@ -17,14 +17,54 @@ chmod +x ./*.command 2>/dev/null || true
 
 echo "=== TikTokCollectorStealth セットアップ ==="
 
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "python3 が見つかりません。Python 3.11+ をインストールしてください。"
+# Homebrew Python を優先(OpenSSL ビルド)。なければシステム python3 を使う。
+PYTHON3=""
+for candidate in \
+  /opt/homebrew/bin/python3.12 \
+  /opt/homebrew/bin/python3.11 \
+  /opt/homebrew/bin/python3.10 \
+  /usr/local/bin/python3.12 \
+  /usr/local/bin/python3.11 \
+  /usr/local/bin/python3.10 \
+  python3
+do
+  if command -v "$candidate" >/dev/null 2>&1; then
+    PYTHON3="$candidate"
+    break
+  fi
+done
+
+if [ -z "$PYTHON3" ]; then
+  echo "❌ python3 が見つかりません。Python 3.10+ をインストールしてください。"
+  echo "   https://www.python.org/downloads/macos/ からダウンロードできます。"
+  read -p "Enter で閉じる..."
   exit 1
 fi
 
+# Python バージョンチェック (3.10 未満は LibreSSL 問題で SSL クラッシュするため拒否)
+PY_VER=$("$PYTHON3" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+PY_MAJOR=$(echo "$PY_VER" | cut -d. -f1)
+PY_MINOR=$(echo "$PY_VER" | cut -d. -f2)
+if [ "$PY_MAJOR" -lt 3 ] || { [ "$PY_MAJOR" -eq 3 ] && [ "$PY_MINOR" -lt 10 ]; }; then
+  echo "❌ Python $PY_VER は非対応です（3.10 以上が必要）。"
+  echo ""
+  echo "  Python 3.9 以下の macOS 標準 Python は LibreSSL でビルドされており、"
+  echo "  SSL 通信が途中でクラッシュします。"
+  echo ""
+  echo "  ▶ 解決方法: Homebrew で Python 3.12 をインストールしてください。"
+  echo "    1) Terminal で以下を実行:"
+  echo "       /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+  echo "    2) brew install python@3.12"
+  echo "    3) このセットアップを再実行"
+  read -p "Enter で閉じる..."
+  exit 1
+fi
+
+echo "Python $PY_VER ($PYTHON3) を使用します。"
+
 if [ ! -d ".venv" ]; then
   echo "venv を作成中..."
-  python3 -m venv .venv
+  "$PYTHON3" -m venv .venv
 fi
 
 source .venv/bin/activate
