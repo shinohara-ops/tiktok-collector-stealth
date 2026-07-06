@@ -316,7 +316,10 @@ async def _repair_candidate_profile_and_hashtags(page, candidate, scraper=None):
     profile_text = str(_getv(candidate, "signature", "bio", "profile_bio", "profile_text", "description", "desc")).strip()
     if not profile_text and scraper is not None:
         try:
-            got = await scraper.detect_profile_text_from_feed(page, uid)
+            # wait_sec=0 でキャッシュ即チェックのみ。
+            # 呼び出し前に parallel gather(1.5s) + hover(1.0s) で既に試済みのため
+            # ここで再ポーリングしても空のままになる可能性が高く、最大1.5sの無駄になる。
+            got = await scraper.detect_profile_text_from_feed(page, uid, wait_sec=0)
             if isinstance(got, tuple):
                 profile_text = str(got[0] or "").strip()
             else:
@@ -1027,7 +1030,7 @@ class TikTokRunner:
             and self._last_seen_uid
             and candidate.unique_id == self._last_seen_uid
         ):
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.25)
             recheck = await self.scraper.current_candidate(page)
             if recheck and getattr(recheck, "unique_id", "") and recheck.unique_id != self._last_seen_uid:
                 candidate = recheck  # 新しい動画の uid が取れた → 採用
