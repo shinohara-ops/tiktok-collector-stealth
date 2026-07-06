@@ -74,19 +74,30 @@ class RateLimiter:
 
 
 async def _start_pause_guard(page):
-    """**stealth モードでは何もしない**(完全 noop)。
+    """AI 判定中に動画が視聴シグナルを累積しないよう、超スロー再生(0.001x)で停止状態に近づける。
 
-    元 collector は判定中に動画を一時停止して「視聴時間を増やさない」設計だったが、
-    stealth では下記の理由で pause を一切しない方針:
-      1. 普通のユーザーは動画を能動的に一時停止しない。pause を呼ぶこと自体が
-         anti-bot 検知の材料になり得る(video element の pause() 呼び出しパターン)
-      2. 画面上で再生/一時停止アイコンが点滅して明らかに不自然(ユーザー報告)
-      3. 視聴時間制御は別経路で達成済み:
-         - target=False → 短く再生 → スワイプ(自然な「興味なし」挙動)
-         - target=True → _watch_target_video で動画完視聴(complete view シグナル)
-
-    関数は signature を残したまま中身を空にして、call site の変更を最小化。"""
-    return
+    pause() は TikTok の anti-bot 検知に引っかかりやすく画面フリッカーも出るため、
+    playbackRate=0.001 で代替する。視覚上はほぼ静止画と同じで違和感がない。
+    _stop_pause_guard / _watch_target_video が playbackRate=1.0 に戻す。"""
+    try:
+        await page.evaluate("""
+        () => {
+          if (window.__tiktokPauseGuardMinimal) return;
+          window.__tiktokPauseGuardMinimal = setInterval(() => {
+            try {
+              const vw = innerWidth, vh = innerHeight;
+              const v = Array.from(document.querySelectorAll('video'))
+                .map(v => { const r = v.getBoundingClientRect();
+                  return {v, area: Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0))
+                                  * Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0))}; })
+                .filter(x => x.area > 5000).sort((a,b) => b.area - a.area)[0]?.v;
+              if (v && v.playbackRate > 0.002) v.playbackRate = 0.001;
+            } catch(e) {}
+          }, 300);
+        }
+        """)
+    except Exception:
+        pass
 
 
 async def _stop_pause_guard(page):
@@ -105,6 +116,15 @@ async def _stop_pause_guard(page):
             clearInterval(window.__warmupPauseGuard);
             window.__warmupPauseGuard = null;
           }
+          try {
+            const vw = innerWidth, vh = innerHeight;
+            const v = Array.from(document.querySelectorAll('video'))
+              .map(v => { const r = v.getBoundingClientRect();
+                return {v, area: Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0))
+                                * Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0))}; })
+              .filter(x => x.area > 5000).sort((a,b) => b.area - a.area)[0]?.v;
+            if (v) v.playbackRate = 1.0;
+          } catch(e) {}
         }
         """)
     except Exception:
@@ -366,16 +386,6 @@ class TikTokRunner:
         # 4_overnight_run.command(ラッパー)が担当する。
         self._last_seen_uid = ""
         self._same_uid_streak = 0
-        # 過去除外 uid の再判定は 1 セッション 1 uid 1 回だけ。
-        # 既処理が増えてくると同じ uid が何度も流れてくるので、毎回 AI 叩くと
-        # コストが爆発するうえに、結局再除外で時間を浪費するだけになる。
-        self._past_excluded_recheck_count: dict[str, int] = {}
-        self._past_excluded_recheck_cap: int = 3
-        # fc 取得失敗(キャッシュ未到達 / hover anchor 不在 等)はセッション開始直後に
-        # 集中する。1 回失敗で永久ロックすると閾値変更後の取りこぼしが大量に出るので、
-        # uid ごとに最大 N 回まではリトライを許す。N 回超えたら諦めて永久 skip 入り。
-        self._past_excluded_fc_retry_count: dict[str, int] = {}
-        self._past_excluded_fc_retry_cap: int = 8
         # フィード詰まり(同じ uid N 連続)時のリカバリ試行回数。
         # 即 Chrome 再起動ではなく、まず手動相当の操作(前へ戻る→戻る→大きくスワイプ)を
         # uid ごとに最大 3 回試す。3 回とも失敗したら Chrome 再起動を要求する。
@@ -506,6 +516,7 @@ class TikTokRunner:
         """除外済み・フォロワー範囲外アカウントへの中立シグナル視聴。
         即スワイプすると TikTok アルゴが「この系統嫌い」と読むため、
         2〜3.5 秒だけ見てから抜ける。採用(完視聴)より弱い通過シグナル。"""
+        await _stop_pause_guard(page)  # 超スロー中なら通常速度に戻してから中立視聴
         wait_sec = random.uniform(2.0, 3.5)
         print(f"中立視聴: {wait_sec:.1f}秒", flush=True)
         await asyncio.sleep(wait_sec)
@@ -955,6 +966,13 @@ class TikTokRunner:
                 print(f"[PAST_RECOMMENDED_FOLLOWING_SKIP] account_id={uid}", flush=True)
                 await self._force_advance_after_skip(page, uid)
                 return True
+            if follow_state != "not_following":
+                # 状態不明(例外・要素未検出)は完視聴シグナルを送らず中立視聴。
+                # メインパスと同じく "unknown" = 確認できないので positive signal なし。
+                print(f"[PAST_RECOMMENDED_FOLLOW_UNKNOWN_NEUTRAL] account_id={uid}", flush=True)
+                await self._watch_neutral_video(page)
+                await self._force_advance_after_skip(page, uid)
+                return True
 
             # 過去採用済みアカウントの動画は **完視聴** してからスワイプ。
             # 即スワイプすると TikTok アルゴから「以前好きだった系統を今は拒否」と
@@ -1073,6 +1091,29 @@ class TikTokRunner:
                 print(f"[RESTART_CHROME_DB_EVENT_FAIL] err={str(e)[:120]}", flush=True)
             return True
 
+        # === 広告チェック(既処理より最優先: 過去除外済み広告も中立視聴なしで即スキップ) ===
+        if bool(getattr(candidate, "is_ad", False)):
+            signal = str(getattr(candidate, "ad_signal", "") or "unknown")
+            reason = f"広告(Sponsored)/{signal}"
+            print(f"広告スキップ: {candidate.unique_id} / {reason}", flush=True)
+            if candidate.unique_id not in self.sheet_seen_ids:
+                self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
+                self.sheet_seen_ids.add(candidate.unique_id)
+                self.sheets.append("skipped", candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:ad-detected"))
+            await self._force_advance_after_skip(page, candidate.unique_id)
+            return True
+
+        # === official unique_id チェック(既処理でも高速スキップ) ===
+        if "official" in (candidate.unique_id or "").lower():
+            reason = "公式/企業系(official_id)"
+            print(f"officialスキップ: {candidate.unique_id} / {reason}", flush=True)
+            if candidate.unique_id not in self.sheet_seen_ids:
+                self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
+                self.sheet_seen_ids.add(candidate.unique_id)
+                self.sheets.append("skipped", candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:official-id"))
+            await self._force_advance_after_skip(page, candidate.unique_id)
+            return True
+
         processed = self.db.get(candidate.unique_id)
         if processed:
             if await self._handle_already_processed_candidate(page, candidate, processed):
@@ -1111,51 +1152,21 @@ class TikTokRunner:
             self.sheets.append("skipped", row)
             return True
 
-        # スポンサード広告は AI に投げずローカルで即除外。
-        # scraper が「広告」ラベル / 典型的 CTA ボタン(チェックする/詳細はこちら等) /
-        # 本文中の広告/スポンサー文字列のいずれかを検知している。
-        if bool(getattr(candidate, "is_ad", False)):
-            signal = str(getattr(candidate, "ad_signal", "") or "unknown")
-            reason = f"広告(Sponsored)/{signal}"
-            print(f"ローカル除外: {candidate.unique_id} / {reason}", flush=True)
-            self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
-            self.sheet_seen_ids.add(candidate.unique_id)
-            row = candidate.to_row(self.cfg.collector_name, reason=reason, model_used="local:ad-detected")
-            await self._force_advance_after_skip(page, candidate.unique_id)
-            self.sheets.append("skipped", row)
-            return True
 
-
-        # フォロワー数取得。プロフィールページは開かない。取得後は local_skip_reason が既存ルールで判定する。
+        # フォロワー数 + プロフィール紹介文を並列取得(直列だと各最大1.5秒 × 2 = 3秒かかる)。
+        _fc_res, _pt_res = await asyncio.gather(
+            self.scraper.detect_follower_count_from_feed(page, candidate.unique_id),
+            self.scraper.detect_profile_text_from_feed(page, candidate.unique_id),
+            return_exceptions=True,
+        )
+        follower_count, follower_source = _fc_res if not isinstance(_fc_res, Exception) else (None, "")
+        profile_text, profile_source = _pt_res if not isinstance(_pt_res, Exception) else ("", "")
 
         try:
-
-            follower_count, follower_source = await self.scraper.detect_follower_count_from_feed(page, candidate.unique_id)
-
-        except Exception:
-
-            follower_count, follower_source = None, ""
-
-
-        try:
-
             object.__setattr__(candidate, "follower_count", follower_count if follower_count is not None else "")
-
             object.__setattr__(candidate, "follower_source", follower_source or "")
-
         except Exception:
-
             pass
-
-
-
-        # プロフィール紹介文取得。プロフィールページは開かない。
-
-
-        try:
-            profile_text, profile_source = await self.scraper.detect_profile_text_from_feed(page, candidate.unique_id)
-        except Exception:
-            profile_text, profile_source = "", ""
 
         if profile_text:
             try:
@@ -1196,7 +1207,7 @@ class TikTokRunner:
         hover_data = None
         if follower_count is None or not profile_text:
             try:
-                hover_data = await self.scraper.enrich_via_hover(page, candidate.unique_id)
+                hover_data = await self.scraper.enrich_via_hover(page, candidate.unique_id, hover_wait_sec=1.0)
             except Exception as e:
                 print(f"hover補完エラー: {candidate.unique_id} / {str(e)[:120]}", flush=True)
                 hover_data = {"follower_count": None, "bio": "", "skip_reason": "hover_exception", "popover_source": None}
