@@ -1040,6 +1040,12 @@ class TikTokRunner:
             self.db.event("warn", "candidate取得失敗")
             return False
 
+        # 候補確定直後に超スロー再生を開始 — 短い動画(3〜5秒)がFC取得や
+        # AI判定の待ち時間中に完視聴されるのを防ぐ。
+        # 採用時は _watch_target_video → _stop_pause_guard で1.0xに戻す。
+        # 中立視聴も _watch_neutral_video → _stop_pause_guard で1.0xに戻す。
+        await _start_pause_guard(page)
+
         # === stealth: 同じ uid に N 連続で当たったら Chrome を全再起動 ===
         # ラッパー(4_overnight_run.command)が data/RESTART_CHROME を見て
         # Chrome を kill → 1_launch_chrome.command で起動 → main.py 再開する。
@@ -1192,8 +1198,6 @@ class TikTokRunner:
         # ローカルルール判定を hover より先に実施。
         # NGワード / 未成年 等のハード除外は hover を呼ばずに即スキップ。
         # hover はローカルルールを通過した新規アカウントのみ実施する。
-        await _start_pause_guard(page)
-
         try:
             candidate = await _repair_candidate_profile_and_hashtags(page, candidate, getattr(self, "scraper", None))
         except Exception as e:
