@@ -78,11 +78,39 @@ async def _start_pause_guard(page):
 
     pause() は TikTok の anti-bot 検知に引っかかりやすく画面フリッカーも出るため、
     playbackRate=0.001 で代替する。視覚上はほぼ静止画と同じで違和感がない。
-    _stop_pause_guard / _watch_target_video が playbackRate=1.0 に戻す。"""
+    _stop_pause_guard / _watch_target_video が playbackRate=1.0 に戻す。
+    TikTok プレーヤーが内部で playbackRate=1.0 を連続代入するため、
+    HTMLMediaElement.prototype.playbackRate setter を横取りして根本から封じる。"""
     try:
         await page.evaluate("""
         () => {
-          const _applySlowPlay = () => {
+          // ① prototype setter を一度だけ上書き(ページロード後初回のみ)。
+          //   TikTok プレーヤーが RAF/event handler で v.playbackRate=1.0 を代入しても
+          //   guard がアクティブな間は 0.001 に差し替える。
+          if (!window.__tiktokOriginalPRSetter) {
+            try {
+              const desc = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'playbackRate');
+              if (desc && desc.set && desc.configurable) {
+                window.__tiktokOriginalPRSetter = desc.set;
+                window.__tiktokOriginalPRGetter = desc.get;
+                Object.defineProperty(HTMLMediaElement.prototype, 'playbackRate', {
+                  get: desc.get,
+                  set(v) {
+                    const rate = (window.__tiktokPauseGuardActive && v > 0.002) ? 0.001 : v;
+                    window.__tiktokOriginalPRSetter.call(this, rate);
+                  },
+                  configurable: true,
+                });
+              }
+            } catch(e) {}
+          }
+
+          if (window.__tiktokPauseGuardMinimal) return;
+          window.__tiktokPauseGuardActive = true;
+
+          // ② 現在の動画要素に即時適用(prototype 経由では自身の setter が上書き済みなので
+          //   オリジナル setter を直接呼ぶ)。
+          const _applyNow = () => {
             try {
               const vw = innerWidth, vh = innerHeight;
               const v = Array.from(document.querySelectorAll('video'))
@@ -90,12 +118,14 @@ async def _start_pause_guard(page):
                   return {v, area: Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0))
                                   * Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0))}; })
                 .filter(x => x.area > 5000).sort((a,b) => b.area - a.area)[0]?.v;
-              if (v && v.playbackRate > 0.002) v.playbackRate = 0.001;
+              if (v) {
+                const s = window.__tiktokOriginalPRSetter;
+                if (s) s.call(v, 0.001); else v.playbackRate = 0.001;
+              }
             } catch(e) {}
           };
-          if (window.__tiktokPauseGuardMinimal) return;
-          _applySlowPlay();
-          window.__tiktokPauseGuardMinimal = setInterval(_applySlowPlay, 100);
+          _applyNow();
+          window.__tiktokPauseGuardMinimal = setInterval(_applyNow, 100);
         }
         """)
     except Exception:
@@ -106,6 +136,7 @@ async def _stop_pause_guard(page):
     try:
         await page.evaluate("""
         () => {
+          window.__tiktokPauseGuardActive = false;
           if (window.__tiktokPauseGuardMinimal) {
             clearInterval(window.__tiktokPauseGuardMinimal);
             window.__tiktokPauseGuardMinimal = null;
@@ -125,7 +156,10 @@ async def _stop_pause_guard(page):
                 return {v, area: Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0))
                                 * Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0))}; })
               .filter(x => x.area > 5000).sort((a,b) => b.area - a.area)[0]?.v;
-            if (v) v.playbackRate = 1.0;
+            if (v) {
+              const s = window.__tiktokOriginalPRSetter;
+              if (s) s.call(v, 1.0); else v.playbackRate = 1.0;
+            }
           } catch(e) {}
         }
         """)
