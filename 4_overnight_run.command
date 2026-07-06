@@ -10,11 +10,8 @@
 #        - 77 : フィード詰まり(同じ uid が stuck_full_restart_threshold 連続)
 #               → 専用 Chrome(--remote-debugging-port=9222 で動いてるプロセス)
 #                 だけを kill → ループ先頭に戻り Chrome 再起動 + main.py 再開
-#        - 133: SIGTRAP(Apple Silicon で SSL/Chrome クラッシュ時に発生)
-#        - 134: SIGABRT(Chrome 異常終了) → 同上
-#        - 139: SIGSEGV(Playwright/Chrome セグフォルト) → 同上
-#        - 137: SIGKILL(OOM キラー等) → 同上
-#        - 143: SIGTERM(OS 終了指示) → 同上
+#        - 128+N: シグナル終了(SIGTRAP/SIGABRT/SIGSEGV/SIGKILL/SIGTERM 等)
+#               → 専用 Chrome を kill してループ継続(個別列挙不要)
 #        - 1  : Python 例外 / 起動失敗 → Chrome kill して再試行。
 #               MAX_CONSEC_ERR1 回連続すると停止(設定エラー等の永続障害を検知)
 #        - 0  : 正常終了。ラッパーも終了
@@ -77,16 +74,6 @@ while true; do
       pkill -f "remote-debugging-port=9222" || true
       sleep 5
       ;;
-    133|134|139)
-      echo "クラッシュ (exit $CODE / シグナル強制終了) → 専用 Chrome を kill して再起動します"
-      pkill -f "remote-debugging-port=9222" || true
-      sleep 10
-      ;;
-    137|143)
-      echo "SIGKILL/SIGTERM (exit $CODE / OS 強制終了) → 専用 Chrome を kill して再起動します"
-      pkill -f "remote-debugging-port=9222" || true
-      sleep 15
-      ;;
     1)
       CONSEC_ERR1=$((CONSEC_ERR1 + 1))
       if [ "$CONSEC_ERR1" -ge "$MAX_CONSEC_ERR1" ]; then
@@ -107,8 +94,17 @@ while true; do
       exit 0
       ;;
     *)
-      echo "予期せぬ exit code: $CODE → ループを抜けます(調査推奨)"
-      exit "$CODE"
+      # 128+N はシグナルによる強制終了(SIGTRAP/SIGABRT/SIGKILL/SIGSEGV/SIGTERM 等)。
+      # 個別列挙ではなく範囲で捕捉することで、未知のシグナルも自動的に再起動する。
+      # 130(Ctrl+C)は上でキャッチ済みなのでここには来ない。
+      if [ "$CODE" -ge 128 ] && [ "$CODE" -le 159 ]; then
+        echo "シグナル終了 (exit $CODE = signal $((CODE - 128))) → 専用 Chrome を kill して再起動します"
+        pkill -f "remote-debugging-port=9222" || true
+        sleep 10
+      else
+        echo "予期せぬ exit code: $CODE → ループを抜けます(調査推奨)"
+        exit "$CODE"
+      fi
       ;;
   esac
 done
