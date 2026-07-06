@@ -10,6 +10,9 @@
 #        - 77 : フィード詰まり(同じ uid が stuck_full_restart_threshold 連続)
 #               → 専用 Chrome(--remote-debugging-port=9222 で動いてるプロセス)
 #                 だけを kill → ループ先頭に戻り Chrome 再起動 + main.py 再開
+#        - 133: SIGTRAP(Apple Silicon で SSL/Chrome クラッシュ時に発生)
+#        - 134: SIGABRT(Chrome 異常終了) → 同上
+#        - 139: SIGSEGV(Playwright/Chrome セグフォルト) → 同上
 #        - 0  : 正常終了。ラッパーも終了
 #        - 130: Ctrl+C。ラッパーも終了
 #        - その他: 予期せぬ異常。ラッパーも終了(調査用)
@@ -64,6 +67,11 @@ while true; do
       echo "stuck → 専用 Chrome を kill して再起動します"
       pkill -f "remote-debugging-port=9222" || true
       sleep 5
+      ;;
+    133|134|139)
+      echo "クラッシュ (exit $CODE / SIGSEGV or 強制終了) → 専用 Chrome を kill して再起動します"
+      pkill -f "remote-debugging-port=9222" || true
+      sleep 10
       ;;
     0)
       echo "正常終了。ループを抜けます。"

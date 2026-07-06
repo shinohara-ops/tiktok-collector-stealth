@@ -43,7 +43,7 @@ def _is_too_short_ng_word(word: str) -> bool:
 def _warn_too_short_ng_word(word: str, source: str) -> None:
     """1 文字エントリ検出時に 1 度だけ標準出力に警告。
     複数経路から呼ばれても、同じ word は 1 度だけ。"""
-    key = f"{source}:{word}"
+    key = word
     if key in _NG_TOO_SHORT_WARNED:
         return
     _NG_TOO_SHORT_WARNED.add(key)
