@@ -538,6 +538,7 @@ class SheetsClient:
         scan_tabs = list(self.tabs.values()) + self._recommended_range_tab_names()
         seen_tabs: set[str] = set()
         consec_errors = 0
+        cut_short = False
         for tab in scan_tabs:
             if tab in seen_tabs:
                 continue
@@ -567,11 +568,16 @@ class SheetsClient:
                 consec_errors += 1
                 if consec_errors >= 2:
                     print("Sheets 連続エラー: 既出チェックを打ち切ります(ネットワーク障害の可能性)", flush=True)
+                    cut_short = True
                     break
         with self._existing_uids_lock:
-            self._existing_uids_cache = uids
-            self._existing_uids_cache_ts = time.time()
-        return uids
+            if cut_short:
+                # エラーで打ち切った場合は古いキャッシュを保持し、tsだけ更新して再ハンマリングを防ぐ
+                self._existing_uids_cache_ts = time.time()
+            else:
+                self._existing_uids_cache = uids
+                self._existing_uids_cache_ts = time.time()
+        return self._existing_uids_cache if cut_short else uids
 
     def _fresh_existing_recommended_uids(self) -> set[str]:
         """採用書き込み専用の重複チェック。「おすすめ」+ 帯域別タブだけスキャン。
@@ -590,6 +596,7 @@ class SheetsClient:
         scan_tabs.extend(self._recommended_range_tab_names())
         seen_tabs: set[str] = set()
         consec_errors = 0
+        cut_short = False
         for tab in scan_tabs:
             if tab in seen_tabs:
                 continue
@@ -619,11 +626,15 @@ class SheetsClient:
                 consec_errors += 1
                 if consec_errors >= 2:
                     print("Sheets 連続エラー: おすすめ既出チェックを打ち切ります(ネットワーク障害の可能性)", flush=True)
+                    cut_short = True
                     break
         with self._existing_uids_lock:
-            self._existing_recommended_uids_cache = uids
-            self._existing_recommended_uids_cache_ts = time.time()
-        return uids
+            if cut_short:
+                self._existing_recommended_uids_cache_ts = time.time()
+            else:
+                self._existing_recommended_uids_cache = uids
+                self._existing_recommended_uids_cache_ts = time.time()
+        return self._existing_recommended_uids_cache if cut_short else uids
 
     def _is_duplicate_uid_before_append(self, uid: str, scope: str = "all") -> bool:
         uid = self._normalize_uid_for_dedupe(uid)
