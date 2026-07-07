@@ -75,7 +75,9 @@ def check(text: str) -> str | None:
             return f"外国語/海外({kw})"
 
     # 2. 非日本語スクリプト(ハングル/タイ/キリル/アラビア)
-    if _NON_JP_SCRIPT_SET.search(text):
+    # 1文字だけでは日本人が誤って混入させたケース(ハッシュタグのコピペ等)を弾きすぎる。
+    # 2文字以上で外国語プロフィールと判断する。
+    if len(_NON_JP_SCRIPT_SET.findall(text)) >= 2:
         return "外国語/海外(文字種)"
 
     # 3. ベトナム語アクセント
