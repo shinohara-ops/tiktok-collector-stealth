@@ -120,21 +120,24 @@ class SheetsClient:
         self._yellow_excluded_cache: frozenset[str] = frozenset()
         self._yellow_excluded_cache_ts: float = 0.0
         self._yellow_excluded_ttl: float = float(getattr(cfg, "yellow_excluded_cache_ttl_sec", YELLOW_EXCLUDED_DEFAULT_TTL_SEC) or YELLOW_EXCLUDED_DEFAULT_TTL_SEC)
-        for attempt in range(3):
+        # _ensure_tabs() はタブ/ヘッダー/フォーマットの初回セットアップ用で
+        # 1回あたり20〜40 API コールを発生させる。毎起動で呼ぶと複数PC運用時に
+        # Google Sheets API の 429 レート制限を引き起こす根本原因になる。
+        # .tabs_ready フラグが存在すれば「セットアップ済み」としてスキップする。
+        _tabs_ready_flag = Path("data/.tabs_ready")
+        if _tabs_ready_flag.exists():
+            print("Google Sheets タブ確認スキップ(セットアップ済み)", flush=True)
+        else:
             try:
                 self._ensure_tabs()
-                break
+                _tabs_ready_flag.parent.mkdir(parents=True, exist_ok=True)
+                _tabs_ready_flag.touch()
+                print("Google Sheets タブ確認OK → .tabs_ready を作成しました", flush=True)
             except Exception as e:
-                if attempt < 2:
-                    print(f"Google Sheets接続エラー、30秒後にリトライします ({attempt + 1}/3)...", flush=True)
-                    time.sleep(30)
-                else:
-                    # 3回失敗してもタブ確認は後回しにして続行。
-                    # overnight 運用時は既にタブが存在するため問題なし。
-                    # LibreSSL / ネットワーク不調時に起動失敗ループを防ぐ。
-                    print(f"⚠ Google Sheets 起動時タブ確認に失敗しました(収集は続行):", flush=True)
-                    print(f"  {str(e)[:120]}", flush=True)
-                    print("  → 収集は続行します。Sheets への書き込みは都度リトライされます。", flush=True)
+                # 失敗してもタブが既に存在する場合は収集を続行できる。
+                print(f"⚠ Google Sheets 起動時タブ確認に失敗しました(収集は続行):", flush=True)
+                print(f"  {str(e)[:120]}", flush=True)
+                print("  → タブの再確認が必要な場合は data/.tabs_ready を削除して再起動してください。", flush=True)
 
     def _load_credentials(self):
         auth_mode = str(getattr(self.cfg, "auth_mode", "oauth") or "oauth").strip().lower()
