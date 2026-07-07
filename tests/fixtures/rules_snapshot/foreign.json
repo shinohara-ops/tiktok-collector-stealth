@@ -120,18 +120,6 @@
     "sheet_logged_reason": "外国語/海外(korea)"
   },
   {
-    "unique_id": "tiktok.32152",
-    "display_name": "tiktok.32152",
-    "follower_count": 770,
-    "hashtags": "japan foryou 大阪 御堂筋",
-    "signature": "横浜 @hin.__4",
-    "profile_url": "https://www.tiktok.com/@tiktok.32152",
-    "post_url": "",
-    "expected_reason": "NGワード(japan)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "外国語/海外(foryou)"
-  },
-  {
     "unique_id": "ukk_92",
     "display_name": "ukk_92",
     "follower_count": 16500,
@@ -334,6 +322,42 @@
     "expected_reason": "user始まり数字ID(デフォルト名)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "未成年系NG(jc)"
+  },
+  {
+    "unique_id": "gaixinhtiktok276",
+    "display_name": "gaixinhtiktok276",
+    "follower_count": 223,
+    "hashtags": "lanhxinhyeu lanhxinh",
+    "signature": "I love Tik Tok Giúp e 1 follow vs ạ",
+    "profile_url": "https://www.tiktok.com/@gaixinhtiktok276",
+    "post_url": "",
+    "expected_reason": "スパムアカウント(tiktok in uid)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "類似除外(gaixinh)"
+  },
+  {
+    "unique_id": "girlxinhtiktok8386",
+    "display_name": "girlxinhtiktok8386",
+    "follower_count": 1773,
+    "hashtags": "vitamingirl viralvideo tren",
+    "signature": "",
+    "profile_url": "https://www.tiktok.com/@girlxinhtiktok8386",
+    "post_url": "",
+    "expected_reason": "スパムアカウント(tiktok in uid)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "ランダムID/完全英字(海外)"
+  },
+  {
+    "unique_id": "tiktok.32152",
+    "display_name": "tiktok.32152",
+    "follower_count": 770,
+    "hashtags": "japan foryou 大阪 御堂筋",
+    "signature": "横浜 @hin.__4",
+    "profile_url": "https://www.tiktok.com/@tiktok.32152",
+    "post_url": "",
+    "expected_reason": "スパムアカウント(tiktok in uid)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(japan)"
   },
   {
     "unique_id": "merorintyo__",
@@ -552,18 +576,6 @@
     "sheet_logged_reason": "ランダムID/海外・量産寄り"
   },
   {
-    "unique_id": "girlxinhtiktok8386",
-    "display_name": "girlxinhtiktok8386",
-    "follower_count": 1773,
-    "hashtags": "vitamingirl viralvideo tren",
-    "signature": "",
-    "profile_url": "https://www.tiktok.com/@girlxinhtiktok8386",
-    "post_url": "",
-    "expected_reason": "ランダムID/完全英字(海外)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "ランダムID/海外・量産寄り"
-  },
-  {
     "unique_id": "jjg2sa7",
     "display_name": "jjg2sa7",
     "follower_count": 883,
@@ -682,18 +694,6 @@
     "expected_reason": "ランダムID/海外・量産寄り",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "外国語/海外(文字種)"
-  },
-  {
-    "unique_id": "cutenana150",
-    "display_name": "cutenana150",
-    "follower_count": 33800,
-    "hashtags": "手勢舞 特別的愛給特別的你",
-    "signature": "不期而遇 承蒙厚愛 👉 follow 👈 週一~週日 開播",
-    "profile_url": "https://www.tiktok.com/@cutenana150",
-    "post_url": "",
-    "expected_reason": "外国語/海外(繁体字)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "外国語/海外(點)"
   },
   {
     "unique_id": "edwinreel367",
@@ -1780,6 +1780,18 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
+    "unique_id": "cutenana150",
+    "display_name": "cutenana150",
+    "follower_count": 33800,
+    "hashtags": "手勢舞 特別的愛給特別的你",
+    "signature": "不期而遇 承蒙厚愛 👉 follow 👈 週一~週日 開播",
+    "profile_url": "https://www.tiktok.com/@cutenana150",
+    "post_url": "",
+    "expected_reason": "外国語/海外(繁体字)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "外国語/海外(點)"
+  },
+  {
     "unique_id": "shunji_daze_",
     "display_name": "@しゅんずぃ",
     "follower_count": null,
@@ -2090,18 +2102,6 @@
     "expected_reason": "類似除外(cewek)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "外国語/海外(cewek)"
-  },
-  {
-    "unique_id": "gaixinhtiktok276",
-    "display_name": "gaixinhtiktok276",
-    "follower_count": 223,
-    "hashtags": "lanhxinhyeu lanhxinh",
-    "signature": "I love Tik Tok Giúp e 1 follow vs ạ",
-    "profile_url": "https://www.tiktok.com/@gaixinhtiktok276",
-    "post_url": "",
-    "expected_reason": "類似除外(gaixinh)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "外国語/海外(gaixinh)"
   },
   {
     "unique_id": "marin___aoi",

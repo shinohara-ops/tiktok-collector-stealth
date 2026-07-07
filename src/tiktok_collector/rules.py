@@ -115,6 +115,10 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     _cs_bio_empty_or_emoji = (_cs_bio_s == "") or (len(_cs_bio_without_symbols) == 0) or (len(_cs_bio_s) <= 2)
 
 
+    # tiktok を含む UID → 公式/スパムアカウント
+    if "tiktok" in _cs_uid_s.lower():
+        return "スパムアカウント(tiktok in uid)"
+
     # ────────────────────────────────────────────────────────────────
     # SECTION: 類似アカウントの hardcoded ワード(テンプレ/音楽系)
     # → src/tiktok_collector/_rules_parts/similar_excluded.py に抽出済
@@ -145,7 +149,7 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     # SECTION: 未成年系 — 学校行事/学年/年齢正規表現
     # → src/tiktok_collector/_rules_parts/underage_school_age.py に抽出済
     # ────────────────────────────────────────────────────────────────
-    if (r := _underage_school_age.check(text)) is not None:
+    if (r := _underage_school_age.check(text, _cs_bio_s)) is not None:
         return r
 
 

@@ -33,17 +33,6 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
-    "unique_id": "r2957650",
-    "display_name": "r2957650",
-    "follower_count": 37,
-    "hashtags": "ちゅーいち13 浜松",
-    "signature": "13♡",
-    "profile_url": "https://www.tiktok.com/@r2957650",
-    "post_url": "",
-    "expected_reason": "NGワード(13♡)",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
     "unique_id": "kinoshitayuki_official",
     "display_name": "kinoshitayuki_official",
     "follower_count": 650300,
@@ -263,6 +252,18 @@
     "post_url": "",
     "expected_reason": "NGワード(dm)",
     "expected_model_used": "local:no-screenshot"
+  },
+  {
+    "unique_id": "badominton15",
+    "display_name": "badominton15",
+    "follower_count": 231,
+    "hashtags": "おすすめにのりたい fyp 運営さん大好き バズれ",
+    "signature": "フォロー中が2桁以上のやつとは話しません。 すぐに別の女に行くからです。 DMしてくるならフォローしろ コメントしてくれる人覚えてるよ♡",
+    "profile_url": "https://www.tiktok.com/@badominton15",
+    "post_url": "",
+    "expected_reason": "NGワード(dmして)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(えろい)"
   },
   {
     "unique_id": "sio.0802_li",
@@ -586,6 +587,18 @@
     "post_url": "",
     "expected_reason": "NGワード(くださいませチャレンジ)",
     "expected_model_used": "local:no-screenshot"
+  },
+  {
+    "unique_id": "r2957650",
+    "display_name": "r2957650",
+    "follower_count": 37,
+    "hashtags": "ちゅーいち13 浜松",
+    "signature": "13♡",
+    "profile_url": "https://www.tiktok.com/@r2957650",
+    "post_url": "",
+    "expected_reason": "NGワード(ちゅーいち)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(13♡)"
   },
   {
     "unique_id": "deannagreenytfyzhr",
@@ -1135,6 +1148,18 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
+    "unique_id": "nanami54532",
+    "display_name": "nanami54532",
+    "follower_count": 661,
+    "hashtags": "fyp 相互フォロー",
+    "signature": "ダンス♡",
+    "profile_url": "https://www.tiktok.com/@nanami54532",
+    "post_url": "",
+    "expected_reason": "NGワード(相互)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "NGワード(ムラムラ)"
+  },
+  {
     "unique_id": "sumitomolife_vitality",
     "display_name": "sumitomolife_vitality",
     "follower_count": 1673,
@@ -1577,30 +1602,6 @@
     "expected_reason": "ランダムID/完全英字(海外)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "ランダムID/海外・量産寄り"
-  },
-  {
-    "unique_id": "badominton15",
-    "display_name": "badominton15",
-    "follower_count": 231,
-    "hashtags": "おすすめにのりたい fyp 運営さん大好き バズれ",
-    "signature": "フォロー中が2桁以上のやつとは話しません。 すぐに別の女に行くからです。 DMしてくるならフォローしろ コメントしてくれる人覚えてるよ♡",
-    "profile_url": "https://www.tiktok.com/@badominton15",
-    "post_url": "",
-    "expected_reason": "NGワード(dmして)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "NGワード(えろい)"
-  },
-  {
-    "unique_id": "nanami54532",
-    "display_name": "nanami54532",
-    "follower_count": 661,
-    "hashtags": "fyp 相互フォロー",
-    "signature": "ダンス♡",
-    "profile_url": "https://www.tiktok.com/@nanami54532",
-    "post_url": "",
-    "expected_reason": "NGワード(相互)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "NGワード(ムラムラ)"
   },
   {
     "unique_id": "soularrow_dance",

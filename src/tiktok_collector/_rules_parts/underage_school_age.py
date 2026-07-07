@@ -21,6 +21,10 @@ _SCHOOL_AGE_WORDS: list[str] = [
     "文化祭", "体育祭", "修学旅行",
     "高二", "高一", "高2", "高1",
     "中三", "中二", "中一", "中3", "中2", "中1",
+    # 中一/中二/中三 のひらがな読み("ちゅーいち"など)
+    "ちゅーいち", "ちゅういち", "ちゅいち",
+    "ちゅーに", "ちゅうに",
+    "ちゅーさん", "ちゅうさん",
     "17歳", "17才", "17サイ", "17ｻｲ", "17❤︎", "17❤", "17♡", "17♥",
     "16歳", "16才", "16サイ", "16ｻｲ", "16❤︎", "16❤", "16♡", "16♥",
     "15歳", "15才", "15サイ", "15ｻｲ", "15❤︎", "15❤", "15♡", "15♥",
@@ -29,6 +33,8 @@ _SCHOOL_AGE_WORDS: list[str] = [
     "えふじぇーしー", "えすじぇーしー", "えるじぇーしー", "えすじぇーけー", "えふじぇーけー",
     "11y", "12y", "13y", "14y", "15y", "16y", "17y",
 ]
+# Bio が単独の年齢数字(8〜17)だけ → 年齢宣言とみなす
+_BIO_AGE_ONLY = re.compile(r'^(?:1[0-7]|[89])$')
 _FULLWIDTH_TO_HALFWIDTH = str.maketrans("０１２３４５６７８９", "0123456789")
 # 括弧内の数字は年齢のことが多い。1〜17 は未成年扱いで全部 NG。
 _PAREN_AGE = re.compile(r"[\(（]\s*(?:1[0-7]|[1-9])\s*[\)）]")
@@ -39,7 +45,7 @@ _AGE_Y_SUFFIX = re.compile(r"(?<![a-zA-Z0-9])(?:11|12|13|14|15|16|17)\s*(?:y/o|y
 _AGE_HEART = re.compile(r"(?<!\d)(?:1[0-7])\s*[❤♡♥💕💖💗💓💞]")
 
 
-def check(text: str) -> str | None:
+def check(text: str, bio_s: str = "") -> str | None:
     norm = str(text or "").translate(_FULLWIDTH_TO_HALFWIDTH)
     low = norm.lower()
 
@@ -54,4 +60,11 @@ def check(text: str) -> str | None:
         return "未成年系NG(11y-17y)"
     if _AGE_HEART.search(norm):
         return "未成年系NG(年齢+ハート表記)"
+
+    # Bio がそのまま年齢数字(8〜17)のみ → 「12」「09」などの年齢宣言
+    if bio_s:
+        bio_norm = str(bio_s).strip().translate(_FULLWIDTH_TO_HALFWIDTH)
+        if _BIO_AGE_ONLY.match(bio_norm):
+            return f"未成年系NG(バイオ年齢:{bio_norm})"
+
     return None

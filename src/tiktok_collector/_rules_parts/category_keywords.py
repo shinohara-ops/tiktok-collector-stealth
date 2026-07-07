@@ -76,6 +76,16 @@ _MUSIC_WORDS: list[str] = [
     "NiziU", "ニジュー",
     "TWICE", "BLACKPINK",
     "IVE", "NewJeans", "LE SSERAFIM", "ILLIT",
+    # サッカー日本代表選手(ファンアカウントの除外対象)
+    "上田綺世", "中村敬斗", "堂安律", "久保建英", "伊東純也", "鎌田大地",
+    "三笘薫", "南野拓実", "遠藤航",
+    # タレント/モデル/俳優
+    "中村アン", "桐谷美玲",
+    # アイドル
+    "時田音々",
+    # Johnny's / ジャニーズ系
+    "山田涼介", "キンプリ", "King&Prince", "kingandprince", "kingprince",
+    "キング&プリンス",
 ]
 
 _GAME_WORDS: list[str] = [

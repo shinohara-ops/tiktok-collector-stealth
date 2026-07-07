@@ -1,16 +1,5 @@
 [
   {
-    "unique_id": "_xxqe22",
-    "display_name": "_xxqe22",
-    "follower_count": 457,
-    "hashtags": "おすすめ いいね返す",
-    "signature": "14",
-    "profile_url": "https://www.tiktok.com/@_xxqe22",
-    "post_url": "",
-    "expected_reason": "プロフィール紹介文が短すぎるメンションのみ",
-    "expected_model_used": "local:no-screenshot"
-  },
-  {
     "unique_id": "born_0620",
     "display_name": "born_0620",
     "follower_count": 1404,
@@ -44,18 +33,6 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
-    "unique_id": "nagareboshi415",
-    "display_name": "nagareboshi415",
-    "follower_count": 123,
-    "hashtags": "fyp",
-    "signature": "✨",
-    "profile_url": "https://www.tiktok.com/@nagareboshi415",
-    "post_url": "",
-    "expected_reason": "外国語/海外(英字タグ中心+日本語なし)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "プロフィール紹介文が絵文字のみ/英字タグ"
-  },
-  {
     "unique_id": "vplyw8",
     "display_name": "vplyw8",
     "follower_count": 1110,
@@ -78,6 +55,30 @@
     "expected_reason": "外国語/海外(英字タグ中心+日本語なし)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "プロフィール紹介文が絵文字のみ/英字タグ"
+  },
+  {
+    "unique_id": "nagareboshi415",
+    "display_name": "nagareboshi415",
+    "follower_count": 123,
+    "hashtags": "fyp",
+    "signature": "✨",
+    "profile_url": "https://www.tiktok.com/@nagareboshi415",
+    "post_url": "",
+    "expected_reason": "外国語/海外(英字タグ中心+日本語なし)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "プロフィール紹介文が絵文字のみ/英字タグ"
+  },
+  {
+    "unique_id": "_xxqe22",
+    "display_name": "_xxqe22",
+    "follower_count": 457,
+    "hashtags": "おすすめ いいね返す",
+    "signature": "14",
+    "profile_url": "https://www.tiktok.com/@_xxqe22",
+    "post_url": "",
+    "expected_reason": "未成年系NG(バイオ年齢:14)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "プロフィール紹介文が短すぎるメンションのみ"
   },
   {
     "unique_id": "_ruchan.11",

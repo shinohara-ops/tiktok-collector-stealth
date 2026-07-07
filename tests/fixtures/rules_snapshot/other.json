@@ -60,6 +60,18 @@
     "sheet_logged_reason": "フォロワー数NG(3507)"
   },
   {
+    "unique_id": "sanapyon2525",
+    "display_name": "sanapyon2525",
+    "follower_count": 6126,
+    "hashtags": "IDOLHOUSE おすすめ アイドル 綾瀬さな fyp",
+    "signature": "@ayasesana_idolhouse サブ垢です🤍🍚 見つけてくれてありがとう✨️ 白色アイドル🤍",
+    "profile_url": "https://www.tiktok.com/@sanapyon2525",
+    "post_url": "",
+    "expected_reason": "NGワード(ありがとう)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "フォロワー数NG(6126)"
+  },
+  {
     "unique_id": "aiueo___0004",
     "display_name": "aiueo___0004",
     "follower_count": 9117,
@@ -178,6 +190,18 @@
     "expected_reason": "NGワード(配信)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "配信/LIVE系(ライバー)"
+  },
+  {
+    "unique_id": "05hazuki11",
+    "display_name": "05hazuki11",
+    "follower_count": 3815,
+    "hashtags": "福岡 fyp 05 画質悪い",
+    "signature": "福岡 21歳 ２児のシンママ👶🏻👶🏻 インスタa_hazuki_a___0511",
+    "profile_url": "https://www.tiktok.com/@05hazuki11",
+    "post_url": "",
+    "expected_reason": "SNS誘導(fyp+インスタID)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "フォロワー数NG(3815)"
   },
   {
     "unique_id": "hoippukun__1004",
@@ -634,6 +658,18 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
+    "unique_id": "watanabehyo14",
+    "display_name": "watanabehyo14",
+    "follower_count": 2727,
+    "hashtags": "dragongate BOSJ33 豹",
+    "signature": "人間やめました。豹です。",
+    "profile_url": "https://www.tiktok.com/@watanabehyo14",
+    "post_url": "",
+    "expected_reason": "フォロワー数NG(2727)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "フォロワー数NG(2727)"
+  },
+  {
     "unique_id": "mire_mmm",
     "display_name": "mire_mmm",
     "follower_count": 2762,
@@ -720,6 +756,18 @@
     "post_url": "",
     "expected_reason": "フォロワー数NG(2958)",
     "expected_model_used": "local:no-screenshot"
+  },
+  {
+    "unique_id": "aianimation18",
+    "display_name": "aianimation18",
+    "follower_count": 2965,
+    "hashtags": "rave techno hardtechno hardbounce 車好き 車好きと繋がりたい 車好き女子 jdm",
+    "signature": "AICreator",
+    "profile_url": "https://www.tiktok.com/@aianimation18",
+    "post_url": "",
+    "expected_reason": "フォロワー数NG(2965)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "フォロワー数NG(2965)"
   },
   {
     "unique_id": "naenaewwww",
@@ -1138,6 +1186,18 @@
     "post_url": "",
     "expected_reason": "フォロワー数NG(5185)",
     "expected_model_used": "local:no-screenshot"
+  },
+  {
+    "unique_id": "shingeki3939",
+    "display_name": "shingeki3939",
+    "follower_count": 53200,
+    "hashtags": "進撃くん サニプリ nextLive",
+    "signature": "殿堂.日間.人気.1位🥇盾イベ3位",
+    "profile_url": "https://www.tiktok.com/@shingeki3939",
+    "post_url": "",
+    "expected_reason": "フォロワー数NG(53200)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "フォロワー数NG(53200)"
   },
   {
     "unique_id": "luv_mirincha",
@@ -1706,30 +1766,6 @@
     "sheet_logged_reason": "ランダムID/海外・量産寄り"
   },
   {
-    "unique_id": "05hazuki11",
-    "display_name": "05hazuki11",
-    "follower_count": 3815,
-    "hashtags": "福岡 fyp 05 画質悪い",
-    "signature": "福岡 21歳 ２児のシンママ👶🏻👶🏻 インスタa_hazuki_a___0511",
-    "profile_url": "https://www.tiktok.com/@05hazuki11",
-    "post_url": "",
-    "expected_reason": "SNS誘導(fyp+インスタID)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "フォロワー数NG(3815)"
-  },
-  {
-    "unique_id": "aianimation18",
-    "display_name": "aianimation18",
-    "follower_count": 2965,
-    "hashtags": "rave techno hardtechno hardbounce 車好き 車好きと繋がりたい 車好き女子 jdm",
-    "signature": "AICreator",
-    "profile_url": "https://www.tiktok.com/@aianimation18",
-    "post_url": "",
-    "expected_reason": "フォロワー数NG(2965)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "フォロワー数NG(2965)"
-  },
-  {
     "unique_id": "piyok371",
     "display_name": "piyok371",
     "follower_count": 2671,
@@ -1740,42 +1776,6 @@
     "expected_reason": "ランダムID/海外・量産寄り",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "フォロワー数NG(2671)"
-  },
-  {
-    "unique_id": "sanapyon2525",
-    "display_name": "sanapyon2525",
-    "follower_count": 6126,
-    "hashtags": "IDOLHOUSE おすすめ アイドル 綾瀬さな fyp",
-    "signature": "@ayasesana_idolhouse サブ垢です🤍🍚 見つけてくれてありがとう✨️ 白色アイドル🤍",
-    "profile_url": "https://www.tiktok.com/@sanapyon2525",
-    "post_url": "",
-    "expected_reason": "NGワード(ありがとう)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "フォロワー数NG(6126)"
-  },
-  {
-    "unique_id": "shingeki3939",
-    "display_name": "shingeki3939",
-    "follower_count": 53200,
-    "hashtags": "進撃くん サニプリ nextLive",
-    "signature": "殿堂.日間.人気.1位🥇盾イベ3位",
-    "profile_url": "https://www.tiktok.com/@shingeki3939",
-    "post_url": "",
-    "expected_reason": "フォロワー数NG(53200)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "フォロワー数NG(53200)"
-  },
-  {
-    "unique_id": "watanabehyo14",
-    "display_name": "watanabehyo14",
-    "follower_count": 2727,
-    "hashtags": "dragongate BOSJ33 豹",
-    "signature": "人間やめました。豹です。",
-    "profile_url": "https://www.tiktok.com/@watanabehyo14",
-    "post_url": "",
-    "expected_reason": "フォロワー数NG(2727)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "フォロワー数NG(2727)"
   },
   {
     "unique_id": "_15189",

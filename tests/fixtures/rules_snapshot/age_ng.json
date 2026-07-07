@@ -48,6 +48,18 @@
     "sheet_logged_reason": "NGワード(japanese)"
   },
   {
+    "unique_id": "___zer0r",
+    "display_name": "___zer0r",
+    "follower_count": 669,
+    "hashtags": "2012 名古屋 ちゅーに",
+    "signature": "2012 名古屋",
+    "profile_url": "https://www.tiktok.com/@___zer0r",
+    "post_url": "",
+    "expected_reason": "NGワード(ちゅーに)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "年齢NG(2012)"
+  },
+  {
     "unique_id": "n0h0_lxq",
     "display_name": "n0h0_lxq",
     "follower_count": 507,
@@ -360,30 +372,6 @@
     "sheet_logged_reason": "年齢NG(#12)"
   },
   {
-    "unique_id": "kiyoa459",
-    "display_name": "kiyoa459",
-    "follower_count": 669,
-    "hashtags": "The anime fyp",
-    "signature": "",
-    "profile_url": "https://www.tiktok.com/@kiyoa459",
-    "post_url": "",
-    "expected_reason": "外国語/海外(英字タグ中心+日本語なし)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "年齢NG(2010)"
-  },
-  {
-    "unique_id": "nyantaro2011",
-    "display_name": "nyantaro2011",
-    "follower_count": 341,
-    "hashtags": "cat 猫 キジトラ 猫のいる暮らし catsoftiktok",
-    "signature": "2011年生まれ 8キロのでっかいにゃんたろう🐈",
-    "profile_url": "https://www.tiktok.com/@nyantaro2011",
-    "post_url": "",
-    "expected_reason": "年齢NG(2011)",
-    "expected_model_used": "local:no-screenshot",
-    "sheet_logged_reason": "年齢NG(2011)"
-  },
-  {
     "unique_id": "o195oetedc0",
     "display_name": "o195oetedc0",
     "follower_count": 915,
@@ -430,6 +418,18 @@
     "expected_reason": "外国語/海外(中国語:日常)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "年齢NG(中学3年)"
+  },
+  {
+    "unique_id": "kiyoa459",
+    "display_name": "kiyoa459",
+    "follower_count": 669,
+    "hashtags": "The anime fyp",
+    "signature": "",
+    "profile_url": "https://www.tiktok.com/@kiyoa459",
+    "post_url": "",
+    "expected_reason": "外国語/海外(英字タグ中心+日本語なし)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "年齢NG(2010)"
   },
   {
     "unique_id": "minaanwhat",
@@ -576,15 +576,16 @@
     "expected_model_used": "local:no-screenshot"
   },
   {
-    "unique_id": "___zer0r",
-    "display_name": "___zer0r",
-    "follower_count": 669,
-    "hashtags": "2012 名古屋 ちゅーに",
-    "signature": "2012 名古屋",
-    "profile_url": "https://www.tiktok.com/@___zer0r",
+    "unique_id": "nyantaro2011",
+    "display_name": "nyantaro2011",
+    "follower_count": 341,
+    "hashtags": "cat 猫 キジトラ 猫のいる暮らし catsoftiktok",
+    "signature": "2011年生まれ 8キロのでっかいにゃんたろう🐈",
+    "profile_url": "https://www.tiktok.com/@nyantaro2011",
     "post_url": "",
-    "expected_reason": "年齢NG(2012)",
-    "expected_model_used": "local:no-screenshot"
+    "expected_reason": "年齢NG(2011)",
+    "expected_model_used": "local:no-screenshot",
+    "sheet_logged_reason": "年齢NG(2011)"
   },
   {
     "unique_id": "ayamenazima",
