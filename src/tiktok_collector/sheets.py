@@ -547,7 +547,7 @@ class SheetsClient:
                     last_exc = e
                     if attempt == 0:
                         self._reset_http_connections()
-                        time.sleep(2)
+                        time.sleep(10)
             if last_exc is not None:
                 print(f"記入直前の共有既出チェック取得エラー: tab={tab} error={str(last_exc)[:120]}", flush=True)
                 consec_errors += 1
@@ -593,7 +593,7 @@ class SheetsClient:
                     last_exc = e
                     if attempt == 0:
                         self._reset_http_connections()
-                        time.sleep(2)
+                        time.sleep(10)
             if last_exc is not None:
                 print(f"記入直前のおすすめ既出チェック取得エラー: tab={tab} error={str(last_exc)[:120]}", flush=True)
                 consec_errors += 1
