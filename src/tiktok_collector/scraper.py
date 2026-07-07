@@ -248,6 +248,14 @@ class TikTokScraper:
         if looks_like_sec_uid(unique_id):
             return None
 
+        # TikTok 内部ページ(/@creator-center 等)の URL が漏れ込むことがある。
+        # TikTok のユーザー名にハイフンは使えない(ハイフン入りは内部ページ)。
+        # URL は常に小文字で正規化されるので大文字があれば内部ページまたは誤抽出。
+        if '-' in unique_id:
+            return None
+        if unique_id != unique_id.lower():
+            return None
+
         body_text = ((data or {}).get("text") or "")[:3000]
         hashtags = " ".join(re.findall(r"#([\wぁ-んァ-ン一-龯ー0-9A-Za-z]+)", body_text))
         display_name = (data or {}).get("displayName") or unique_id

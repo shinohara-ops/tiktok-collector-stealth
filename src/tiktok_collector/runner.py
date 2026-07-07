@@ -119,7 +119,8 @@ async def _start_pause_guard(page):
           return 'started';
         }
         """)
-        print(f"[PAUSE_GUARD_START] {result}", flush=True)
+        if result != 'already_active':
+            print(f"[PAUSE_GUARD_START] {result}", flush=True)
     except Exception as e:
         print(f"[PAUSE_GUARD_START_ERR] {e}", flush=True)
 
@@ -546,6 +547,27 @@ class TikTokRunner:
                 print(f"[SHEETS_BG_ERROR] tab={tab} err={str(e)[:120]}", flush=True)
         asyncio.ensure_future(_run())
 
+    async def _cleanup_old_screenshots(self, max_age_hours: float = 24.0) -> None:
+        """24時間以上前のスクリーンショットを削除してディスク/メモリ圧迫を防ぐ。"""
+        try:
+            screenshot_dir = Path(self.cfg.logging.screenshot_dir)
+            if not screenshot_dir.exists():
+                return
+            import time as _time
+            cutoff = _time.time() - max_age_hours * 3600
+            deleted = 0
+            for f in screenshot_dir.glob("*.png"):
+                try:
+                    if f.stat().st_mtime < cutoff:
+                        f.unlink()
+                        deleted += 1
+                except Exception:
+                    pass
+            if deleted:
+                print(f"[SCREENSHOT_CLEANUP] {deleted}件の古いスクリーンショットを削除しました", flush=True)
+        except Exception as e:
+            print(f"[SCREENSHOT_CLEANUP_ERR] {str(e)[:120]}", flush=True)
+
     async def _watch_neutral_video(self, page):
         """除外済み・フォロワー範囲外アカウントへの中立シグナル視聴。
         即スワイプすると TikTok アルゴが「この系統嫌い」と読むため、
@@ -557,7 +579,10 @@ class TikTokRunner:
 
     async def run(self):
         self._clear_stop_requested()
-        self.notifier.send("TikTok Collector 起動")
+        try:
+            self.notifier.send("TikTok Collector 起動")
+        except Exception as _e:
+            print(f"起動通知エラー(続行): {str(_e)[:120]}", flush=True)
         start_ts = time.time()
 
         try:
@@ -585,8 +610,19 @@ class TikTokRunner:
             except Exception as e:
                 print(f"CDP接続失敗: {str(e)[:200]}", flush=True)
                 print("1_launch_chrome.command が起動していません。", flush=True)
-                self.notifier.send("CDP接続失敗で停止")
+                try:
+                    self.notifier.send("CDP接続失敗で停止")
+                except Exception:
+                    pass
                 return
+            # Chrome が突然クラッシュ・切断したときにすぐ再起動フラグを立てる
+            def _on_browser_disconnect():
+                print("[CDP_DISCONNECT] Chrome 接続が切れました → Chrome 再起動フラグをセット", flush=True)
+                try:
+                    Path("data/RESTART_CHROME").touch()
+                except Exception:
+                    pass
+            browser.on("disconnected", _on_browser_disconnect)
             context = browser.contexts[0] if browser.contexts else await browser.new_context()
             # Page Visibility 偽装などを以降の全ページに注入
             try:
@@ -629,7 +665,10 @@ class TikTokRunner:
                         f"最大稼働時間 {self.cfg.browser.max_runtime_minutes} 分に到達したため停止します。",
                         flush=True,
                     )
-                    self.notifier.send("最大稼働時間に到達したため停止")
+                    try:
+                        self.notifier.send("最大稼働時間に到達したため停止")
+                    except Exception:
+                        pass
                     break
 
                 self._maybe_refresh_uid_map()
@@ -637,10 +676,18 @@ class TikTokRunner:
                 already_advanced = False
                 _timed_out = False
                 try:
-                    already_advanced = bool(await asyncio.wait_for(self._process_one(page), timeout=90))
+                    already_advanced = bool(await asyncio.wait_for(self._process_one(page), timeout=180))
                 except asyncio.TimeoutError:
                     print("1投稿の処理が90秒を超えたため次へ進みます。", flush=True)
                     _timed_out = True
+                    # asyncio.wait_for のタイムアウトは内部コルーチンを強制キャンセルする。
+                    # Playwright の CDP 操作が途中でキャンセルされると内部状態が不整合になり
+                    # macOS 上では SIGTRAP/SIGABRT として現れることがある。
+                    # タイムアウト直後に pause guard のリセットだけ試みる。
+                    try:
+                        await asyncio.wait_for(_stop_pause_guard(page), timeout=5)
+                    except Exception:
+                        pass
                 except Exception as e:
                     print(f"処理エラー: {str(e)[:160]}", flush=True)
 
@@ -659,44 +706,68 @@ class TikTokRunner:
                     break
 
                 if self.processed_count % self.cfg.rate.rest_every_n_posts == 0:
-                    await asyncio.sleep(self.cfg.rate.rest_sec)
+                    try:
+                        await asyncio.sleep(self.cfg.rate.rest_sec)
+                    except Exception:
+                        pass
 
                 if time.time() - self.last_health > 1800:
-                    self.notifier.send(f"稼働中: processed={self.processed_count}, written={self.written_count}")
+                    try:
+                        self.notifier.send(f"稼働中: processed={self.processed_count}, written={self.written_count}")
+                    except Exception as _ne:
+                        print(f"[HEALTH_NOTIFY_ERR] {str(_ne)[:120]}", flush=True)
                     self.last_health = time.time()
+                    asyncio.ensure_future(self._cleanup_old_screenshots())
 
                 # _process_one が内部で _force_advance_after_skip を呼んでいた場合は
                 # ここで二重に next_post すると 2 動画進んでしまう(連続2スワイプ)。
                 # 内部スワイプ済みは True を返す約束なので、True のときは skip する。
                 if not already_advanced:
-                    # タイムアウト後は CDP が未完のままでブラウザがブロックしている
-                    # 可能性があるため、next_post 自体にも短めのタイムアウトを設ける。
-                    # 失敗したらページ再ナビゲートで回復を試み、それも無理なら再起動。
-                    _next_timeout = 20 if _timed_out else None
-                    try:
-                        if _next_timeout:
-                            await asyncio.wait_for(self.scraper.next_post(page), timeout=_next_timeout)
-                        else:
-                            await self.scraper.next_post(page)
-                    except Exception as e:
-                        print(f"next_post 失敗: {str(e)[:120]}", flush=True)
+                    if _timed_out:
+                        # タイムアウト後は CDP 状態が不定。next_post を試みるより
+                        # ページリロードで Playwright 状態をクリーンにリセットする。
+                        print("タイムアウト後リカバリ: ページをリロードします...", flush=True)
                         try:
-                            print("ページ再ナビゲートでリカバリ試行中...", flush=True)
                             await asyncio.wait_for(
                                 page.goto(self.cfg.browser.start_url, wait_until="domcontentloaded"),
-                                timeout=20,
+                                timeout=15,
                             )
-                            print("ページ再ナビゲート完了。", flush=True)
-                        except Exception as nav_e:
-                            print(f"再ナビゲートも失敗: {str(nav_e)[:120]} → Chrome再起動を要求", flush=True)
+                            await asyncio.sleep(2)
+                        except Exception as reload_e:
+                            print(f"タイムアウト後リロード失敗: {str(reload_e)[:120]} → Chrome再起動", flush=True)
                             try:
                                 Path("data/RESTART_CHROME").touch()
                             except Exception:
                                 pass
                             break
-                await asyncio.sleep(self.cfg.browser.action_delay_sec)
+                    else:
+                        try:
+                            await self.scraper.next_post(page)
+                        except Exception as e:
+                            print(f"next_post 失敗: {str(e)[:120]}", flush=True)
+                            try:
+                                print("ページ再ナビゲートでリカバリ試行中...", flush=True)
+                                await asyncio.wait_for(
+                                    page.goto(self.cfg.browser.start_url, wait_until="domcontentloaded"),
+                                    timeout=20,
+                                )
+                                print("ページ再ナビゲート完了。", flush=True)
+                            except Exception as nav_e:
+                                print(f"再ナビゲートも失敗: {str(nav_e)[:120]} → Chrome再起動を要求", flush=True)
+                                try:
+                                    Path("data/RESTART_CHROME").touch()
+                                except Exception:
+                                    pass
+                                break
+                try:
+                    await asyncio.sleep(self.cfg.browser.action_delay_sec)
+                except Exception:
+                    pass
 
-            await context.close()
+            try:
+                await context.close()
+            except Exception:
+                pass
 
 
     def _negative_feedback_enabled(self) -> bool:
@@ -1064,6 +1135,20 @@ class TikTokRunner:
             self.db.event("warn", "candidate取得失敗")
             return False
 
+        # ゴミUID ガード: TikTok のハイライト/カテゴリ UI の DOM 要素が
+        # /@highlights_match._.5 のような href を持ち、スクレーパーに漏れ込む。
+        # 実際の TikTok UID に「._」「_.」の連続は現れない。
+        # 漏れ込んだ場合はフィードに戻って再取得する。
+        _uid_raw = getattr(candidate, 'unique_id', '') or ''
+        if _uid_raw and ('-' in _uid_raw or _uid_raw != _uid_raw.lower()):
+            print(f"[GARBAGE_UID_RELOAD] uid={_uid_raw!r} → フィードに戻ります", flush=True)
+            try:
+                await page.goto(self.cfg.browser.start_url, wait_until="domcontentloaded", timeout=20000)
+                await asyncio.sleep(2)
+            except Exception as _e:
+                print(f"[GARBAGE_UID_RELOAD_FAIL] {str(_e)[:120]}", flush=True)
+            return False
+
         # 候補確定直後に超スロー再生を開始 — 短い動画(3〜5秒)がFC取得や
         # AI判定の待ち時間中に完視聴されるのを防ぐ。
         # 採用時のみ _watch_target_video → _stop_pause_guard で1.0xに戻す。
@@ -1341,7 +1426,17 @@ class TikTokRunner:
 
         await self.rate.wait()
         try:
-            result = self.ai.judge_with_fallback_if_needed(screenshot_path, candidate.dict())
+            # AI 判定は同期 HTTP 呼び出し(OpenAI API)。asyncio のイベントループを
+            # ブロックしたまま実行すると Playwright が Chrome からの CDP レスポンスを
+            # 受け取れなくなり、接続が死んで SIGTRAP に至る。
+            # run_in_executor でスレッドに逃がし、イベントループを解放する。
+            _cand_dict = candidate.dict()
+            result = await asyncio.get_event_loop().run_in_executor(
+                None,
+                self.ai.judge_with_fallback_if_needed,
+                screenshot_path,
+                _cand_dict,
+            )
             if isinstance(result, dict) and "cute_score" in result:
                 result["cute_score"] = _clamp_ai_score_0_10(result.get("cute_score", ""))
         except Exception as e:
@@ -1364,9 +1459,13 @@ class TikTokRunner:
                 print(f"profile/hashtag repair error: {str(e)[:120]}", flush=True)
             print(f"おすすめ記入: {candidate.unique_id}", flush=True)
             self.db.mark(candidate.unique_id, "recommended", reason, candidate.profile_url, candidate.post_url, screenshot_path)
-            self.sheets.append_recommended(
-                candidate.to_row(self.cfg.collector_name, reason=reason, score=score, model_used=model_used),
-                candidate.follower_count,
+            # Sheets 書き込みも同期 HTTP 呼び出し。イベントループをブロックしないよう
+            # run_in_executor でスレッドに逃がす。
+            _row = candidate.to_row(self.cfg.collector_name, reason=reason, score=score, model_used=model_used)
+            _fc = candidate.follower_count
+            await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: self.sheets.append_recommended(_row, _fc),
             )
             self.sheet_seen_ids.add(candidate.unique_id)
             self.written_count += 1

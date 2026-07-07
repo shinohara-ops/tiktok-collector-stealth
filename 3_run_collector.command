@@ -161,4 +161,76 @@ echo "=== TikTokCollectorStealth 本体起動 ==="
 echo "記入者名: $TIKTOK_COLLECTOR_NAME"
 echo "抽出条件: フォロワー数 ${TIKTOK_MIN_FOLLOWERS} 以上 ${TIKTOK_MAX_FOLLOWERS} 未満"
 echo ""
-python3 main.py
+
+# シグナル終了(SIGTRAP/SIGABRT 等)を含む予期しない終了を自動でリカバリする。
+# 4_overnight_run.command と同じロジックをここにも持たせる。
+CONSEC_ERR1=0
+MAX_CONSEC_ERR1=3
+
+while true; do
+  set +e
+  python3 main.py
+  PY_EXIT=$?
+  set -e
+
+  # 正常終了 / Ctrl+C
+  if [ "$PY_EXIT" -eq 0 ] || [ "$PY_EXIT" -eq 130 ]; then
+    exit "$PY_EXIT"
+  fi
+
+  # Chrome 全再起動要求(フィード詰まり)
+  if [ "$PY_EXIT" -eq 77 ]; then
+    CONSEC_ERR1=0
+    echo ""
+    echo "--- Chrome 再起動要求(フィード詰まり): $(date '+%F %T') ---"
+    pkill -f "remote-debugging-port=9222" 2>/dev/null || true
+    sleep 5
+    "$(dirname "$0")/1_launch_chrome.command" &
+    echo "Chrome を再起動中... (最大 30 秒)"
+    for _i in $(seq 1 30); do
+      sleep 1
+      if lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null 2>&1; then break; fi
+    done
+    sleep 5
+    echo "=== 再起動: $(date '+%F %T') ==="
+    continue
+  fi
+
+  # シグナル終了 128+N (SIGTRAP=133, SIGABRT=134, SIGSEGV=139 等)
+  if [ "$PY_EXIT" -ge 128 ] && [ "$PY_EXIT" -le 159 ]; then
+    CONSEC_ERR1=0
+    SIG=$((PY_EXIT - 128))
+    echo ""
+    echo "⚠️  シグナル ${SIG} で終了(exit ${PY_EXIT}) → Chrome 再起動して再開: $(date '+%F %T')"
+    pkill -f "remote-debugging-port=9222" 2>/dev/null || true
+    sleep 5
+    "$(dirname "$0")/1_launch_chrome.command" &
+    echo "Chrome を再起動中... (最大 30 秒)"
+    for _i in $(seq 1 30); do
+      sleep 1
+      if lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null 2>&1; then break; fi
+    done
+    sleep 5
+    echo "=== 再起動: $(date '+%F %T') ==="
+    continue
+  fi
+
+  # exit 1 (Python 例外)
+  CONSEC_ERR1=$((CONSEC_ERR1 + 1))
+  if [ "$CONSEC_ERR1" -ge "$MAX_CONSEC_ERR1" ]; then
+    echo "exit 1 が ${MAX_CONSEC_ERR1} 回連続しました。設定エラー等の永続障害の可能性があります。停止します。"
+    exit 1
+  fi
+  echo ""
+  echo "⚠️  python3 が終了しました(exit ${PY_EXIT}, ${CONSEC_ERR1}/${MAX_CONSEC_ERR1}) → Chrome 再起動して 10 秒後に再開"
+  pkill -f "remote-debugging-port=9222" 2>/dev/null || true
+  sleep 10
+  "$(dirname "$0")/1_launch_chrome.command" &
+  echo "Chrome を再起動中... (最大 20 秒)"
+  for _i in $(seq 1 20); do
+    sleep 1
+    if lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null 2>&1; then break; fi
+  done
+  sleep 3
+  echo "=== 再起動: $(date '+%F %T') ==="
+done
