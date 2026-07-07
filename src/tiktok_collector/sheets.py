@@ -120,10 +120,15 @@ class SheetsClient:
                 break
             except Exception as e:
                 if attempt < 2:
-                    print(f"Google Sheets接続エラー、10秒後にリトライします ({attempt + 1}/3)...", flush=True)
-                    time.sleep(10)
+                    print(f"Google Sheets接続エラー、30秒後にリトライします ({attempt + 1}/3)...", flush=True)
+                    time.sleep(30)
                 else:
-                    raise
+                    # 3回失敗してもタブ確認は後回しにして続行。
+                    # overnight 運用時は既にタブが存在するため問題なし。
+                    # LibreSSL / ネットワーク不調時に起動失敗ループを防ぐ。
+                    print(f"⚠ Google Sheets 起動時タブ確認に失敗しました(収集は続行):", flush=True)
+                    print(f"  {str(e)[:120]}", flush=True)
+                    print("  → 収集は続行します。Sheets への書き込みは都度リトライされます。", flush=True)
 
     def _load_credentials(self):
         auth_mode = str(getattr(self.cfg, "auth_mode", "oauth") or "oauth").strip().lower()
