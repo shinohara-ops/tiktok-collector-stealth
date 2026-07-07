@@ -16,8 +16,30 @@ rules.py 本体も同じものを再 export して、後方互換 API
 """
 from __future__ import annotations
 
+import functools
 import re
 from typing import Callable, Optional
+
+# ─────────────────────────────────────────────────────────────────────────
+# モジュールロード時にコンパイル済みパターン（動的コンパイルによる re キャッシュ競合防止）
+# ─────────────────────────────────────────────────────────────────────────
+_RE_SHORT_ASCII_CONTAINS = re.compile(r"[a-z0-9]{1,4}")   # _contains_any 用
+_RE_SHORT_ASCII_SCOPED   = re.compile(r"[a-z0-9]{2,4}")   # _check_scoped_ng_words 用
+_RE_LOAD_EXTRA_SPLIT     = re.compile(r"[,、\n]")          # _load_extra_words 用
+_FOREIGN_SCORE_PATTERNS  = [
+    re.compile(r"[가-힯]"),   # Hangul
+    re.compile(r"[฀-๿]"),   # Thai
+    re.compile(r"[Ѐ-ӿ]"),   # Cyrillic
+    re.compile(r"[ऀ-ॿ]"),   # Devanagari
+    re.compile(r"[ក-៿]"),   # Khmer
+    re.compile(r"[؀-ۿ]"),   # Arabic
+]
+
+
+@functools.lru_cache(maxsize=512)
+def _word_boundary_pat(word: str) -> re.Pattern:
+    """単語境界パターンをワードごとにキャッシュする。同じワードは1回しかコンパイルしない。"""
+    return re.compile(rf"(?<![a-z0-9]){re.escape(word)}(?![a-z0-9])")
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -30,8 +52,9 @@ _yellow_excluded_provider: Optional[Callable[[], frozenset]] = None
 
 # Sheets「NGワード」タブで 1 文字エントリ(`i`, `a`, `o` 等)が登録されると、
 # 部分一致判定が事実上 free-pass で全候補にヒットする(過去 186 件 `NGワード(i)`)。
-# 安全弁として 1 文字エントリは無効化して、1 セッション 1 度だけ警告を出す。
+# 安全弁として 1 文字エントリは無効化して、セッション中に初回のみ 1 行でまとめて警告する。
 _NG_TOO_SHORT_WARNED: set[str] = set()
+_NG_TOO_SHORT_HEADER_PRINTED: bool = False
 
 
 def _is_too_short_ng_word(word: str) -> bool:
@@ -41,17 +64,18 @@ def _is_too_short_ng_word(word: str) -> bool:
 
 
 def _warn_too_short_ng_word(word: str, source: str) -> None:
-    """1 文字エントリ検出時に 1 度だけ標準出力に警告。
-    複数経路から呼ばれても、同じ word は 1 度だけ。"""
-    key = word
-    if key in _NG_TOO_SHORT_WARNED:
+    """1 文字エントリ検出時にセットへ追加。初回のみ 1 行のまとめ警告を出力。"""
+    global _NG_TOO_SHORT_HEADER_PRINTED
+    if word in _NG_TOO_SHORT_WARNED:
         return
-    _NG_TOO_SHORT_WARNED.add(key)
-    print(
-        f"[NG_WORD_TOO_SHORT_IGNORED] word={word!r} source={source} "
-        f"(Sheets「NGワード」タブの 1 文字エントリは部分一致で全候補にヒットするため無効化)",
-        flush=True,
-    )
+    _NG_TOO_SHORT_WARNED.add(word)
+    if not _NG_TOO_SHORT_HEADER_PRINTED:
+        _NG_TOO_SHORT_HEADER_PRINTED = True
+        print(
+            "[NG_WORD_TOO_SHORT_IGNORED] Sheets「NGワード」タブに1文字エントリあり → 無効化します"
+            "（以降の同種警告は省略。Sheetsから削除推奨）",
+            flush=True,
+        )
 
 
 def set_ng_keyword_provider(provider: Optional[Callable[[str], list[str]]]) -> None:
@@ -130,8 +154,8 @@ def _contains_any(text: str, words) -> str:
 
         # 短い英字だけのワードは部分一致させない
         # 例: inc/ad/pr/tv が通常IDや英単語の一部で誤爆するのを防ぐ
-        if re.fullmatch(r"[a-z0-9]{1,4}", ww):
-            if re.search(rf"(?<![a-z0-9]){re.escape(ww)}(?![a-z0-9])", text):
+        if _RE_SHORT_ASCII_CONTAINS.fullmatch(ww):
+            if _word_boundary_pat(ww).search(text):
                 return str(w)
             continue
 
@@ -145,7 +169,7 @@ def _load_extra_words(rules, key: str) -> list:
     if value is None:
         yaml_words: list = []
     elif isinstance(value, str):
-        yaml_words = [x.strip() for x in re.split(r"[,、\n]", value) if x.strip()]
+        yaml_words = [x.strip() for x in _RE_LOAD_EXTRA_SPLIT.split(value) if x.strip()]
     elif isinstance(value, (list, tuple, set)):
         yaml_words = list(value)
     else:
@@ -176,15 +200,7 @@ def _load_extra_words(rules, key: str) -> list:
 
 def _foreign_score(text: str) -> int:
     # 日本語の漢字は除外。ハングル/タイ語/ロシア語/ネパール語/クメール語/アラビア語などを検出
-    patterns = [
-        r"[가-힯]",          # Hangul
-        r"[฀-๿]",          # Thai
-        r"[Ѐ-ӿ]",          # Cyrillic
-        r"[ऀ-ॿ]",          # Devanagari
-        r"[ក-៿]",          # Khmer
-        r"[؀-ۿ]",          # Arabic
-    ]
-    return sum(len(re.findall(p, text)) for p in patterns)
+    return sum(len(p.findall(text)) for p in _FOREIGN_SCORE_PATTERNS)
 
 
 def _looks_like_foreign(text: str) -> bool:
@@ -318,15 +334,15 @@ def _check_scoped_ng_words(candidate, category: str) -> Optional[str]:
         # 短い英数字エントリ(`to`, `and`, `inc`, `pr` 等)は単語境界マッチ。
         # raw substring だと `tokyo`, `tomorrow`, `landscape`, `andrea` 等で大量誤検知する。
         # 単語の前後が英数字でなければヒット扱い(`_contains_any` と同じロジック)。
-        use_word_boundary = bool(re.fullmatch(r"[a-z0-9]{2,4}", word_l))
+        use_word_boundary = bool(_RE_SHORT_ASCII_SCOPED.fullmatch(word_l))
         if use_word_boundary:
-            pattern = rf"(?<![a-z0-9]){re.escape(word_l)}(?![a-z0-9])"
+            pat = _word_boundary_pat(word_l)
             if scope == "hashtag":
-                hit = bool(re.search(pattern, hashtags_lower))
+                hit = bool(pat.search(hashtags_lower))
             elif scope == "bio":
-                hit = bool(re.search(pattern, bio_lower))
+                hit = bool(pat.search(bio_lower))
             else:  # all
-                hit = bool(re.search(pattern, full_text))
+                hit = bool(pat.search(full_text))
         else:
             if scope == "hashtag":
                 hit = word_l in hashtags_lower

@@ -49,6 +49,12 @@ _NG_VIDEO_SALE_GROUP: list[str] = ["動画売る", "動画売ってます", "秘
 _NG_WORD_BOUNDARY: list[str] = ["bot", "jp", "live"]
 _NG_NIDONE_GROUP: list[str] = ["にどね", "ニドン", "nidone", "歓迎します", "歓迎", "孤独"]
 
+# 単語境界パターンをモジュールロード時に一括コンパイル（動的コンパイルによる re キャッシュ競合を防ぐ）
+_NG_WORD_BOUNDARY_PATTERNS: list[re.Pattern] = [
+    re.compile(rf"(?<![a-z0-9_]){re.escape(w)}(?![a-z0-9_])")
+    for w in _NG_WORD_BOUNDARY
+]
+
 
 def check(text: str) -> str | None:
     text_lower = text.lower()
@@ -86,8 +92,8 @@ def check(text: str) -> str | None:
             return f"NGワード({w})"
 
     # 8. word-boundary matches for short ASCII tokens
-    for w in _NG_WORD_BOUNDARY:
-        if re.search(rf"(?<![a-z0-9_]){re.escape(w)}(?![a-z0-9_])", text_lower):
+    for w, pat in zip(_NG_WORD_BOUNDARY, _NG_WORD_BOUNDARY_PATTERNS):
+        if pat.search(text_lower):
             return f"NGワード({w})"
 
     # 9. nidone / 歓迎 / 孤独

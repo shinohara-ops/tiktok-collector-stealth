@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -102,9 +103,14 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 class SheetsClient:
     def __init__(self, cfg):
         self.cfg = cfg
-        creds = self._load_credentials()
-        authorized_http = AuthorizedHttp(creds, http=httplib2.Http(timeout=15))
+        self._creds = self._load_credentials()
+        self._http = httplib2.Http(timeout=15)
+        authorized_http = AuthorizedHttp(self._creds, http=self._http)
         self.service = build("sheets", "v4", http=authorized_http)
+        # httplib2 はスレッドセーフでないため、バックグラウンドスレッドには
+        # threading.local で独立した service/Http インスタンスを持たせる。
+        self._thread_local = threading.local()
+        self._http_lock = threading.Lock()  # メインスレッドの _http 用
         self.spreadsheet_id = cfg.spreadsheet_id
         self.tabs = cfg.tabs
         self._ng_cache: dict[str, list[str]] = {}
@@ -478,6 +484,34 @@ class SheetsClient:
                 pass
         return status_map
 
+    def _reset_http_connections(self) -> None:
+        """httplib2 のコネクションプールをクリアして次回リクエストで新規接続を強制する。
+        SSL/タイムアウトエラー(サーバー側が接続を切った後の再利用)の回復に使う。"""
+        try:
+            with self._http_lock:
+                self._http.connections.clear()
+        except Exception:
+            pass
+        # バックグラウンドスレッドのコネクションもクリア
+        try:
+            h = getattr(self._thread_local, 'http', None)
+            if h is not None:
+                h.connections.clear()
+        except Exception:
+            pass
+
+    def _get_bg_service(self):
+        """バックグラウンドスレッド専用の service インスタンスを返す。
+        threading.local でスレッドごとに独立した httplib2.Http を持つため
+        メインスレッドの self.service と競合しない。"""
+        if not hasattr(self._thread_local, 'service'):
+            self._thread_local.http = httplib2.Http(timeout=15)
+            self._thread_local.service = build(
+                "sheets", "v4",
+                http=AuthorizedHttp(self._creds, http=self._thread_local.http),
+            )
+        return self._thread_local.service
+
     def _normalize_uid_for_dedupe(self, value) -> str:
         return str(value or "").strip().replace("@", "")
 
@@ -494,19 +528,28 @@ class SheetsClient:
             if tab in seen_tabs:
                 continue
             seen_tabs.add(tab)
-            try:
-                resp = self.service.spreadsheets().values().get(
-                    spreadsheetId=self.spreadsheet_id,
-                    range=f"{tab}!C2:C"
-                ).execute()
-                for row in resp.get("values", []):
-                    if row and str(row[0]).strip():
-                        uid = self._normalize_uid_for_dedupe(row[0])
-                        if uid and uid not in {"ユーザーID", "user_id", "unique_id", "ID", "id"}:
-                            uids.add(uid)
-                consec_errors = 0
-            except Exception as e:
-                print(f"記入直前の共有既出チェック取得エラー: tab={tab} error={str(e)[:120]}", flush=True)
+            last_exc = None
+            for attempt in range(2):
+                try:
+                    resp = self._get_bg_service().spreadsheets().values().get(
+                        spreadsheetId=self.spreadsheet_id,
+                        range=f"{tab}!C2:C"
+                    ).execute()
+                    for row in resp.get("values", []):
+                        if row and str(row[0]).strip():
+                            uid = self._normalize_uid_for_dedupe(row[0])
+                            if uid and uid not in {"ユーザーID", "user_id", "unique_id", "ID", "id"}:
+                                uids.add(uid)
+                    consec_errors = 0
+                    last_exc = None
+                    break
+                except Exception as e:
+                    last_exc = e
+                    if attempt == 0:
+                        self._reset_http_connections()
+                        time.sleep(2)
+            if last_exc is not None:
+                print(f"記入直前の共有既出チェック取得エラー: tab={tab} error={str(last_exc)[:120]}", flush=True)
                 consec_errors += 1
                 if consec_errors >= 2:
                     print("Sheets 連続エラー: 既出チェックを打ち切ります(ネットワーク障害の可能性)", flush=True)
@@ -531,19 +574,28 @@ class SheetsClient:
             if tab in seen_tabs:
                 continue
             seen_tabs.add(tab)
-            try:
-                resp = self.service.spreadsheets().values().get(
-                    spreadsheetId=self.spreadsheet_id,
-                    range=f"{tab}!C2:C"
-                ).execute()
-                for row in resp.get("values", []):
-                    if row and str(row[0]).strip():
-                        uid = self._normalize_uid_for_dedupe(row[0])
-                        if uid and uid not in {"ユーザーID", "user_id", "unique_id", "ID", "id"}:
-                            uids.add(uid)
-                consec_errors = 0
-            except Exception as e:
-                print(f"記入直前のおすすめ既出チェック取得エラー: tab={tab} error={str(e)[:120]}", flush=True)
+            last_exc = None
+            for attempt in range(2):
+                try:
+                    resp = self._get_bg_service().spreadsheets().values().get(
+                        spreadsheetId=self.spreadsheet_id,
+                        range=f"{tab}!C2:C"
+                    ).execute()
+                    for row in resp.get("values", []):
+                        if row and str(row[0]).strip():
+                            uid = self._normalize_uid_for_dedupe(row[0])
+                            if uid and uid not in {"ユーザーID", "user_id", "unique_id", "ID", "id"}:
+                                uids.add(uid)
+                    consec_errors = 0
+                    last_exc = None
+                    break
+                except Exception as e:
+                    last_exc = e
+                    if attempt == 0:
+                        self._reset_http_connections()
+                        time.sleep(2)
+            if last_exc is not None:
+                print(f"記入直前のおすすめ既出チェック取得エラー: tab={tab} error={str(last_exc)[:120]}", flush=True)
                 consec_errors += 1
                 if consec_errors >= 2:
                     print("Sheets 連続エラー: おすすめ既出チェックを打ち切ります(ネットワーク障害の可能性)", flush=True)
@@ -603,7 +655,7 @@ class SheetsClient:
         elif not str(row[0]).startswith("'"):
             row[0] = "'" + str(row[0])
 
-        result = self.service.spreadsheets().values().append(
+        result = self._get_bg_service().spreadsheets().values().append(
             spreadsheetId=self.spreadsheet_id,
             range=f"{tab}!A:M",
             valueInputOption="USER_ENTERED",

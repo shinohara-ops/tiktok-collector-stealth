@@ -81,6 +81,11 @@ _ENGLISH_COMMON_WORDS: list[str] = [
     "me", "at", "in", "on", "of",
     "small", "talk",
 ]
+# 英語ワード境界パターンをモジュールロード時に一括コンパイル（動的コンパイルによる re キャッシュ競合を防ぐ）
+_ENGLISH_COMMON_PATTERNS: list[re.Pattern] = [
+    re.compile(r"\b" + re.escape(ew.lower()) + r"\b")
+    for ew in _ENGLISH_COMMON_WORDS
+]
 
 
 def _english_sentence_like(s: str) -> bool:
@@ -89,8 +94,8 @@ def _english_sentence_like(s: str) -> bool:
     if len(words) >= 6:
         return True
     hits = 0
-    for ew in _ENGLISH_COMMON_WORDS:
-        if re.search(r"\b" + re.escape(ew.lower()) + r"\b", low):
+    for pat in _ENGLISH_COMMON_PATTERNS:
+        if pat.search(low):
             hits += 1
     if len(words) >= 3 and hits >= 2:
         return True
