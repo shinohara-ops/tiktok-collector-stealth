@@ -36,14 +36,43 @@ _LETTERS_ONLY = re.compile(r"[^a-z]")
 # y を除外した連続子音 3 文字以上。日本語ローマ字には現れない並び。
 _LONG_CONSONANT_RUN = re.compile(r"[bcdfghjklmnpqrstvwxz]{3,}")
 _VOWELS = frozenset("aeiou")
+# 日本語ローマ字には出現しない英語特有の子音クラスター
+_NON_JP_CLUSTERS = re.compile(r"st|sp|sk|sc|tr|dr|br|cr|fr|gr|pr|bl|cl|fl|gl|pl")
 
 
 def _looks_like_jp_romanization(letters: str) -> bool:
-    """日本語ローマ字は2〜3文字に1回必ず母音が入る。
-    母音比率 >= 1/3 なら日本語名ローマ字と判断してランダムID判定をスキップする。"""
-    if not letters:
+    """日本語ローマ字かどうかを5条件で判定する。
+
+    1. 母音比率 >= 1/3: 日本語は2〜3文字に1回必ず母音が入る
+    2. 末尾が母音か 'n': 日本語は子音で終わる音節がない(ん を除く)
+       → mark/james/chris/alex 等の英語名・韓国語(park/kim)を除外
+    3. 'r' の後ろは必ず母音(または拗音の 'y'): 日本語 r行は ra/ri/ru/re/ro のみ
+       → george/mark/word 等 r+子音パターンの英語を除外
+    4. 'l' を含まない: 標準ヘボン式はら行に 'r' を使い 'l' を使わない
+       → alice/elle 等を除外
+    5. 英語特有子音クラスター(st/sp/sk/tr/dr/br 等)を含まない
+       → steve/strong 等を除外
+    """
+    if not letters or len(letters) < 2:
         return False
-    return sum(1 for c in letters if c in _VOWELS) / len(letters) >= 1 / 3
+    # 1. 母音比率
+    vowel_count = sum(1 for c in letters if c in _VOWELS)
+    if vowel_count / len(letters) < 1 / 3:
+        return False
+    # 2. 末尾が母音か 'n'
+    if letters[-1] not in _VOWELS and letters[-1] != "n":
+        return False
+    # 3. 'r' の後ろに子音が続かない(拗音 'ry' は許可)
+    for i, c in enumerate(letters[:-1]):
+        if c == "r" and letters[i + 1] not in _VOWELS and letters[i + 1] != "y":
+            return False
+    # 4. 'l' を含まない
+    if "l" in letters:
+        return False
+    # 5. 英語特有の子音クラスターを含まない
+    if _NON_JP_CLUSTERS.search(letters):
+        return False
+    return True
 
 _EXPLICIT_NG_WORDS: list[str] = [
     "絡み募", "絡み募集", "地雷",
