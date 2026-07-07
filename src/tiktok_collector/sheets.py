@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import threading
 import time
 from datetime import datetime
@@ -120,6 +121,7 @@ class SheetsClient:
         self._yellow_excluded_cache: frozenset[str] = frozenset()
         self._yellow_excluded_cache_ts: float = 0.0
         self._yellow_excluded_ttl: float = float(getattr(cfg, "yellow_excluded_cache_ttl_sec", YELLOW_EXCLUDED_DEFAULT_TTL_SEC) or YELLOW_EXCLUDED_DEFAULT_TTL_SEC)
+        self._load_ng_disk_cache()
         # _ensure_tabs() はタブ/ヘッダー/フォーマットの初回セットアップ用で
         # 1回あたり20〜40 API コールを発生させる。毎起動で呼ぶと複数PC運用時に
         # Google Sheets API の 429 レート制限を引き起こす根本原因になる。
@@ -667,6 +669,35 @@ class SheetsClient:
         ).execute()
         return result
 
+    _NG_DISK_CACHE_PATH = Path("data/.ng_cache.json")
+
+    def _load_ng_disk_cache(self) -> None:
+        """main.py 再起動をまたいでNGワードキャッシュを引き継ぐ。
+        ディスクキャッシュが TTL 内なら Sheets へのリクエストを省く。"""
+        try:
+            if not self._NG_DISK_CACHE_PATH.exists():
+                return
+            payload = json.loads(self._NG_DISK_CACHE_PATH.read_text(encoding="utf-8"))
+            saved_ts = float(payload.get("ts", 0))
+            if time.time() - saved_ts >= self._ng_cache_ttl:
+                return  # 期限切れ
+            self._ng_cache = payload.get("flat", {})
+            self._ng_meta_cache = payload.get("meta", {})
+            self._ng_cache_ts = saved_ts
+            print(f"NGワードディスクキャッシュ読込: {sum(len(v) for v in self._ng_cache.values())}語", flush=True)
+        except Exception:
+            pass
+
+    def _save_ng_disk_cache(self) -> None:
+        try:
+            self._NG_DISK_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            self._NG_DISK_CACHE_PATH.write_text(
+                json.dumps({"ts": self._ng_cache_ts, "flat": self._ng_cache, "meta": self._ng_meta_cache}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+        except Exception:
+            pass
+
     def _refresh_ng_caches(self) -> None:
         """Sheets「NGワード」タブを1回 fetch して _ng_cache と _ng_meta_cache を同時に更新。
         失敗時は直前キャッシュを保持(ts を更新しないので次回再試行できる)。
@@ -736,6 +767,7 @@ class SheetsClient:
         self._ng_cache = flat
         self._ng_meta_cache = meta
         self._ng_cache_ts = now
+        self._save_ng_disk_cache()
 
     def get_ng_keywords(self) -> dict[str, list[str]]:
         """カテゴリ別の単語リストを返す(後方互換 API)。
