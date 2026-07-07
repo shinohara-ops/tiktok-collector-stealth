@@ -367,7 +367,7 @@
     "signature": "",
     "profile_url": "https://www.tiktok.com/@kiyoa459",
     "post_url": "",
-    "expected_reason": "ランダムID/海外・量産寄り",
+    "expected_reason": "外国語/海外(英字タグ中心+日本語なし)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "年齢NG(2010)"
   },
@@ -379,7 +379,7 @@
     "signature": "2011年生まれ 8キロのでっかいにゃんたろう🐈",
     "profile_url": "https://www.tiktok.com/@nyantaro2011",
     "post_url": "",
-    "expected_reason": "ランダムID/海外・量産寄り",
+    "expected_reason": "年齢NG(2011)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "年齢NG(2011)"
   },

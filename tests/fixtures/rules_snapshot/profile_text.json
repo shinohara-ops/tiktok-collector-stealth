@@ -51,7 +51,7 @@
     "signature": "✨",
     "profile_url": "https://www.tiktok.com/@nagareboshi415",
     "post_url": "",
-    "expected_reason": "ランダムID/海外・量産寄り",
+    "expected_reason": "外国語/海外(英字タグ中心+日本語なし)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "プロフィール紹介文が絵文字のみ/英字タグ"
   },

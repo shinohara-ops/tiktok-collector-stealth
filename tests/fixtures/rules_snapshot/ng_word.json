@@ -1586,7 +1586,7 @@
     "signature": "フォロー中が2桁以上のやつとは話しません。 すぐに別の女に行くからです。 DMしてくるならフォローしろ コメントしてくれる人覚えてるよ♡",
     "profile_url": "https://www.tiktok.com/@badominton15",
     "post_url": "",
-    "expected_reason": "ランダムID/海外・量産寄り",
+    "expected_reason": "NGワード(dmして)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "NGワード(えろい)"
   },
@@ -1598,7 +1598,7 @@
     "signature": "ダンス♡",
     "profile_url": "https://www.tiktok.com/@nanami54532",
     "post_url": "",
-    "expected_reason": "ランダムID/海外・量産寄り",
+    "expected_reason": "NGワード(相互)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "NGワード(ムラムラ)"
   },
