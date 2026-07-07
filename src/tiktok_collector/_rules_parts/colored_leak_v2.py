@@ -35,35 +35,15 @@ import re
 _LETTERS_ONLY = re.compile(r"[^a-z]")
 # y を除外した連続子音 3 文字以上。日本語ローマ字には現れない並び。
 _LONG_CONSONANT_RUN = re.compile(r"[bcdfghjklmnpqrstvwxz]{3,}")
+_VOWELS = frozenset("aeiou")
 
-# 日本人が TikTok ID に使う名前ローマ字転写ホワイトリスト。
-# UID が「[この文字列][数字列]」の形なら日本人名義と判断してランダムID判定をスキップする。
-_JP_NAME_ROMANIZATIONS: frozenset[str] = frozenset([
-    # 2〜3文字
-    "ai","ao","fu","ha","hi","ho","ka","ko","ku","ma","mi","mo",
-    "na","ni","no","ri","ru","sa","se","so","su","ta","to","yu",
-    "ami","aoi","aya","emi","kai","kan","kei","ken","kou","mai","mao","mia",
-    "mii","mio","miu","moa","moe","moka","nao","nia","noa","noe",
-    "rei","ren","rio","rin","rui","ryo","sae","shu","sora","sua","toa",
-    "umi","yua","yui",
-    # 4〜6文字 — よくある日本人女性名ローマ字
-    "miku","miyu","hana","yuna","yuki","kana","rina","risa","misa","riko",
-    "saki","nana","momo","haru","noa","toa","kaho","rima","rimi","rira",
-    "riri","suzu","yuka","akari","akane","akina","amane","asahi","asuka",
-    "ayaka","ayame","ayano","ayumi","chisa","erina","haruka","haruki",
-    "hinata","honoka","ichika","iroha","karin","kazuha","kirara","koharu",
-    "kokoro","konomi","kotone","mahiro","maika","maiko","maina","manami",
-    "marine","matsuri","mikana","mikasa","mikino","minaho","minami","minori",
-    "misaki","misato","misono","miyabi","miyako","miyuki","mizuki","moemi",
-    "momiji","momina","momoe","momoka","monami","mugi","nagisa","nanako",
-    "nanami","naomi","narumi","natsuki","natsumi","nene","noriko","nozomi",
-    "reira","reina","rika","riku","rioa","riona","ritsuko","riwa","rokka",
-    "saho","saika","saira","sakura","sanae","sayaka","sayuri","shiho",
-    "shiori","shira","shuho","suzuka","tamaki","tomoe","tomoka","tomoko",
-    "tomomi","tomoyo","towa","tsubaki","tsubame","tsugumi","tsukasa",
-    "tsukimi","tsuki","urara","waka","wakaba","wakana","yakano","yoko",
-    "yukina","yukino","yuko","yumi","yumika","yurika","yurina","yuzuki","yuzuha",
-])
+
+def _looks_like_jp_romanization(letters: str) -> bool:
+    """日本語ローマ字は2〜3文字に1回必ず母音が入る。
+    母音比率 >= 1/3 なら日本語名ローマ字と判断してランダムID判定をスキップする。"""
+    if not letters:
+        return False
+    return sum(1 for c in letters if c in _VOWELS) / len(letters) >= 1 / 3
 
 _EXPLICIT_NG_WORDS: list[str] = [
     "絡み募", "絡み募集", "地雷",
@@ -179,11 +159,12 @@ def check(uid_s: str, name_s: str, bio_s: str, tags: str) -> str | None:
             # amanecco721 のような日本人風サフィックス命名は連続子音が 2 以下
             # で済むので従来通り「ランダムID/海外・量産寄り」→ AI 救出経路。
             letters_only = _LETTERS_ONLY.sub("", uid_clean)
-            # 日本人名ローマ字 + 数字 の形式(miyu376454345 等)は除外しない。
-            if letters_only in _JP_NAME_ROMANIZATIONS:
-                pass
-            elif _LONG_CONSONANT_RUN.search(letters_only):
+            if _LONG_CONSONANT_RUN.search(letters_only):
                 return "ランダムID/完全英字(海外)"
+            # 日本語ローマ字は2〜3文字に1回母音が入る。
+            # 母音比率 >= 1/3 なら日本語名 + 数字の形式(miyu376454345 等)とみなしてスキップ。
+            if _looks_like_jp_romanization(letters_only):
+                pass
             else:
                 return "ランダムID/海外・量産寄り"
 
