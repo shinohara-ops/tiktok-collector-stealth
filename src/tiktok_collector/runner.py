@@ -1103,6 +1103,9 @@ class TikTokRunner:
                 pass
             await self._force_advance_after_skip(page, uid)
             return True
+        if status == "fc_unknown":
+            # フォロワー数が前回取れなかっただけ → 次セッションで再評価
+            return False
         if status:
             # pending 等(AIエラー保留) → _process_one で再判定(hover あり)
             return False
@@ -1388,8 +1391,10 @@ class TikTokRunner:
             if fc is None:
                 reason = "stealth_candidacy:fc_unknown"
                 print(f"stealth候補外: {candidate.unique_id} / {reason}", flush=True)
-                self.db.mark(candidate.unique_id, "skipped", reason, candidate.profile_url, candidate.post_url, "")
-                self.sheet_seen_ids.add(candidate.unique_id)
+                # "skipped" にすると次セッションで PAST_EXCLUDED_SKIP 永久除外になる。
+                # fc が取れなかっただけなので次回セッションで再評価できるよう専用ステータスにする。
+                self.db.mark(candidate.unique_id, "fc_unknown", reason, candidate.profile_url, candidate.post_url, "")
+                self.sheet_seen_ids.add(candidate.unique_id)  # 同セッション内は再試行しない
                 await self._force_advance_after_skip(page, candidate.unique_id)
                 return True
             if fc >= max_followers_threshold:
