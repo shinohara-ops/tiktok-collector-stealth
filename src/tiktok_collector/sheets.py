@@ -688,8 +688,11 @@ class SheetsClient:
             ).execute()
         except Exception as e:
             # 読込失敗時は前回キャッシュにフォールバック。
-            # 起動直後でキャッシュが無ければ空 dict のままで継続。
+            # 429(レート制限)のときは ts を更新して TTL 内は再試行しない。
+            # ts を更新しないと候補ごとに即リトライして 429 を連発し続けるため。
             print(f"NGワード読込失敗(キャッシュ流用): {str(e)[:160]}", flush=True)
+            if "429" in str(e):
+                self._ng_cache_ts = now
             return
 
         rows = resp.get("values", []) or []
@@ -768,7 +771,10 @@ class SheetsClient:
                 includeGridData=True,
             ).execute()
         except Exception as e:
+            # 429 のときは ts を更新して TTL 内は再試行しない(連発防止)
             print(f"黄色除外ID読込失敗(キャッシュ流用): {str(e)[:160]}", flush=True)
+            if "429" in str(e):
+                self._yellow_excluded_cache_ts = now
             return self._yellow_excluded_cache
 
         uids: set[str] = set()
