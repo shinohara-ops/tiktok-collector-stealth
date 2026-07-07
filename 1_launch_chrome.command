@@ -15,11 +15,11 @@ if [ ! -x "$CHROME" ]; then
   exit 1
 fi
 
-# すでに 9222 で待ち受けてる Chrome があれば終了
+# すでに 9222 で待ち受けてる Chrome があれば kill して再起動
 if lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null 2>&1; then
-  echo "ポート9222ですでにChromeが起動中です。既存のChromeを使ってください。"
-  echo "(止めたい場合は、起動済みChromeを Cmd+Q で終了してから再実行)"
-  exit 0
+  echo "ポート9222で起動済みの Chrome を終了して再起動します..."
+  pkill -f "remote-debugging-port=9222" || true
+  sleep 2
 fi
 
 echo "=== TikTokCollectorStealth 専用Chromeを起動します ==="
