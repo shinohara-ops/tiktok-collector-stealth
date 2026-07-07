@@ -27,6 +27,7 @@ NG_KEYWORDS_HEADERS = ["カテゴリ", "ワード", "適用範囲", "Bio空必�
 NG_KEYWORDS_TAB_KEY = "ng_keywords"
 NG_KEYWORDS_DEFAULT_TTL_SEC = 600
 YELLOW_EXCLUDED_DEFAULT_TTL_SEC = 3600
+EXISTING_UIDS_CACHE_TTL_SEC = 30.0
 
 NG_COL_CATEGORY = 0
 NG_COL_WORD = 1
@@ -121,6 +122,11 @@ class SheetsClient:
         self._yellow_excluded_cache: frozenset[str] = frozenset()
         self._yellow_excluded_cache_ts: float = 0.0
         self._yellow_excluded_ttl: float = float(getattr(cfg, "yellow_excluded_cache_ttl_sec", YELLOW_EXCLUDED_DEFAULT_TTL_SEC) or YELLOW_EXCLUDED_DEFAULT_TTL_SEC)
+        self._existing_uids_cache: set[str] = set()
+        self._existing_uids_cache_ts: float = 0.0
+        self._existing_recommended_uids_cache: set[str] = set()
+        self._existing_recommended_uids_cache_ts: float = 0.0
+        self._existing_uids_lock = threading.Lock()
         self._load_ng_disk_cache()
         # _ensure_tabs() はタブ/ヘッダー/フォーマットの初回セットアップ用で
         # 1回あたり20〜40 API コールを発生させる。毎起動で呼ぶと複数PC運用時に
@@ -522,9 +528,12 @@ class SheetsClient:
 
     def _fresh_existing_uids_all_tabs(self) -> set[str]:
         """
-        別PCの追記も拾うため、記入直前に共有シート全タブのユーザーID列を再取得する。
-        メイン tabs + 帯域別タブを両方スキャン。C列=ユーザーID前提。
+        別PCの追記も拾うため、共有シート全タブのユーザーID列を取得する。
+        EXISTING_UIDS_CACHE_TTL_SEC 以内は API を叩かずメモリキャッシュを返す。
         """
+        with self._existing_uids_lock:
+            if self._existing_uids_cache_ts and (time.time() - self._existing_uids_cache_ts) < EXISTING_UIDS_CACHE_TTL_SEC:
+                return set(self._existing_uids_cache)
         uids = set()
         scan_tabs = list(self.tabs.values()) + self._recommended_range_tab_names()
         seen_tabs: set[str] = set()
@@ -559,14 +568,20 @@ class SheetsClient:
                 if consec_errors >= 2:
                     print("Sheets 連続エラー: 既出チェックを打ち切ります(ネットワーク障害の可能性)", flush=True)
                     break
+        with self._existing_uids_lock:
+            self._existing_uids_cache = uids
+            self._existing_uids_cache_ts = time.time()
         return uids
 
     def _fresh_existing_recommended_uids(self) -> set[str]:
         """採用書き込み専用の重複チェック。「おすすめ」+ 帯域別タブだけスキャン。
         除外ログを含めると「過去除外 → AI 救出 → 再採用」のパスで毎回重複扱いされ、
         Sheets には書かれず終わる。除外ログにあっても、おすすめ系タブに未登録なら
-        書き込み OK。
+        書き込み OK。EXISTING_UIDS_CACHE_TTL_SEC 以内はキャッシュを返す。
         """
+        with self._existing_uids_lock:
+            if self._existing_recommended_uids_cache_ts and (time.time() - self._existing_recommended_uids_cache_ts) < EXISTING_UIDS_CACHE_TTL_SEC:
+                return set(self._existing_recommended_uids_cache)
         uids: set[str] = set()
         scan_tabs: list[str] = []
         main_rec = self.tabs.get("recommended")
@@ -605,6 +620,9 @@ class SheetsClient:
                 if consec_errors >= 2:
                     print("Sheets 連続エラー: おすすめ既出チェックを打ち切ります(ネットワーク障害の可能性)", flush=True)
                     break
+        with self._existing_uids_lock:
+            self._existing_recommended_uids_cache = uids
+            self._existing_recommended_uids_cache_ts = time.time()
         return uids
 
     def _is_duplicate_uid_before_append(self, uid: str, scope: str = "all") -> bool:
@@ -667,6 +685,10 @@ class SheetsClient:
             insertDataOption="INSERT_ROWS",
             body={"values": [row]},
         ).execute()
+        if uid:
+            with self._existing_uids_lock:
+                self._existing_uids_cache.add(uid)
+                self._existing_recommended_uids_cache.add(uid)
         return result
 
     _NG_DISK_CACHE_PATH = Path("data/.ng_cache.json")
