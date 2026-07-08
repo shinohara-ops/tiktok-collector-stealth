@@ -903,5 +903,50 @@
     "expected_reason": "類似除外(シャドバン)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "未成年系NG(13歳)"
+  },
+  {
+    "unique_id": "pxw3_nr0",
+    "display_name": "pxw3_nr0",
+    "follower_count": 44,
+    "hashtags": "10 大阪 よろしく",
+    "signature": "よろしくね",
+    "expected_reason": "未成年系NG(10)",
+    "expected_model_used": "local:no-screenshot"
+  },
+  {
+    "unique_id": "qr9xl_2m",
+    "display_name": "qr9xl_2m",
+    "follower_count": 18,
+    "hashtags": "13 大阪 fyp",
+    "signature": "よろしくね",
+    "expected_reason": "未成年系NG(13)",
+    "expected_model_used": "local:no-screenshot"
+  },
+  {
+    "unique_id": "vx0nl_5k",
+    "display_name": "vx0nl_5k",
+    "follower_count": 71,
+    "hashtags": "fyp 17 いいね返し",
+    "signature": "",
+    "expected_reason": "未成年系NG(17)",
+    "expected_model_used": "local:no-screenshot"
+  },
+  {
+    "unique_id": "k2rmt_zz",
+    "display_name": "k2rmt_zz",
+    "follower_count": 33,
+    "hashtags": "fyp",
+    "signature": "東京 16 よろしくね",
+    "expected_reason": "未成年系NG(16)",
+    "expected_model_used": "local:no-screenshot"
+  },
+  {
+    "unique_id": "lx9_qvr",
+    "display_name": "lx9_qvr",
+    "follower_count": 27,
+    "hashtags": "fyp",
+    "signature": "埼玉 12 フォロバします",
+    "expected_reason": "未成年系NG(12)",
+    "expected_model_used": "local:no-screenshot"
   }
 ]

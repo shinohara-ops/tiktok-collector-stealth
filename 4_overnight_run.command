@@ -50,8 +50,31 @@ wait_for_chrome() {
   return 1
 }
 
+# ネットワーク回復を最大 NET_WAIT_MAX 秒待つ。
+# 回復したら 0、タイムアウトなら 1 を返す。
+NET_WAIT_MAX=300   # 5分
+NET_WAIT_INT=30    # 30秒ごとに確認
+wait_for_network() {
+  local elapsed=0
+  while ! ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; do
+    if [ "$elapsed" -ge "$NET_WAIT_MAX" ]; then
+      echo "=== ${NET_WAIT_MAX}秒待ってもネットワーク回復せず。このまま続行します ==="
+      return 1
+    fi
+    echo "=== ネットワーク断を検知 (経過: ${elapsed}s) → ${NET_WAIT_INT}秒後に再確認... ($(date '+%F %T')) ==="
+    sleep "$NET_WAIT_INT"
+    elapsed=$((elapsed + NET_WAIT_INT))
+  done
+  echo "=== ネットワーク回復を確認しました ($(date '+%F %T')) ==="
+  return 0
+}
+
 while true; do
   if ! lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null 2>&1; then
+    # Chrome 起動前にネットワーク確認(断中ならここで待機)
+    if ! ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
+      wait_for_network || true
+    fi
     echo "=== Chrome を起動します($(date '+%F %T')) ==="
     "./1_launch_chrome.command" &
     if ! wait_for_chrome; then
@@ -72,6 +95,10 @@ while true; do
       CONSEC_ERR1=0
       echo "stuck → 専用 Chrome を kill して再起動します"
       pkill -f "remote-debugging-port=9222" || true
+      # ネットワーク断が原因の可能性: Chrome 再起動前に回復を待つ
+      if ! ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
+        wait_for_network || true
+      fi
       sleep 5
       ;;
     1)
@@ -82,6 +109,13 @@ while true; do
       fi
       echo "exit 1 (例外 / 起動失敗, ${CONSEC_ERR1}/${MAX_CONSEC_ERR1}) → 専用 Chrome を kill して再起動します"
       pkill -f "remote-debugging-port=9222" || true
+      # ネットワーク断が原因かを確認。断中なら回復を待ってカウンターをリセットする。
+      if ! ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
+        echo "=== ネットワーク断を検知。回復を待ちます (カウンター: ${CONSEC_ERR1}/${MAX_CONSEC_ERR1}) ==="
+        if wait_for_network; then
+          CONSEC_ERR1=0  # ネットワーク断が原因 → 設定エラーではないのでリセット
+        fi
+      fi
       sleep 15
       ;;
     0)

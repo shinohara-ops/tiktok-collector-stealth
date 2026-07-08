@@ -146,4 +146,4 @@ algorithm_stealth:
   # 10 → 5 に短縮: PAST_EXCLUDED_SKIP の連投で時間ロスする前に早めにリカバリ介入する。
   stuck_full_restart_threshold: 5
   # リカバリ最大試行回数(uid ごと)。これを超えたら Chrome 全再起動。
-  stuck_recovery_max_attempts: 3
+  stuck_recovery_max_attempts: 5

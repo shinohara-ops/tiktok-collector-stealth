@@ -115,7 +115,7 @@ class AlgorithmStealthConfig:
     stuck_full_restart_threshold: int = 10
     # リカバリ最大試行回数(uid ごと)。手順: ArrowUp → ArrowDown → 大きくスワイプ。
     # 0 にすると即 Chrome 再起動。
-    stuck_recovery_max_attempts: int = 3
+    stuck_recovery_max_attempts: int = 5
 
 
 @dataclass

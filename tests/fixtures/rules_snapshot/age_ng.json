@@ -367,7 +367,7 @@
     "signature": "",
     "profile_url": "https://www.tiktok.com/@2o12.6",
     "post_url": "",
-    "expected_reason": "ハッシュタグ数字のみ/プロフィール紹介文空欄",
+    "expected_reason": "未成年系NG(12)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "年齢NG(#12)"
   },
@@ -451,7 +451,7 @@
     "signature": "#11 加工詐欺👀❤️❤️",
     "profile_url": "https://www.tiktok.com/@kuru.18",
     "post_url": "",
-    "expected_reason": "年齢NG(#11)",
+    "expected_reason": "未成年系NG(11)",
     "expected_model_used": "local:no-screenshot"
   },
   {
@@ -462,7 +462,7 @@
     "signature": "wkym #12",
     "profile_url": "https://www.tiktok.com/@s0xr.y0630",
     "post_url": "",
-    "expected_reason": "年齢NG(#12)",
+    "expected_reason": "未成年系NG(12)",
     "expected_model_used": "local:no-screenshot"
   },
   {
@@ -473,7 +473,7 @@
     "signature": "しのぶ様݁𖥔.蜜璃݁様𖥔.無断転載✕アンチ✕@必要！@ゆうあ １ー３#13",
     "profile_url": "https://www.tiktok.com/@aisu1806",
     "post_url": "",
-    "expected_reason": "年齢NG(#13)",
+    "expected_reason": "未成年系NG(13)",
     "expected_model_used": "local:no-screenshot"
   },
   {
@@ -484,7 +484,7 @@
     "signature": "運動会負けたけど楽しかった！♡ #15 🏸",
     "profile_url": "https://www.tiktok.com/@hinami7277",
     "post_url": "",
-    "expected_reason": "年齢NG(#15)",
+    "expected_reason": "未成年系NG(15)",
     "expected_model_used": "local:no-screenshot"
   },
   {
@@ -716,7 +716,7 @@
     "signature": "Okinawa ❤︎ instxx_712",
     "profile_url": "https://www.tiktok.com/@7730cm",
     "post_url": "",
-    "expected_reason": "年齢NG(通信制高校)",
+    "expected_reason": "未成年系NG(10)",
     "expected_model_used": "local:no-screenshot"
   },
   {

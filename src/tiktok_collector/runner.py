@@ -843,6 +843,13 @@ class TikTokRunner:
                     await page.reload(wait_until="domcontentloaded")
                 except Exception as e:
                     print(f"[STUCK_RECOVERY] reload 失敗: {str(e)[:120]}", flush=True)
+                    # リロード失敗=ページが壊れた状態。壊れたページのまま続行せず
+                    # Chrome 全再起動を要求して即 return する。
+                    try:
+                        Path("data/RESTART_CHROME").touch()
+                    except Exception:
+                        pass
+                    return False
                 await page.wait_for_timeout(3000)
             elif attempt_no >= 2:
                 # 2 段階目: 2 つ前まで戻る → 強めに 3 回スワイプ

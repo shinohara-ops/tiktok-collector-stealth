@@ -28,6 +28,8 @@ _STREAM_WORDS: list[str] = [
 
 _FULLWIDTH_TO_HALFWIDTH = str.maketrans("０１２３４５６７８９", "0123456789")
 _TAG_TOKEN_SPLIT = re.compile(r"[#＃\s,，、/／｜|・.．。:_\-－ー]+")
+# bio 用: . - _ : は住所・日付・ハンドルに混入するため分割しない
+_BIO_TOKEN_SPLIT = re.compile(r"[#＃\s,，、/／]+")
 
 
 def check(uid_s: str, name_s: str, bio_s: str, tags: str) -> str | None:
@@ -44,5 +46,19 @@ def check(uid_s: str, name_s: str, bio_s: str, tags: str) -> str | None:
         return "ハッシュタグNG(08)"
     if "09" in tokens:
         return "ハッシュタグNG(09)"
+    # 生まれ年(2010-2017)または年齢(10-17歳)を表す単独数字トークン
+    for yr in ("10", "11", "12", "13", "14", "15", "16", "17"):
+        if yr in tokens:
+            return f"未成年系NG({yr})"
+
+    # bio にも同じ数字が単独トークンとして現れる場合を検出
+    # (住所 12-32 / 日付 2025.10.1 / ハンドル k_u3.16 を誤爆しないよう
+    #  bio は . - _ : では分割せず space / # / 読点のみで分割する)
+    if bio_s:
+        bio_norm = bio_s.translate(_FULLWIDTH_TO_HALFWIDTH)
+        bio_tokens = [t for t in _BIO_TOKEN_SPLIT.split(bio_norm) if t]
+        for yr in ("10", "11", "12", "13", "14", "15", "16", "17"):
+            if yr in bio_tokens:
+                return f"未成年系NG({yr})"
 
     return None

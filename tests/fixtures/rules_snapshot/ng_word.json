@@ -1731,7 +1731,7 @@
     "signature": "動画 dm 1500 買わないならdmして来ないで X→tomatoa92d",
     "profile_url": "https://www.tiktok.com/@tomato2009_",
     "post_url": "",
-    "expected_reason": "外国語/海外(繁体字)",
+    "expected_reason": "未成年系NG(10)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "NGワード(dmして)"
   },
