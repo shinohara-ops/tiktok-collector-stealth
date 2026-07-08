@@ -827,17 +827,20 @@ class TikTokRunner:
         print(f"[FORCE_ADVANCE_AFTER_SKIP_FAILED] account_id={uid}", flush=True)
         return False
 
-    async def _attempt_stuck_recovery(self, page, stuck_uid: str, attempt_no: int = 1) -> bool:
+    async def _attempt_stuck_recovery(
+        self, page, stuck_uid: str, attempt_no: int = 1, is_last: bool = False
+    ) -> bool:
         """フィード詰まり時、手動で抜け出すときの手順を再現する 1 回分の操作。
         attempt_no で段階的にアグレッシブに:
           1: ArrowUp 1 回 → ArrowDown 1 回 → スワイプ(従来動作)
           2: ArrowUp 2 回(2つ前まで戻る) → スワイプ 3 回
-          3+: ページリロード(最終手段)
+          3以降(is_last=Falseのうち): ArrowUp×3 + スワイプ×3(強め)
+          is_last=True の回のみ: ページリロード(最終手段・1回限り)
         各段階の最後で uid を再取得し、変わっていれば成功・同じなら失敗。
         """
         try:
-            if attempt_no >= 3:
-                # 最終手段: ページリロード
+            if is_last:
+                # 最終手段: ページリロード(is_last=True の1回のみ実行)
                 print(f"[STUCK_RECOVERY] attempt={attempt_no} uid={stuck_uid} → page.reload()", flush=True)
                 try:
                     await page.reload(wait_until="domcontentloaded")
@@ -851,6 +854,24 @@ class TikTokRunner:
                         pass
                     return False
                 await page.wait_for_timeout(3000)
+            elif attempt_no >= 3:
+                # 3段階目以降(is_last前): ArrowUp×3 + 強めスワイプ×3
+                print(f"[STUCK_RECOVERY] attempt={attempt_no} uid={stuck_uid} → ArrowUp×3 + swipe×3", flush=True)
+                for _ in range(3):
+                    await page.keyboard.press("ArrowUp")
+                    await page.wait_for_timeout(1000)
+                for _ in range(3):
+                    try:
+                        await page.mouse.wheel(0, 2000)
+                        await page.wait_for_timeout(500)
+                    except Exception:
+                        pass
+                    try:
+                        await page.keyboard.press("ArrowDown")
+                        await page.wait_for_timeout(500)
+                    except Exception:
+                        pass
+                await page.wait_for_timeout(2000)
             elif attempt_no >= 2:
                 # 2 段階目: 2 つ前まで戻る → 強めに 3 回スワイプ
                 print(f"[STUCK_RECOVERY] attempt={attempt_no} uid={stuck_uid} → ArrowUp×2 + swipe×3", flush=True)
@@ -1192,7 +1213,9 @@ class TikTokRunner:
                     f"{done}/{max_recovery} (uid={stuck_uid})",
                     flush=True,
                 )
-                ok = await self._attempt_stuck_recovery(page, stuck_uid, attempt_no=done)
+                ok = await self._attempt_stuck_recovery(
+                    page, stuck_uid, attempt_no=done, is_last=(done >= max_recovery)
+                )
                 if ok:
                     print(f"フィード詰まり: リカバリ成功 (uid={stuck_uid})", flush=True)
                     # 抜けたので streak をリセット。次回 _process_one では
