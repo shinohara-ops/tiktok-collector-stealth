@@ -67,21 +67,26 @@ if [ ! -d ".venv" ]; then
   "$PYTHON3" -m venv .venv
 fi
 
-source .venv/bin/activate
+# pip がない場合は ensurepip でブートストラップ(macOS システム Python で起こりやすい)
+if [ ! -f ".venv/bin/pip" ]; then
+  echo "pip を初期化中..."
+  "$PYTHON3" -m ensurepip --upgrade 2>/dev/null || true
+fi
+
 echo "pip を更新中..."
-pip install --upgrade pip --quiet
+.venv/bin/python -m pip install --upgrade pip --quiet
 
 echo "probe 用の依存をインストール中..."
-pip install -r requirements.txt
+.venv/bin/python -m pip install -r requirements.txt
 
 echo "本体 collector 用の依存をインストール中(openai / google-api / pillow 等)..."
-pip install -r requirements_collector.txt
+.venv/bin/python -m pip install -r requirements_collector.txt
 
 # update.command の最後で snapshot test を走らせるため pytest も入れる。
 # 入れていないと初回 update.command で "No module named pytest" になり社員さんを不安にさせる。
 if [ -f requirements_dev.txt ]; then
   echo "dev 用依存(pytest 等)をインストール中..."
-  pip install -r requirements_dev.txt
+  .venv/bin/python -m pip install -r requirements_dev.txt
 fi
 
 # CDP接続方式なのでPlaywright純正Chromiumは不要(170MB DLを省略)。
