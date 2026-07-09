@@ -1498,10 +1498,19 @@ class TikTokRunner:
             # run_in_executor でスレッドに逃がす。
             _row = candidate.to_row(self.cfg.collector_name, reason=reason, score=score, model_used=model_used)
             _fc = candidate.follower_count
-            await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: self.sheets.append_recommended(_row, _fc),
-            )
+            for _attempt in range(4):
+                try:
+                    await asyncio.get_event_loop().run_in_executor(
+                        None,
+                        lambda: self.sheets.append_recommended(_row, _fc),
+                    )
+                    break
+                except Exception as e:
+                    _is_429 = "429" in str(e)
+                    _wait = [30, 60, 120][min(_attempt, 2)] if _is_429 else 10
+                    print(f"[SHEETS_RECOMMEND_ERROR] uid={candidate.unique_id} attempt={_attempt+1}/4 wait={_wait}s err={str(e)[:120]}", flush=True)
+                    if _attempt < 3:
+                        await asyncio.sleep(_wait)
             self.sheet_seen_ids.add(candidate.unique_id)
             self.written_count += 1
             # AI採用確定後にのみ like を送信。黒帯・AI除外・保留アカウントには

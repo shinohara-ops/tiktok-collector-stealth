@@ -62,8 +62,14 @@ fi
 
 echo "Python $PY_VER ($PYTHON3) を使用します。"
 
-if [ ! -d ".venv" ]; then
-  echo "venv を作成中..."
+# .venv/bin/python がない場合は壊れた venv とみなして再作成
+if [ ! -f ".venv/bin/python" ]; then
+  if [ -d ".venv" ]; then
+    echo "venv が不完全です。再作成します..."
+    rm -rf .venv
+  else
+    echo "venv を作成中..."
+  fi
   "$PYTHON3" -m venv .venv
 fi
 
