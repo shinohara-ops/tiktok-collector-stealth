@@ -94,6 +94,7 @@ while true; do
     77)
       CONSEC_ERR1=0
       echo "stuck → 専用 Chrome を kill して再起動します"
+      pkill -f "TikTokCollectorStealth" || true
       pkill -f "remote-debugging-port=9222" || true
       # ネットワーク断が原因の可能性: Chrome 再起動前に回復を待つ
       if ! ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
@@ -108,6 +109,7 @@ while true; do
         exit 1
       fi
       echo "exit 1 (例外 / 起動失敗, ${CONSEC_ERR1}/${MAX_CONSEC_ERR1}) → 専用 Chrome を kill して再起動します"
+      pkill -f "TikTokCollectorStealth" || true
       pkill -f "remote-debugging-port=9222" || true
       # ネットワーク断が原因かを確認。断中なら回復を待ってカウンターをリセットする。
       if ! ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
@@ -133,6 +135,7 @@ while true; do
       # 130(Ctrl+C)は上でキャッチ済みなのでここには来ない。
       if [ "$CODE" -ge 128 ] && [ "$CODE" -le 159 ]; then
         echo "シグナル終了 (exit $CODE = signal $((CODE - 128))) → 専用 Chrome を kill して再起動します"
+        pkill -f "TikTokCollectorStealth" || true
         pkill -f "remote-debugging-port=9222" || true
         sleep 10
       else

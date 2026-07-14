@@ -15,9 +15,10 @@ if [ ! -x "$CHROME" ]; then
   exit 1
 fi
 
-# すでに 9222 で待ち受けてる Chrome があれば kill して再起動
-if lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null 2>&1; then
-  echo "ポート9222で起動済みの Chrome を終了して再起動します..."
+# TikTokCollectorStealth プロファイルの Chrome を CDP の有無に関わらず kill して再起動
+if pgrep -f "TikTokCollectorStealth" >/dev/null 2>&1 || lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null 2>&1; then
+  echo "既存の TikTokCollectorStealth Chrome を終了して再起動します..."
+  pkill -f "TikTokCollectorStealth" || true
   pkill -f "remote-debugging-port=9222" || true
   sleep 2
 fi

@@ -183,6 +183,7 @@ while true; do
     CONSEC_ERR1=0
     echo ""
     echo "--- Chrome 再起動要求(フィード詰まり): $(date '+%F %T') ---"
+    pkill -f "TikTokCollectorStealth" 2>/dev/null || true
     pkill -f "remote-debugging-port=9222" 2>/dev/null || true
     sleep 5
     "$(dirname "$0")/1_launch_chrome.command" &
@@ -202,6 +203,7 @@ while true; do
     SIG=$((PY_EXIT - 128))
     echo ""
     echo "⚠️  シグナル ${SIG} で終了(exit ${PY_EXIT}) → Chrome 再起動して再開: $(date '+%F %T')"
+    pkill -f "TikTokCollectorStealth" 2>/dev/null || true
     pkill -f "remote-debugging-port=9222" 2>/dev/null || true
     sleep 5
     "$(dirname "$0")/1_launch_chrome.command" &
@@ -223,6 +225,7 @@ while true; do
   fi
   echo ""
   echo "⚠️  python3 が終了しました(exit ${PY_EXIT}, ${CONSEC_ERR1}/${MAX_CONSEC_ERR1}) → Chrome 再起動して 10 秒後に再開"
+  pkill -f "TikTokCollectorStealth" 2>/dev/null || true
   pkill -f "remote-debugging-port=9222" 2>/dev/null || true
   sleep 10
   "$(dirname "$0")/1_launch_chrome.command" &
