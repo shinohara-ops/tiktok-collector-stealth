@@ -187,12 +187,12 @@ while true; do
     pkill -f "remote-debugging-port=9222" 2>/dev/null || true
     sleep 5
     "$(dirname "$0")/1_launch_chrome.command" &
-    echo "Chrome を再起動中... (最大 30 秒)"
-    for _i in $(seq 1 30); do
+    echo "Chrome を再起動中... (最大 40 秒)"
+    for _i in $(seq 1 40); do
       sleep 1
       if lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null 2>&1; then break; fi
     done
-    sleep 5
+    sleep 10
     echo "=== 再起動: $(date '+%F %T') ==="
     continue
   fi
@@ -207,12 +207,12 @@ while true; do
     pkill -f "remote-debugging-port=9222" 2>/dev/null || true
     sleep 5
     "$(dirname "$0")/1_launch_chrome.command" &
-    echo "Chrome を再起動中... (最大 30 秒)"
-    for _i in $(seq 1 30); do
+    echo "Chrome を再起動中... (最大 40 秒)"
+    for _i in $(seq 1 40); do
       sleep 1
       if lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null 2>&1; then break; fi
     done
-    sleep 5
+    sleep 10
     echo "=== 再起動: $(date '+%F %T') ==="
     continue
   fi

@@ -41,7 +41,7 @@ cleanup() {
 trap cleanup INT TERM
 
 wait_for_chrome() {
-  for _ in $(seq 1 40); do
+  for _ in $(seq 1 60); do
     if lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null 2>&1; then
       return 0
     fi
@@ -81,7 +81,7 @@ while true; do
       echo "Chrome がポート 9222 で起動しませんでした。中断します。"
       exit 1
     fi
-    sleep 5  # TikTok フィードのロードを待つ
+    sleep 10  # TikTok フィードのロードを待つ
   fi
 
   echo ""

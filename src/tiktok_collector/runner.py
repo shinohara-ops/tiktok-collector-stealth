@@ -606,12 +606,19 @@ class TikTokRunner:
             print(f"既存Chrome(CDP {cdp_url})に接続します...", flush=True)
             print("先に 1_launch_chrome.command を起動して、TikTokおすすめフィードを開いておいてください。", flush=True)
             try:
-                browser = await p.chromium.connect_over_cdp(cdp_url)
-            except Exception as e:
-                print(f"CDP接続失敗: {str(e)[:200]}", flush=True)
-                print("1_launch_chrome.command が起動していません。", flush=True)
+                browser = await asyncio.wait_for(
+                    p.chromium.connect_over_cdp(cdp_url),
+                    timeout=30,
+                )
+            except (asyncio.TimeoutError, Exception) as e:
+                msg = "CDP接続タイムアウト(30秒)" if isinstance(e, asyncio.TimeoutError) else f"CDP接続失敗: {str(e)[:200]}"
+                print(f"{msg} → Chrome再起動します", flush=True)
                 try:
-                    self.notifier.send("CDP接続失敗で停止")
+                    self.notifier.send(f"CDP接続失敗で再起動: {msg[:80]}")
+                except Exception:
+                    pass
+                try:
+                    Path("data/RESTART_CHROME").touch()
                 except Exception:
                     pass
                 return
