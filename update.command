@@ -28,10 +28,32 @@ fi
 cd "$REPO_ROOT"
 
 if [ ! -d ".git" ]; then
-  echo "❌ ここは git リポジトリではありません: $REPO_ROOT"
-  echo "  最初に git clone してください。"
-  read -p "Enter で閉じる..."
-  exit 1
+  echo "[0/4] git リポジトリではありません → このフォルダを自動で初期化します..."
+
+  # 設定ファイルを一時退避($$でプロセスIDを付けて衝突防止)
+  for f in .env .collector_name .min_followers .max_followers; do
+    [ -f "$HERE/$f" ] && cp "$HERE/$f" "/tmp/tcs_save_$$_$f"
+  done
+
+  cd "$HERE"
+  git init -q
+  git remote add origin https://github.com/shinohara-ops/tiktok-collector-stealth
+  echo "   GitHub から最新コードを取得中 (初回のみ少し時間がかかります)..."
+  if ! git fetch origin --quiet; then
+    echo "❌ GitHub への接続に失敗しました。ネットワークを確認してください。"
+    read -p "Enter で閉じる..."
+    exit 1
+  fi
+  git checkout -f main --quiet
+
+  # 設定ファイルを復元
+  for f in .env .collector_name .min_followers .max_followers; do
+    [ -f "/tmp/tcs_save_$$_$f" ] && cp "/tmp/tcs_save_$$_$f" "$HERE/$f" && rm "/tmp/tcs_save_$$_$f"
+  done
+
+  REPO_ROOT="$HERE"
+  echo "   ✅ git 初期化完了。以降は update.command で更新できます。"
+  echo ""
 fi
 
 # ─── 0. .command ファイルのローカル変更を破棄 ──────────────────────────
