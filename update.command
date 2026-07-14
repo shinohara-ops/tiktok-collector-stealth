@@ -80,13 +80,17 @@ fi
 # ─── 2. github から pull ─────────────────────────────────────
 echo "[2/4] GitHub から最新コードを取得 (git pull --rebase origin main)"
 if ! git pull --rebase origin main; then
-  echo ""
-  echo "❌ git pull に失敗しました。"
-  if [ "$STASHED" = "1" ]; then
-    echo "  退避したローカル変更は git stash list で確認できます。"
+  echo "→ pull が失敗しました。git reset --hard で最新版に同期します..."
+  if ! git fetch origin; then
+    echo ""
+    echo "❌ GitHub への接続に失敗しました。ネットワークを確認してください。"
+    if [ "$STASHED" = "1" ]; then
+      echo "  退避したローカル変更は git stash list で確認できます。"
+    fi
+    read -p "Enter で閉じる..."
+    exit 1
   fi
-  read -p "Enter で閉じる..."
-  exit 1
+  git reset --hard origin/main
 fi
 
 # ─── 3. 退避した変更を復元 ─────────────────────────────────────
