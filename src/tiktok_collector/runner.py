@@ -544,7 +544,10 @@ class TikTokRunner:
             try:
                 await asyncio.get_event_loop().run_in_executor(None, self.sheets.append, tab, row)
             except Exception as e:
-                print(f"[SHEETS_BG_ERROR] tab={tab} err={str(e)[:120]}", flush=True)
+                err_str = str(e)
+                if "10000000" in err_str or "セル数" in err_str or "limit" in err_str.lower():
+                    print(f"[SHEETS_CELL_LIMIT] ★★★ スプレッドシートの1000万セル上限に到達しました。各タブの空行を削除してください ★★★", flush=True)
+                print(f"[SHEETS_BG_ERROR] tab={tab} err={err_str[:400]}", flush=True)
         asyncio.ensure_future(_run())
 
     async def _cleanup_old_screenshots(self, max_age_hours: float = 24.0) -> None:
@@ -685,7 +688,7 @@ class TikTokRunner:
                 try:
                     already_advanced = bool(await asyncio.wait_for(self._process_one(page), timeout=180))
                 except asyncio.TimeoutError:
-                    print("1投稿の処理が90秒を超えたため次へ進みます。", flush=True)
+                    print("1投稿の処理が180秒を超えたため次へ進みます。", flush=True)
                     _timed_out = True
                     # asyncio.wait_for のタイムアウトは内部コルーチンを強制キャンセルする。
                     # Playwright の CDP 操作が途中でキャンセルされると内部状態が不整合になり
@@ -733,15 +736,24 @@ class TikTokRunner:
                     if _timed_out:
                         # タイムアウト後は CDP 状態が不定。next_post を試みるより
                         # ページリロードで Playwright 状態をクリーンにリセットする。
+                        # 25秒タイムアウトで最大2回試行してから Chrome 再起動に切り替え。
                         print("タイムアウト後リカバリ: ページをリロードします...", flush=True)
-                        try:
-                            await asyncio.wait_for(
-                                page.goto(self.cfg.browser.start_url, wait_until="domcontentloaded"),
-                                timeout=15,
-                            )
-                            await asyncio.sleep(2)
-                        except Exception as reload_e:
-                            print(f"タイムアウト後リロード失敗: {str(reload_e)[:120]} → Chrome再起動", flush=True)
+                        _reloaded = False
+                        for _reload_attempt in range(2):
+                            try:
+                                await asyncio.wait_for(
+                                    page.goto(self.cfg.browser.start_url, wait_until="domcontentloaded"),
+                                    timeout=25,
+                                )
+                                await asyncio.sleep(2)
+                                _reloaded = True
+                                break
+                            except Exception as reload_e:
+                                _suffix = "再試行..." if _reload_attempt == 0 else "Chrome再起動"
+                                print(f"タイムアウト後リロード失敗({_reload_attempt+1}/2): {str(reload_e)[:120]} → {_suffix}", flush=True)
+                                if _reload_attempt == 0:
+                                    await asyncio.sleep(5)
+                        if not _reloaded:
                             try:
                                 Path("data/RESTART_CHROME").touch()
                             except Exception:

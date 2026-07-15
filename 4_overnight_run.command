@@ -50,6 +50,25 @@ wait_for_chrome() {
   return 1
 }
 
+# Chrome プロセスを kill し、ポート 9222 が解放されるまで最大 35 秒待つ。
+# sleep 固定だとポートが塞がったままになり次回起動が失敗するため。
+kill_and_wait_chrome() {
+  pkill -f "TikTokCollectorStealth" 2>/dev/null || true
+  pkill -f "remote-debugging-port=9222" 2>/dev/null || true
+  local i
+  for i in $(seq 1 30); do
+    if ! lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  # 30秒経っても解放されなければ SIGKILL で強制終了
+  echo "  Chrome が30秒経過しても終了しないため強制終了します"
+  pkill -9 -f "TikTokCollectorStealth" 2>/dev/null || true
+  pkill -9 -f "remote-debugging-port=9222" 2>/dev/null || true
+  sleep 3
+}
+
 # ネットワーク回復を最大 NET_WAIT_MAX 秒待つ。
 # 回復したら 0、タイムアウトなら 1 を返す。
 NET_WAIT_MAX=300   # 5分
@@ -93,14 +112,12 @@ while true; do
   case "$CODE" in
     77)
       CONSEC_ERR1=0
-      echo "stuck → 専用 Chrome を kill して再起動します"
-      pkill -f "TikTokCollectorStealth" || true
-      pkill -f "remote-debugging-port=9222" || true
+      echo "Chrome 再起動要求 → 専用 Chrome を kill してポート解放を待ちます"
+      kill_and_wait_chrome
       # ネットワーク断が原因の可能性: Chrome 再起動前に回復を待つ
       if ! ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
         wait_for_network || true
       fi
-      sleep 5
       ;;
     1)
       CONSEC_ERR1=$((CONSEC_ERR1 + 1))
@@ -108,9 +125,8 @@ while true; do
         echo "exit 1 が ${MAX_CONSEC_ERR1} 回連続しました。設定エラー等の永続障害の可能性があります。ループを抜けます(調査推奨)"
         exit 1
       fi
-      echo "exit 1 (例外 / 起動失敗, ${CONSEC_ERR1}/${MAX_CONSEC_ERR1}) → 専用 Chrome を kill して再起動します"
-      pkill -f "TikTokCollectorStealth" || true
-      pkill -f "remote-debugging-port=9222" || true
+      echo "exit 1 (例外 / 起動失敗, ${CONSEC_ERR1}/${MAX_CONSEC_ERR1}) → 専用 Chrome を kill してポート解放を待ちます"
+      kill_and_wait_chrome
       # ネットワーク断が原因かを確認。断中なら回復を待ってカウンターをリセットする。
       if ! ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
         echo "=== ネットワーク断を検知。回復を待ちます (カウンター: ${CONSEC_ERR1}/${MAX_CONSEC_ERR1}) ==="
@@ -118,7 +134,7 @@ while true; do
           CONSEC_ERR1=0  # ネットワーク断が原因 → 設定エラーではないのでリセット
         fi
       fi
-      sleep 15
+      sleep 10
       ;;
     0)
       CONSEC_ERR1=0
@@ -134,10 +150,8 @@ while true; do
       # 個別列挙ではなく範囲で捕捉することで、未知のシグナルも自動的に再起動する。
       # 130(Ctrl+C)は上でキャッチ済みなのでここには来ない。
       if [ "$CODE" -ge 128 ] && [ "$CODE" -le 159 ]; then
-        echo "シグナル終了 (exit $CODE = signal $((CODE - 128))) → 専用 Chrome を kill して再起動します"
-        pkill -f "TikTokCollectorStealth" || true
-        pkill -f "remote-debugging-port=9222" || true
-        sleep 10
+        echo "シグナル終了 (exit $CODE = signal $((CODE - 128))) → 専用 Chrome を kill してポート解放を待ちます"
+        kill_and_wait_chrome
       else
         echo "予期せぬ exit code: $CODE → ループを抜けます(調査推奨)"
         exit "$CODE"
