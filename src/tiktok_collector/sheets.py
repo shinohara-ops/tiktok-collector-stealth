@@ -164,6 +164,7 @@ class SheetsClient:
         return ServiceAccountCredentials.from_service_account_file(str(sa_path), scopes=SCOPES)
 
     def _load_oauth_credentials(self):
+        import os
         client_path = Path(getattr(self.cfg, "oauth_client_json", "./credentials/oauth_client.json"))
         token_path = Path(getattr(self.cfg, "oauth_token_json", "./credentials/token.json"))
         token_path.parent.mkdir(parents=True, exist_ok=True)
@@ -175,14 +176,21 @@ class SheetsClient:
         if creds and creds.expired and creds.refresh_token:
             try:
                 creds.refresh(Request())
-            except Exception:
-                print("Google認証トークンの更新に失敗しました。再認証を開始します...", flush=True)
-                token_path.unlink(missing_ok=True)
-                creds = None
+            except Exception as _ref_err:
+                # token.json を削除しない: AuthorizedHttp が次回 API コール時に再試行する。
+                # 削除 + run_local_server 呼び出しは非対話モードでの永久ハングにつながる。
+                print(f"Google認証トークン更新失敗(続行): {str(_ref_err)[:120]}", flush=True)
 
         if not creds or not creds.valid:
             if not client_path.exists():
                 raise FileNotFoundError("credentials/oauth_client.json がありません。import_google_oauth_json.command を実行してください。")
+            # 非対話モード(overnight運用)では run_local_server を呼ばない。
+            # 呼ぶとユーザー操作待ちで永久にハングする。
+            if os.environ.get("TIKTOK_NONINTERACTIVE") == "1":
+                raise RuntimeError(
+                    "Google OAuth 認証トークンが無効です。非対話モードでは再認証できません。\n"
+                    "先に 3_run_collector.command を対話モードで起動して認証してください。"
+                )
             flow = InstalledAppFlow.from_client_secrets_file(str(client_path), SCOPES)
             creds = flow.run_local_server(port=0)
             token_path.write_text(creds.to_json(), encoding="utf-8")
