@@ -754,8 +754,10 @@ class TikTokRunner:
                 except Exception:
                     pass
 
+            # タイムアウト後は Playwright/CDP 状態が不整合になり context.close() が
+            # Chrome の応答待ちで永久ハングすることがある。10 秒で強制キャンセル。
             try:
-                await context.close()
+                await asyncio.wait_for(context.close(), timeout=10)
             except Exception:
                 pass
 
