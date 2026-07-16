@@ -31,7 +31,7 @@ export TIKTOK_NONINTERACTIVE=1
 
 # exit code 1 が連続した回数。MAX_CONSEC_ERR1 回連続で永続障害とみなして停止。
 CONSEC_ERR1=0
-MAX_CONSEC_ERR1=3
+MAX_CONSEC_ERR1=10
 
 cleanup() {
   echo ""
@@ -41,7 +41,7 @@ cleanup() {
 trap cleanup INT TERM
 
 wait_for_chrome() {
-  for _ in $(seq 1 60); do
+  for _ in $(seq 1 90); do
     if lsof -nP -iTCP:9222 -sTCP:LISTEN >/dev/null 2>&1; then
       return 0
     fi
@@ -94,13 +94,28 @@ while true; do
     if ! ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
       wait_for_network || true
     fi
-    echo "=== Chrome を起動します($(date '+%F %T')) ==="
-    "./1_launch_chrome.command" &
-    if ! wait_for_chrome; then
-      echo "Chrome がポート 9222 で起動しませんでした。中断します。"
-      exit 1
+    # Chrome 起動は最大3回リトライ。全て失敗しても exit せず 5 分待って続行する。
+    _chrome_started=0
+    for _chrome_try in 1 2 3; do
+      echo "=== Chrome を起動します(試行 ${_chrome_try}/3, $(date '+%F %T')) ==="
+      "./1_launch_chrome.command" &
+      if wait_for_chrome; then
+        _chrome_started=1
+        break
+      fi
+      echo "Chrome がポート 9222 で起動しませんでした(試行 ${_chrome_try}/3)。"
+      kill_and_wait_chrome
+      if [ "$_chrome_try" -lt 3 ]; then
+        echo "30 秒後に再試行..."
+        sleep 30
+      fi
+    done
+    if [ "$_chrome_started" = "0" ]; then
+      echo "Chrome の起動に3回失敗しました。5分後に再試行します..."
+      sleep 300
+      continue
     fi
-    sleep 10  # TikTok フィードのロードを待つ
+    sleep 15  # TikTok フィードのロードを待つ
   fi
 
   echo ""

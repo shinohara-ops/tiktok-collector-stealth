@@ -684,20 +684,18 @@ class TikTokRunner:
                 self._maybe_refresh_uid_map()
 
                 already_advanced = False
-                _timed_out = False
                 try:
                     already_advanced = bool(await asyncio.wait_for(self._process_one(page), timeout=180))
                 except asyncio.TimeoutError:
-                    print("1投稿の処理が180秒を超えたため次へ進みます。", flush=True)
-                    _timed_out = True
-                    # asyncio.wait_for のタイムアウトは内部コルーチンを強制キャンセルする。
-                    # Playwright の CDP 操作が途中でキャンセルされると内部状態が不整合になり
-                    # macOS 上では SIGTRAP/SIGABRT として現れることがある。
-                    # タイムアウト直後に pause guard のリセットだけ試みる。
+                    # asyncio.wait_for タイムアウトで内部コルーチンが強制キャンセルされると
+                    # Playwright CDP 状態が不整合になる。リロードも必ず失敗するため、
+                    # 直ちに Chrome 再起動フラグを立ててループを抜ける。
+                    print("1投稿の処理が180秒を超えました → Chrome再起動します", flush=True)
                     try:
-                        await asyncio.wait_for(_stop_pause_guard(page), timeout=5)
+                        Path("data/RESTART_CHROME").touch()
                     except Exception:
                         pass
+                    break
                 except Exception as e:
                     print(f"処理エラー: {str(e)[:160]}", flush=True)
 
@@ -733,51 +731,24 @@ class TikTokRunner:
                 # ここで二重に next_post すると 2 動画進んでしまう(連続2スワイプ)。
                 # 内部スワイプ済みは True を返す約束なので、True のときは skip する。
                 if not already_advanced:
-                    if _timed_out:
-                        # タイムアウト後は CDP 状態が不定。next_post を試みるより
-                        # ページリロードで Playwright 状態をクリーンにリセットする。
-                        # 25秒タイムアウトで最大2回試行してから Chrome 再起動に切り替え。
-                        print("タイムアウト後リカバリ: ページをリロードします...", flush=True)
-                        _reloaded = False
-                        for _reload_attempt in range(2):
-                            try:
-                                await asyncio.wait_for(
-                                    page.goto(self.cfg.browser.start_url, wait_until="domcontentloaded"),
-                                    timeout=25,
-                                )
-                                await asyncio.sleep(2)
-                                _reloaded = True
-                                break
-                            except Exception as reload_e:
-                                _suffix = "再試行..." if _reload_attempt == 0 else "Chrome再起動"
-                                print(f"タイムアウト後リロード失敗({_reload_attempt+1}/2): {str(reload_e)[:120]} → {_suffix}", flush=True)
-                                if _reload_attempt == 0:
-                                    await asyncio.sleep(5)
-                        if not _reloaded:
+                    try:
+                        await self.scraper.next_post(page)
+                    except Exception as e:
+                        print(f"next_post 失敗: {str(e)[:120]}", flush=True)
+                        try:
+                            print("ページ再ナビゲートでリカバリ試行中...", flush=True)
+                            await asyncio.wait_for(
+                                page.goto(self.cfg.browser.start_url, wait_until="domcontentloaded"),
+                                timeout=20,
+                            )
+                            print("ページ再ナビゲート完了。", flush=True)
+                        except Exception as nav_e:
+                            print(f"再ナビゲートも失敗: {str(nav_e)[:120]} → Chrome再起動を要求", flush=True)
                             try:
                                 Path("data/RESTART_CHROME").touch()
                             except Exception:
                                 pass
                             break
-                    else:
-                        try:
-                            await self.scraper.next_post(page)
-                        except Exception as e:
-                            print(f"next_post 失敗: {str(e)[:120]}", flush=True)
-                            try:
-                                print("ページ再ナビゲートでリカバリ試行中...", flush=True)
-                                await asyncio.wait_for(
-                                    page.goto(self.cfg.browser.start_url, wait_until="domcontentloaded"),
-                                    timeout=20,
-                                )
-                                print("ページ再ナビゲート完了。", flush=True)
-                            except Exception as nav_e:
-                                print(f"再ナビゲートも失敗: {str(nav_e)[:120]} → Chrome再起動を要求", flush=True)
-                                try:
-                                    Path("data/RESTART_CHROME").touch()
-                                except Exception:
-                                    pass
-                                break
                 try:
                     await asyncio.sleep(self.cfg.browser.action_delay_sec)
                 except Exception:
