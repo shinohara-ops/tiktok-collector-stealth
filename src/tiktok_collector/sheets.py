@@ -27,7 +27,7 @@ NG_KEYWORDS_HEADERS = ["カテゴリ", "ワード", "適用範囲", "Bio空必�
 NG_KEYWORDS_TAB_KEY = "ng_keywords"
 NG_KEYWORDS_DEFAULT_TTL_SEC = 600
 YELLOW_EXCLUDED_DEFAULT_TTL_SEC = 3600
-EXISTING_UIDS_CACHE_TTL_SEC = 30.0
+EXISTING_UIDS_CACHE_TTL_SEC = 300.0
 
 NG_COL_CATEGORY = 0
 NG_COL_WORD = 1
@@ -570,7 +570,8 @@ class SheetsClient:
                     last_exc = e
                     if attempt == 0:
                         self._reset_http_connections()
-                        time.sleep(10)
+                        wait = 60 if "429" in str(e) else 10
+                        time.sleep(wait)
             if last_exc is not None:
                 print(f"記入直前の共有既出チェック取得エラー: tab={tab} error={str(last_exc)[:120]}", flush=True)
                 consec_errors += 1
@@ -628,7 +629,8 @@ class SheetsClient:
                     last_exc = e
                     if attempt == 0:
                         self._reset_http_connections()
-                        time.sleep(10)
+                        wait = 60 if "429" in str(e) else 10
+                        time.sleep(wait)
             if last_exc is not None:
                 print(f"記入直前のおすすめ既出チェック取得エラー: tab={tab} error={str(last_exc)[:120]}", flush=True)
                 consec_errors += 1
