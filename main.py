@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import fcntl
 import signal
 import sys
 import traceback
@@ -15,6 +16,22 @@ from src.tiktok_collector import rules as rules_module
 
 
 _EXIT_RESTART_CHROME = 77
+_lock_fd = None  # グローバルで保持しないと GC に回収されて lock が外れる
+
+
+def _acquire_process_lock() -> bool:
+    """同一 PC 上での複数インスタンス同時起動を防ぐ OS レベルのファイルロック。
+    flock は プロセス終了(クラッシュ含む)で自動解放されるためスタックしない。
+    ロック取得失敗 → False を返す。"""
+    global _lock_fd
+    lock_path = Path("data/.collector.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        _lock_fd = lock_path.open("w")
+        fcntl.flock(_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except IOError:
+        return False
 
 
 def _install_signal_handlers() -> None:
@@ -41,6 +58,15 @@ def _install_signal_handlers() -> None:
 async def main() -> int:
     _install_signal_handlers()
     print("=== TikTok Collector 起動準備 ===", flush=True)
+
+    if not _acquire_process_lock():
+        print(
+            "⚠ 別の TikTokCollector インスタンスが同じ PC で実行中です。\n"
+            "  重複書き込みを防ぐため、このプロセスを終了します。\n"
+            "  実行中のプロセスを確認してください: pgrep -fl 'python.*main.py'",
+            flush=True,
+        )
+        return 1
 
     # --- 設定フェーズ: 失敗は設定ミスなので exit 1 (再起動ループを止める) ---
     try:

@@ -28,6 +28,8 @@ NG_KEYWORDS_TAB_KEY = "ng_keywords"
 NG_KEYWORDS_DEFAULT_TTL_SEC = 600
 YELLOW_EXCLUDED_DEFAULT_TTL_SEC = 3600
 EXISTING_UIDS_CACHE_TTL_SEC = 300.0
+_LOCAL_WRITTEN_UIDS_PATH = Path("data/.local_written_uids.txt")
+_LOCAL_WRITTEN_UIDS_MAX_AGE_HOURS = 24.0
 
 NG_COL_CATEGORY = 0
 NG_COL_WORD = 1
@@ -127,6 +129,15 @@ class SheetsClient:
         self._existing_recommended_uids_cache: set[str] = set()
         self._existing_recommended_uids_cache_ts: float = 0.0
         self._existing_uids_lock = threading.Lock()
+        # セッション内で書き込み済みの UID を記録する。TTL キャッシュとは独立して
+        # 同セッション内の二重書き込みを確実に防ぐ最終防衛線。
+        # ★ Chrome 再起動をまたいでも重複しないよう、起動時にディスクキャッシュから復元する。
+        self._session_written_uids: set[str] = set()
+        # _append_to_tab の「チェック→書き込み」をアトミックにするロック。
+        # 複数スレッドが同時に同じ uid を書き込もうとしても、ロックで直列化する。
+        self._append_lock = threading.Lock()
+        self._local_written_uids_lock = threading.Lock()
+        self._load_local_written_uids()
         self._load_ng_disk_cache()
         # _ensure_tabs() はタブ/ヘッダー/フォーマットの初回セットアップ用で
         # 1回あたり20〜40 API コールを発生させる。毎起動で呼ぶと複数PC運用時に
@@ -588,15 +599,17 @@ class SheetsClient:
                 self._existing_uids_cache_ts = time.time()
         return self._existing_uids_cache if cut_short else uids
 
-    def _fresh_existing_recommended_uids(self) -> set[str]:
+    def _fresh_existing_recommended_uids(self, force_refresh: bool = False) -> set[str]:
         """採用書き込み専用の重複チェック。「おすすめ」+ 帯域別タブだけスキャン。
         除外ログを含めると「過去除外 → AI 救出 → 再採用」のパスで毎回重複扱いされ、
         Sheets には書かれず終わる。除外ログにあっても、おすすめ系タブに未登録なら
         書き込み OK。EXISTING_UIDS_CACHE_TTL_SEC 以内はキャッシュを返す。
+        force_refresh=True なら TTL を無視して必ず最新を取得する。
         """
-        with self._existing_uids_lock:
-            if self._existing_recommended_uids_cache_ts and (time.time() - self._existing_recommended_uids_cache_ts) < EXISTING_UIDS_CACHE_TTL_SEC:
-                return set(self._existing_recommended_uids_cache)
+        if not force_refresh:
+            with self._existing_uids_lock:
+                if self._existing_recommended_uids_cache_ts and (time.time() - self._existing_recommended_uids_cache_ts) < EXISTING_UIDS_CACHE_TTL_SEC:
+                    return set(self._existing_recommended_uids_cache)
         uids: set[str] = set()
         scan_tabs: list[str] = []
         main_rec = self.tabs.get("recommended")
@@ -646,12 +659,12 @@ class SheetsClient:
                 self._existing_recommended_uids_cache_ts = time.time()
         return self._existing_recommended_uids_cache if cut_short else uids
 
-    def _is_duplicate_uid_before_append(self, uid: str, scope: str = "all") -> bool:
+    def _is_duplicate_uid_before_append(self, uid: str, scope: str = "all", force_refresh: bool = False) -> bool:
         uid = self._normalize_uid_for_dedupe(uid)
         if not uid:
             return False
         if scope == "recommended_only":
-            existing = self._fresh_existing_recommended_uids()
+            existing = self._fresh_existing_recommended_uids(force_refresh=force_refresh)
         else:
             existing = self._fresh_existing_uids_all_tabs()
         return uid in existing
@@ -690,27 +703,89 @@ class SheetsClient:
         except Exception:
             uid = ""
 
-        if uid and self._is_duplicate_uid_before_append(uid, scope=dup_scope):
-            print(f"[PRE_APPEND_DUPLICATE_SKIP] user_id={uid} tab={tab} scope={dup_scope}", flush=True)
-            return {"duplicate_skipped": True, "uid": uid, "tab": tab}
+        # _append_lock で「重複チェック → 書き込み」をアトミックにする。
+        # ロックなしだと2スレッドが同時にチェックを通過して両方書き込む競合が起きる。
+        with self._append_lock:
+            if uid and uid in self._session_written_uids:
+                print(f"[SESSION_DUPLICATE_SKIP] user_id={uid} tab={tab}", flush=True)
+                return {"duplicate_skipped": True, "uid": uid, "tab": tab}
 
-        if not row[0]:
-            row[0] = "'" + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        elif not str(row[0]).startswith("'"):
-            row[0] = "'" + str(row[0])
+            if uid and self._is_duplicate_uid_before_append(uid, scope=dup_scope):
+                print(f"[PRE_APPEND_DUPLICATE_SKIP] user_id={uid} tab={tab} scope={dup_scope}", flush=True)
+                self._session_written_uids.add(uid)
+                return {"duplicate_skipped": True, "uid": uid, "tab": tab}
 
-        result = self._get_bg_service().spreadsheets().values().append(
-            spreadsheetId=self.spreadsheet_id,
-            range=f"{tab}!A:M",
-            valueInputOption="USER_ENTERED",
-            insertDataOption="INSERT_ROWS",
-            body={"values": [row]},
-        ).execute()
-        if uid:
-            with self._existing_uids_lock:
-                self._existing_uids_cache.add(uid)
-                self._existing_recommended_uids_cache.add(uid)
-        return result
+            if not row[0]:
+                row[0] = "'" + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            elif not str(row[0]).startswith("'"):
+                row[0] = "'" + str(row[0])
+
+            # execute() が例外を投げても書き込みが届いていた場合があるため、
+            # 送信前にセッションセットへ楽観的追加する。
+            # 429(サーバーが拒否)は確実に未書き込みなので例外時に取り消す。
+            if uid:
+                self._session_written_uids.add(uid)
+            try:
+                result = self._get_bg_service().spreadsheets().values().append(
+                    spreadsheetId=self.spreadsheet_id,
+                    range=f"{tab}!A:M",
+                    valueInputOption="USER_ENTERED",
+                    insertDataOption="INSERT_ROWS",
+                    body={"values": [row]},
+                ).execute()
+            except Exception as e:
+                if uid and "429" in str(e):
+                    # 429 = サーバーが拒否したので次回リトライを許可する
+                    self._session_written_uids.discard(uid)
+                elif uid:
+                    # タイムアウト等 429 以外は書き込みがサーバー側で届いた可能性あり
+                    # → ディスクキャッシュに即保存してプロセス再起動後の二重書き込みを防ぐ
+                    self._save_local_written_uid(uid)
+                raise
+            if uid:
+                with self._existing_uids_lock:
+                    self._existing_uids_cache.add(uid)
+                    self._existing_recommended_uids_cache.add(uid)
+                self._save_local_written_uid(uid)
+            return result
+
+    def _load_local_written_uids(self) -> None:
+        """data/.local_written_uids.txt から書き込み済み UID を復元する。
+        Chrome 再起動後でも _session_written_uids が引き継がれ、重複書き込みを防ぐ。
+        ファイルが 24 時間以上古い場合は削除してリセットする。"""
+        try:
+            p = _LOCAL_WRITTEN_UIDS_PATH
+            if not p.exists():
+                return
+            age_hours = (time.time() - p.stat().st_mtime) / 3600
+            if age_hours > _LOCAL_WRITTEN_UIDS_MAX_AGE_HOURS:
+                try:
+                    p.unlink()
+                except Exception:
+                    pass
+                return
+            loaded = 0
+            for line in p.read_text(encoding="utf-8").splitlines():
+                uid = line.strip()
+                if uid:
+                    self._session_written_uids.add(uid)
+                    loaded += 1
+            if loaded:
+                print(f"ローカル書き込みキャッシュ読込: {loaded}件(重複防止)", flush=True)
+        except Exception:
+            pass
+
+    def _save_local_written_uid(self, uid: str) -> None:
+        """書き込み成功した UID をディスクに追記する(再起動後の重複防止用)。"""
+        if not uid:
+            return
+        try:
+            with self._local_written_uids_lock:
+                _LOCAL_WRITTEN_UIDS_PATH.parent.mkdir(parents=True, exist_ok=True)
+                with _LOCAL_WRITTEN_UIDS_PATH.open("a", encoding="utf-8") as f:
+                    f.write(uid + "\n")
+        except Exception:
+            pass
 
     _NG_DISK_CACHE_PATH = Path("data/.ng_cache.json")
 

@@ -416,6 +416,8 @@ class TikTokRunner:
         # uid ごとに最大 3 回試す。3 回とも失敗したら Chrome 再起動を要求する。
         self._stuck_recovery_attempts: dict[str, int] = {}
         self._last_openai_quota_notify_ts: float = 0.0
+        # _bg_sheets が生成した Task を追跡し、run() 終了前に flush する。
+        self._bg_tasks: list[asyncio.Task] = []
 
     def _maybe_refresh_uid_map(self) -> None:
         """過去採用 uid マップを定期的に Sheets から再取得する。
@@ -435,9 +437,12 @@ class TikTokRunner:
             return
         try:
             new_map = self.sheets.get_unique_id_status_map() or {}
-            added = len(set(new_map.keys()) - self.sheet_seen_ids)
+            new_ids = set(new_map.keys())
+            added = len(new_ids - self.sheet_seen_ids)
             self.sheet_status_by_id = new_map
-            self.sheet_seen_ids = set(new_map.keys())
+            # 置き換えではなく和集合: このセッションで追加した UID を
+            # バックグラウンド書き込み未完了でも保持し続ける。
+            self.sheet_seen_ids = self.sheet_seen_ids | new_ids
             self._uid_map_last_refresh_ts = now
             if added:
                 print(f"過去採用uidマップ更新: 新規 {added}件 / 合計 {len(self.sheet_seen_ids)}件", flush=True)
@@ -548,7 +553,25 @@ class TikTokRunner:
                 if "10000000" in err_str or "セル数" in err_str or "limit" in err_str.lower():
                     print(f"[SHEETS_CELL_LIMIT] ★★★ スプレッドシートの1000万セル上限に到達しました。各タブの空行を削除してください ★★★", flush=True)
                 print(f"[SHEETS_BG_ERROR] tab={tab} err={err_str[:400]}", flush=True)
-        asyncio.ensure_future(_run())
+        task = asyncio.ensure_future(_run())
+        self._bg_tasks.append(task)
+
+    async def _flush_bg_tasks(self, timeout: float = 30.0) -> None:
+        """セッション終了前に未完了の _bg_sheets タスクを待機する。
+        asyncio.run() がイベントループを閉じるとキャンセルされるため、
+        run() を抜ける前に flush しないと Sheets 書き込みが消えて次セッションで重複する。"""
+        pending = [t for t in self._bg_tasks if not t.done()]
+        self._bg_tasks.clear()
+        if not pending:
+            return
+        print(f"[BG_FLUSH] バックグラウンド書き込み待機中: {len(pending)}件...", flush=True)
+        try:
+            await asyncio.wait_for(asyncio.gather(*pending, return_exceptions=True), timeout=timeout)
+            print(f"[BG_FLUSH] 完了", flush=True)
+        except asyncio.TimeoutError:
+            print(f"[BG_FLUSH] タイムアウト({timeout}秒)で打ち切り", flush=True)
+        except Exception as e:
+            print(f"[BG_FLUSH] エラー: {str(e)[:120]}", flush=True)
 
     async def _cleanup_old_screenshots(self, max_age_hours: float = 24.0) -> None:
         """24時間以上前のスクリーンショットを削除してディスク/メモリ圧迫を防ぐ。"""
@@ -588,19 +611,36 @@ class TikTokRunner:
             print(f"起動通知エラー(続行): {str(_e)[:120]}", flush=True)
         start_ts = time.time()
 
-        try:
-            if hasattr(self.sheets, "get_unique_id_status_map"):
-                self.sheet_status_by_id = self.sheets.get_unique_id_status_map()
-                self.sheet_seen_ids = set(self.sheet_status_by_id.keys())
-            else:
-                self.sheet_seen_ids = self.sheets.get_all_unique_ids()
-                self.sheet_status_by_id = {uid: "seen" for uid in self.sheet_seen_ids}
-            self._uid_map_last_refresh_ts = time.time()
-            print(f"過去記載済みIDを読み込みました: {len(self.sheet_seen_ids)}件", flush=True)
-        except Exception as e:
-            print(f"過去記載済みIDの読み込みに失敗: {e}", flush=True)
+        # 起動時 Sheets 読み込みは最大3回リトライ。失敗すると sheet_seen_ids が空になり
+        # 全アカウントが再処理されて重複書き込みが起きるため、慎重にリトライする。
+        for _startup_attempt in range(3):
+            try:
+                if hasattr(self.sheets, "get_unique_id_status_map"):
+                    self.sheet_status_by_id = self.sheets.get_unique_id_status_map()
+                    self.sheet_seen_ids = set(self.sheet_status_by_id.keys())
+                else:
+                    self.sheet_seen_ids = self.sheets.get_all_unique_ids()
+                    self.sheet_status_by_id = {uid: "seen" for uid in self.sheet_seen_ids}
+                self._uid_map_last_refresh_ts = time.time()
+                print(f"過去記載済みIDを読み込みました: {len(self.sheet_seen_ids)}件", flush=True)
+                break
+            except Exception as e:
+                print(f"過去記載済みIDの読み込みに失敗({_startup_attempt+1}/3): {e}", flush=True)
+                if _startup_attempt < 2:
+                    time.sleep(15)
+        else:
+            print("起動時Sheets読み込みが3回失敗しました。sheet_seen_idsは空で続行します(重複リスクあり)。", flush=True)
             self.sheet_seen_ids = set()
             self.sheet_status_by_id = {}
+
+        # ローカルディスクキャッシュ(Chrome 再起動をまたいで保持)を sheet_seen_ids にマージ。
+        # Sheets 読み込みが失敗・不完全でも、このセッション以前の書き込み済み UID を早期スキップできる。
+        local_cached = getattr(self.sheets, '_session_written_uids', set())
+        if local_cached:
+            added = len(local_cached - self.sheet_seen_ids)
+            self.sheet_seen_ids |= local_cached
+            if added:
+                print(f"ローカルキャッシュ補完: +{added}件 → 合計 {len(self.sheet_seen_ids)}件", flush=True)
 
         async with async_playwright() as p:
             # stealth 版: launch_persistent_context ではなく、1_launch_chrome.command で
@@ -753,6 +793,15 @@ class TikTokRunner:
                     await asyncio.sleep(self.cfg.browser.action_delay_sec)
                 except Exception:
                     pass
+
+            # セッション終了前に未完了の bg 書き込みを flush する。
+            # asyncio.run() がイベントループを閉じると ensure_future タスクが
+            # キャンセルされ、次セッションの Sheets 読み込みに間に合わなくなる。
+            # while ループ内の未捕捉例外があっても必ず呼ばれるよう try/finally で保護。
+            try:
+                await self._flush_bg_tasks(timeout=30.0)
+            except Exception as _fe:
+                print(f"[BG_FLUSH_ERR] {str(_fe)[:120]}", flush=True)
 
             # タイムアウト後は Playwright/CDP 状態が不整合になり context.close() が
             # Chrome の応答待ちで永久ハングすることがある。10 秒で強制キャンセル。
@@ -1062,6 +1111,8 @@ class TikTokRunner:
         else:
             status = db_status or sheet_status
         if status == "recommended":
+            # 同セッション内で再度このパスに来ないよう先に sheet_seen_ids へ追加。
+            self.sheet_seen_ids.add(uid)
             # 過去採用済みでも、現行ルールで「ハード NG」になる uid は完視聴シグナルを送らない。
             # 例: user始まり数字ID(user1164647411 等)はルール追加前に採用されたケースが
             # 残っており、今 positive signal を送ると同系統の user{digits} が大量に流入する。
