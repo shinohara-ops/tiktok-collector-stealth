@@ -108,7 +108,7 @@ class SheetsClient:
     def __init__(self, cfg):
         self.cfg = cfg
         self._creds = self._load_credentials()
-        self._http = httplib2.Http(timeout=15)
+        self._http = httplib2.Http(timeout=45)
         authorized_http = AuthorizedHttp(self._creds, http=self._http)
         self.service = build("sheets", "v4", http=authorized_http)
         # httplib2 はスレッドセーフでないため、バックグラウンドスレッドには
@@ -535,7 +535,7 @@ class SheetsClient:
         threading.local でスレッドごとに独立した httplib2.Http を持つため
         メインスレッドの self.service と競合しない。"""
         if not hasattr(self._thread_local, 'service'):
-            self._thread_local.http = httplib2.Http(timeout=15)
+            self._thread_local.http = httplib2.Http(timeout=45)
             self._thread_local.service = build(
                 "sheets", "v4",
                 http=AuthorizedHttp(self._creds, http=self._thread_local.http),
@@ -671,18 +671,29 @@ class SheetsClient:
 
     def append(self, tab_key: str, row: list):
         tab = self.tabs[tab_key]
-        return self._append_to_tab(tab, row)
+        return self._append_to_tab(tab, row, track_uid=False)
 
     def append_recommended(self, row: list, follower_count) -> dict:
         """採用書き込み専用。follower_count に応じて帯域別タブを選ぶ。
         重複チェックは「おすすめ系タブのみ」(除外ログを含めない)。
         過去除外を AI が救出するケースで、除外ログに残った uid が
         二重書き込み判定に巻き込まれて Sheets に何も書かれない現象を回避する。
+        track_uid=True でディスクに書き込み済み UID を永続化する(おすすめ専用)。
         """
         tab = self._resolve_recommended_tab_name(follower_count)
-        return self._append_to_tab(tab, row, dup_scope="recommended_only")
+        return self._append_to_tab(tab, row, dup_scope="recommended_only", track_uid=True)
 
-    def _append_to_tab(self, tab: str, row: list, dup_scope: str = "all"):
+    def _append_to_tab(self, tab: str, row: list, dup_scope: str = "all", track_uid: bool = False):
+        """
+        重複防止の三段構え:
+          Phase 1 (lock瞬間): _session_written_uids で同セッション内の二重書き込みを即ブロック
+          Phase 2 (lock外): Sheets API スキャンで別PC書き込みを検知(遅い→ロック外で実行)
+          Phase 3 (lock瞬間): 楽観的追加でスロットを確保してからロック解放
+          Phase 4 (lock外): execute() を実行(ロック外なので他の書き込みをブロックしない)
+        track_uid=True のとき(おすすめタブ専用)はディスクにも UID を永続化し、
+        プロセス再起動後の重複書き込みを防ぐ。スキップ系タブは track_uid=False のまま
+        (スキップ uid がディスクに入ると次セッションで おすすめ書き込みを誤ブロックするため)。
+        """
         row = list(row)
 
         cleaned = []
@@ -703,51 +714,62 @@ class SheetsClient:
         except Exception:
             uid = ""
 
-        # _append_lock で「重複チェック → 書き込み」をアトミックにする。
-        # ロックなしだと2スレッドが同時にチェックを通過して両方書き込む競合が起きる。
+        # --- Phase 1: セッション内高速チェック(ロック保持時間 = マイクロ秒) ---
         with self._append_lock:
             if uid and uid in self._session_written_uids:
                 print(f"[SESSION_DUPLICATE_SKIP] user_id={uid} tab={tab}", flush=True)
                 return {"duplicate_skipped": True, "uid": uid, "tab": tab}
 
-            if uid and self._is_duplicate_uid_before_append(uid, scope=dup_scope):
-                print(f"[PRE_APPEND_DUPLICATE_SKIP] user_id={uid} tab={tab} scope={dup_scope}", flush=True)
+        # --- Phase 2: Sheets API スキャン(ロック外: 数秒かかっても他スレッドをブロックしない) ---
+        if uid and self._is_duplicate_uid_before_append(uid, scope=dup_scope):
+            with self._append_lock:
                 self._session_written_uids.add(uid)
-                return {"duplicate_skipped": True, "uid": uid, "tab": tab}
+            print(f"[PRE_APPEND_DUPLICATE_SKIP] user_id={uid} tab={tab} scope={dup_scope}", flush=True)
+            return {"duplicate_skipped": True, "uid": uid, "tab": tab}
 
+        # --- Phase 3: スロット確保(ロック保持時間 = マイクロ秒) ---
+        # Phase 2 中に別スレッドが同 uid を書いた可能性 → 二重チェック(TOCTOU 対策)
+        with self._append_lock:
+            if uid and uid in self._session_written_uids:
+                print(f"[SESSION_DUPLICATE_SKIP_TOCTOU] user_id={uid} tab={tab}", flush=True)
+                return {"duplicate_skipped": True, "uid": uid, "tab": tab}
             if not row[0]:
                 row[0] = "'" + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             elif not str(row[0]).startswith("'"):
                 row[0] = "'" + str(row[0])
-
-            # execute() が例外を投げても書き込みが届いていた場合があるため、
-            # 送信前にセッションセットへ楽観的追加する。
-            # 429(サーバーが拒否)は確実に未書き込みなので例外時に取り消す。
+            # execute() 前に楽観的追加: 例外が出ても uid はセットに残り続け、
+            # 同セッション内の全リトライが SESSION_DUPLICATE_SKIP になる。
+            # 429(サーバー拒否確定)のときだけ例外ハンドラで取り消す。
             if uid:
                 self._session_written_uids.add(uid)
-            try:
-                result = self._get_bg_service().spreadsheets().values().append(
-                    spreadsheetId=self.spreadsheet_id,
-                    range=f"{tab}!A:M",
-                    valueInputOption="USER_ENTERED",
-                    insertDataOption="INSERT_ROWS",
-                    body={"values": [row]},
-                ).execute()
-            except Exception as e:
-                if uid and "429" in str(e):
-                    # 429 = サーバーが拒否したので次回リトライを許可する
+        # ロック解放 → execute() はロック外で実行
+
+        # --- Phase 4: Sheets への実際の書き込み(ロック外) ---
+        try:
+            result = self._get_bg_service().spreadsheets().values().append(
+                spreadsheetId=self.spreadsheet_id,
+                range=f"{tab}!A:M",
+                valueInputOption="USER_ENTERED",
+                insertDataOption="INSERT_ROWS",
+                body={"values": [row]},
+            ).execute()
+        except Exception as e:
+            if uid and "429" in str(e):
+                # 429 = サーバーが拒否 → 次回リトライを許可するため uid を取り消す
+                with self._append_lock:
                     self._session_written_uids.discard(uid)
-                elif uid:
-                    # タイムアウト等 429 以外は書き込みがサーバー側で届いた可能性あり
-                    # → ディスクキャッシュに即保存してプロセス再起動後の二重書き込みを防ぐ
-                    self._save_local_written_uid(uid)
-                raise
-            if uid:
-                with self._existing_uids_lock:
-                    self._existing_uids_cache.add(uid)
-                    self._existing_recommended_uids_cache.add(uid)
+            elif uid and track_uid:
+                # タイムアウト等: サーバー側で書き込みが届いた可能性あり
+                # → おすすめタブのみディスクに保存してプロセス再起動後の重複を防ぐ
                 self._save_local_written_uid(uid)
-            return result
+            raise
+        if uid:
+            with self._existing_uids_lock:
+                self._existing_uids_cache.add(uid)
+                self._existing_recommended_uids_cache.add(uid)
+            if track_uid:
+                self._save_local_written_uid(uid)
+        return result
 
     def _load_local_written_uids(self) -> None:
         """data/.local_written_uids.txt から書き込み済み UID を復元する。

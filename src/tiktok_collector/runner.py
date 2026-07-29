@@ -1541,6 +1541,11 @@ class TikTokRunner:
             # run_in_executor でスレッドに逃がす。
             _row = candidate.to_row(self.cfg.collector_name, reason=reason, score=score, model_used=model_used)
             _fc = candidate.follower_count
+            # 429(レート制限): サーバーが拒否確定 → _session_written_uids から uid を取り消し済み
+            #   → 次リトライは正常に書き込む。待機あり。
+            # 非429(タイムアウト等): サーバー側で書き込みが届いた可能性あり
+            #   → _session_written_uids に uid が残るため次リトライは即 SESSION_DUPLICATE_SKIP。
+            #   → sleep 不要(即リトライして break)。
             for _attempt in range(4):
                 try:
                     await asyncio.get_event_loop().run_in_executor(
@@ -1550,10 +1555,15 @@ class TikTokRunner:
                     break
                 except Exception as e:
                     _is_429 = "429" in str(e)
-                    _wait = [30, 60, 120][min(_attempt, 2)] if _is_429 else 10
-                    print(f"[SHEETS_RECOMMEND_ERROR] uid={candidate.unique_id} attempt={_attempt+1}/4 wait={_wait}s err={str(e)[:120]}", flush=True)
-                    if _attempt < 3:
-                        await asyncio.sleep(_wait)
+                    if _is_429:
+                        _wait = [30, 60, 90][min(_attempt, 2)]
+                        print(f"[SHEETS_RECOMMEND_429] uid={candidate.unique_id} attempt={_attempt+1}/4 wait={_wait}s", flush=True)
+                        if _attempt < 3:
+                            await asyncio.sleep(_wait)
+                    else:
+                        # 非429: sleep なしで次ループへ進む
+                        # → 次の run_in_executor は SESSION_DUPLICATE_SKIP を返して break
+                        print(f"[SHEETS_RECOMMEND_ERROR] uid={candidate.unique_id} attempt={_attempt+1}/4 err={str(e)[:120]}", flush=True)
             self.sheet_seen_ids.add(candidate.unique_id)
             self.written_count += 1
             # AI採用確定後にのみ like を送信。黒帯・AI除外・保留アカウントには
