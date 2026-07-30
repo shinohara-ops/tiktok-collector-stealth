@@ -29,6 +29,11 @@ cd "$(dirname "$0")"
 
 export TIKTOK_NONINTERACTIVE=1
 
+# Mac がアイドルスリープすると全プロセスが停止するため caffeinate で防ぐ。
+# -i: アイドルスリープ防止 / -w $$: このシェルが終了したら caffeinate も自動終了。
+caffeinate -i -w $$ &
+CAFFEINATE_PID=$!
+
 # exit code 1 が連続した回数。MAX_CONSEC_ERR1 回連続で永続障害とみなして停止。
 CONSEC_ERR1=0
 MAX_CONSEC_ERR1=10
@@ -36,6 +41,7 @@ MAX_CONSEC_ERR1=10
 cleanup() {
   echo ""
   echo "=== overnight ループを終了します ==="
+  kill "$CAFFEINATE_PID" 2>/dev/null || true
   exit 0
 }
 trap cleanup INT TERM
@@ -115,7 +121,7 @@ while true; do
       sleep 300
       continue
     fi
-    sleep 15  # TikTok フィードのロードを待つ
+    sleep 30  # TikTok フィードのロードを待つ(短すぎると CDP 接続直後にページが未完成)
   fi
 
   echo ""

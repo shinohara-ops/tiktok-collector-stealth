@@ -846,21 +846,28 @@ class TikTokRunner:
         stealth: 1 番目に scraper.next_post(= human_swipe wheel + chevron + ArrowDown)
         を試し、失敗時のみ各種キー/scroll にフォールバック。
         wait は 500ms — 短すぎると次の _process_one が前動画の uid を拾って
-        二重スキップ(2 動画進む)が起きる。"""
+        二重スキップ(2 動画進む)が起きる。
+        各 Playwright 操作に個別タイムアウトを設定し、CDP ハングで 180s timeout が
+        発火するのを防ぐ。"""
+        TIMEOUTS = [10.0, 4.0, 4.0, 4.0, 4.0, 4.0]
         for method in range(1, 7):
             try:
+                t = TIMEOUTS[method - 1]
                 if method == 1:
-                    await self.scraper.next_post(page)
+                    await asyncio.wait_for(self.scraper.next_post(page), timeout=t)
                 elif method == 2:
-                    await page.keyboard.press("ArrowDown")
+                    await asyncio.wait_for(page.keyboard.press("ArrowDown"), timeout=t)
                 elif method == 3:
-                    await page.keyboard.press("PageDown")
+                    await asyncio.wait_for(page.keyboard.press("PageDown"), timeout=t)
                 elif method == 4:
-                    await page.keyboard.press("j")
+                    await asyncio.wait_for(page.keyboard.press("j"), timeout=t)
                 elif method == 5:
-                    await page.mouse.wheel(0, 900)
+                    await asyncio.wait_for(page.mouse.wheel(0, 900), timeout=t)
                 elif method == 6:
-                    await page.evaluate("window.scrollBy(0, Math.max(700, window.innerHeight * 0.85))")
+                    await asyncio.wait_for(
+                        page.evaluate("window.scrollBy(0, Math.max(700, window.innerHeight * 0.85))"),
+                        timeout=t,
+                    )
                 await page.wait_for_timeout(500)
                 return True
             except Exception:
@@ -1131,7 +1138,9 @@ class TikTokRunner:
             # 「新規候補が見つからずフォロー中アカウントしか出ない」状態に陥る。
             # フォロー外で過去採用済みのときだけ完視聴して positive signal を送る。
             try:
-                follow_state = await self.scraper.detect_follow_state_local(page)
+                follow_state = await asyncio.wait_for(
+                    self.scraper.detect_follow_state_local(page), timeout=12.0
+                )
             except Exception:
                 follow_state = "unknown"
             try:
@@ -1330,7 +1339,12 @@ class TikTokRunner:
             await self._force_advance_after_skip(page, candidate.unique_id)
             return True
 
-        follow_state = await self.scraper.detect_follow_state_local(page)
+        try:
+            follow_state = await asyncio.wait_for(
+                self.scraper.detect_follow_state_local(page), timeout=12.0
+            )
+        except Exception:
+            follow_state = "unknown"
         if follow_state == "following":
             reason = "フォロー中"
             print(f"ローカル除外: {candidate.unique_id} / {reason}", flush=True)
