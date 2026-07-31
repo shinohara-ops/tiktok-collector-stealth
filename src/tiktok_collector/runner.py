@@ -1155,7 +1155,7 @@ class TikTokRunner:
                 # 状態不明(例外・要素未検出)は完視聴シグナルを送らず中立視聴。
                 # メインパスと同じく "unknown" = 確認できないので positive signal なし。
                 print(f"[PAST_RECOMMENDED_FOLLOW_UNKNOWN_NEUTRAL] account_id={uid}", flush=True)
-                await self._watch_neutral_video(page)
+                await asyncio.wait_for(self._watch_neutral_video(page), timeout=15)
                 await self._force_advance_after_skip(page, uid)
                 return True
 
@@ -1166,10 +1166,10 @@ class TikTokRunner:
             seen_count = int((processed or {}).get("seen_count") or 0)
             if seen_count <= 2:
                 print(f"[WATCH_RECOMMENDED_ALREADY_PROCESSED] account_id={uid} seen={seen_count}", flush=True)
-                await self._watch_target_video(page)
+                await asyncio.wait_for(self._watch_target_video(page), timeout=25)
             else:
                 print(f"[WATCH_RECOMMENDED_ALREADY_PROCESSED_NEUTRAL] account_id={uid} seen={seen_count}", flush=True)
-                await self._watch_neutral_video(page)
+                await asyncio.wait_for(self._watch_neutral_video(page), timeout=15)
             await self._force_advance_after_skip(page, uid)
             return True
         if self._is_excluded_status(status):
@@ -1195,7 +1195,10 @@ class TikTokRunner:
         """1 動画を処理する。戻り値 True なら **このメソッド内ですでに次の動画へ
         スワイプ済み** であることを呼び出し側に伝え、main loop の追加 next_post
         を抑止する(連続2スワイプ防止)。False なら main loop が next_post する。"""
-        candidate = await self.scraper.current_candidate(page)
+        try:
+            candidate = await asyncio.wait_for(self.scraper.current_candidate(page), timeout=15)
+        except Exception:
+            candidate = None
 
         # === stealth: 二重スキップ防止ガード ===
         # _force_advance_after_skip の直後で DOM がまだ前動画のままだと、
@@ -1209,7 +1212,10 @@ class TikTokRunner:
             and candidate.unique_id == self._last_seen_uid
         ):
             await asyncio.sleep(0.25)
-            recheck = await self.scraper.current_candidate(page)
+            try:
+                recheck = await asyncio.wait_for(self.scraper.current_candidate(page), timeout=15)
+            except Exception:
+                recheck = None
             if recheck and getattr(recheck, "unique_id", "") and recheck.unique_id != self._last_seen_uid:
                 candidate = recheck  # 新しい動画の uid が取れた → 採用
             # 取れなければそのまま進める(reload guard が後段で動く)
@@ -1423,7 +1429,10 @@ class TikTokRunner:
         hover_data = None
         if follower_count is None or not profile_text:
             try:
-                hover_data = await self.scraper.enrich_via_hover(page, candidate.unique_id, hover_wait_sec=1.0)
+                hover_data = await asyncio.wait_for(
+                    self.scraper.enrich_via_hover(page, candidate.unique_id, hover_wait_sec=1.0),
+                    timeout=20,
+                )
             except Exception as e:
                 print(f"hover補完エラー: {candidate.unique_id} / {str(e)[:120]}", flush=True)
                 hover_data = {"follower_count": None, "bio": "", "skip_reason": "hover_exception", "popover_source": None}
@@ -1471,7 +1480,7 @@ class TikTokRunner:
             if is_past_adopted:
                 print(f"stealth past_adopted: {candidate.unique_id} (watch for signal)", flush=True)
                 self.sheet_seen_ids.add(candidate.unique_id)
-                await self._watch_target_video(page)
+                await asyncio.wait_for(self._watch_target_video(page), timeout=25)
                 await self._force_advance_after_skip(page, candidate.unique_id)
                 return True
             min_followers_threshold = int(getattr(self.cfg.rules, "min_followers", 0) or 0)
@@ -1499,7 +1508,13 @@ class TikTokRunner:
                 await self._force_advance_after_skip(page, candidate.unique_id)
                 return True
 
-        screenshot_path = await self.scraper.screenshot_current(page, candidate.unique_id)
+        try:
+            screenshot_path = await asyncio.wait_for(
+                self.scraper.screenshot_current(page, candidate.unique_id), timeout=30
+            )
+        except Exception as e:
+            print(f"[SCREENSHOT_TIMEOUT] {candidate.unique_id} / {str(e)[:80]}", flush=True)
+            screenshot_path = ""
         candidate.screenshot_path = screenshot_path
 
         is_blackband = detect_blackband(
@@ -1599,7 +1614,7 @@ class TikTokRunner:
                             self._liked_uids.add(candidate.unique_id)
                     except Exception as e:
                         print(f"stealth like error: {str(e)[:120]}", flush=True)
-            await self._watch_target_video(page)
+            await asyncio.wait_for(self._watch_target_video(page), timeout=25)
         else:
             reason = str(result.get("reason", "AI除外"))
             model_used = str(result.get("model_used", ""))
