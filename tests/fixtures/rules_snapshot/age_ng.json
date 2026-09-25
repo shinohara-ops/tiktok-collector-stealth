@@ -379,7 +379,7 @@
     "signature": "",
     "profile_url": "https://www.tiktok.com/@o195oetedc0",
     "post_url": "",
-    "expected_reason": "ランダムID/海外・量産寄り",
+    "expected_reason": "未成年系NG(10)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "年齢NG(通信制高校)"
   },
@@ -391,7 +391,7 @@
     "signature": "Xain1_021",
     "profile_url": "https://www.tiktok.com/@y9747761",
     "post_url": "",
-    "expected_reason": "ランダムID/海外・量産寄り",
+    "expected_reason": "未成年系NG(14)",
     "expected_model_used": "local:no-screenshot",
     "sheet_logged_reason": "年齢NG(#14)"
   },

@@ -14,7 +14,7 @@ openai:
   # コスト最適化: 大半は nano(最安) で判定、uncertain=true のときだけ mini に
   # エスカレーション。完全 mini と比べて大幅にコスト削減しつつ、ボーダーライン
   # ケースの品質はそのまま保つハイブリッド構成。
-  primary_model: gpt-4o-mini
+  primary_model: gpt-4.1-nano
   fallback_model: gpt-4o-mini
   use_fallback_for_uncertain: true
   timeout_sec: 20
@@ -127,7 +127,7 @@ browser_stealth:
 # stealth 版アルゴ。候補性判定と like のみ。follow はしない。
 algorithm_stealth:
   # 候補性判定: 過去採用済みでない & フォロワー数 < rules.max_followers のときだけ候補
-  enable_candidacy_check: false
+  enable_candidacy_check: true
   # 候補のうち like_probability で like を発火(0.0〜1.0)
   # 候補(=フォロワー数判明+閾値未満)に対して強めに好意シグナルを送り、
   # TikTokおすすめが似た傾向のアカウントに偏るようにする。

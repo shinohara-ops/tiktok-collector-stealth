@@ -145,17 +145,48 @@ class TikTokScraper:
           const profileUrl = uniqueId ? `https://www.tiktok.com/@${uniqueId}` : '';
 
           let text = '';
-          if (container) text = (container.innerText || container.textContent || '').trim();
+          let textIsReliable = false;
+          if (container) {
+            text = (container.innerText || container.textContent || '').trim();
+            if (text) textIsReliable = true;
+          }
           if (!text && video) {
             let n = video;
             for (let i = 0; n && i < 9; i++, n = n.parentElement) {
               const t = (n.innerText || n.textContent || '').trim();
               if (t && t.length > text.length && t.length < 3000) text = t;
             }
+            if (text) textIsReliable = true;
           }
-          if (!text) text = (document.body.innerText || '').slice(0, 3000);
 
-          const compact = (text || '').replace(/\s+/g, '');
+          // container / video 近傍探索が失敗した動画向けに、キャプション本体の
+          // data-e2e セレクタを直接試す。世代により属性名が揺れるので複数候補。
+          if (!textIsReliable) {
+            try {
+              const descSelectors = [
+                '[data-e2e="browse-video-desc"]',
+                '[data-e2e="video-desc"]',
+                '[data-e2e*="video-desc"]',
+              ];
+              for (const sel of descSelectors) {
+                const els = Array.from(document.querySelectorAll(sel)).filter(visible);
+                if (!els.length) continue;
+                els.sort((a, b) => centerDist(a.getBoundingClientRect()) - centerDist(b.getBoundingClientRect()));
+                const t = (els[0].innerText || els[0].textContent || '').trim();
+                if (t) { text = t; textIsReliable = true; }
+                break;
+              }
+            } catch (e) {}
+          }
+
+          // ページ全体の innerText フォールバックは isAd 判定(広告バナー検出)専用。
+          // サイドバーの関連動画やトレンド枠、地域外バナー等の無関係な文言を
+          // 含みうるため、キャプション/ハッシュタグの抽出源には絶対に使わない。
+          // (container 検出に失敗した動画で、地域外バナー等から「#outside」の
+          //  ような無関係な英字ハッシュタグが誤って拾われていた原因)
+          const adScanText = textIsReliable ? text : (document.body.innerText || '').slice(0, 3000);
+
+          const compact = (adScanText || '').replace(/\s+/g, '');
           let isAd = /広告|スポンサー|Sponsored|Promoted|プロモーション|PR投稿|タイアップ|提供/.test(compact);
           let adSignal = isAd ? 'caption-text' : '';
 

@@ -260,6 +260,15 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     # → src/tiktok_collector/_rules_parts/colored_leak_v2.py に抽出済
     # ────────────────────────────────────────────────────────────────
     if (r := _colored_leak_v2.check(_cs_uid_s, _cs_name_s, _cs_bio_s, _cs_tags)) is not None:
+        # 「ランダムID/海外・量産寄り」は AI 判定に移譲される(即除外されない)ため、
+        # AI が見逃しやすいシグナル(単独年齢トークン10〜17 / Sheets NGワード)が
+        # 先にあれば、そちらを優先して即除外する。
+        # 例: タグ「fyp 10」「越谷 12」、Bio「香川 17」、有名人タグ等
+        if r == "ランダムID/海外・量産寄り":
+            if (r2 := _stream_hashtag.check(_cs_uid_s, _cs_name_s, _cs_bio_s, _cs_tags)) is not None:
+                return r2
+            if (r2 := _check_scoped_ng_words(candidate, "general")) is not None:
+                return r2
         return r
 
 
@@ -323,6 +332,14 @@ def local_skip_reason(candidate, rules=None) -> str | None:
     # → src/tiktok_collector/_rules_parts/similar_v1.py に抽出済
     # ────────────────────────────────────────────────────────────────
     if (r := _similar_v1.check(_cs_uid_s, _cs_name_s, _cs_bio_s, _cs_tags)) is not None:
+        # 「ランダムID/プロフィール紹介文空欄」は AI 判定に移譲される(即除外されない)ため、
+        # AI が見逃しやすいシグナル(単独年齢トークン10〜17 / Sheets NGワード)が
+        # 先にあれば、そちらを優先して即除外する。
+        if r == "ランダムID/プロフィール紹介文空欄":
+            if (r2 := _stream_hashtag.check(_cs_uid_s, _cs_name_s, _cs_bio_s, _cs_tags)) is not None:
+                return r2
+            if (r2 := _check_scoped_ng_words(candidate, "general")) is not None:
+                return r2
         return r
 
 
