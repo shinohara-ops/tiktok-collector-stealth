@@ -153,6 +153,12 @@ class TikTokScraper:
           if (!text && video) {
             let n = video;
             for (let i = 0; n && i < 9; i++, n = n.parentElement) {
+              // container 検出(上記)と同じ「投稿者リンクを含むノードか」の
+              // 条件を課す。これが無いと、リンクを一切含まない無関係な祖先
+              // (関連動画レール/おすすめ欄など)の長文テキストを本文と誤認し、
+              // そこに含まれる英字ハッシュタグ風の文字列まで拾ってしまっていた。
+              const links = n.querySelectorAll ? n.querySelectorAll('a[href*="/@"]').length : 0;
+              if (links === 0) continue;
               const t = (n.innerText || n.textContent || '').trim();
               if (t && t.length > text.length && t.length < 3000) text = t;
             }
