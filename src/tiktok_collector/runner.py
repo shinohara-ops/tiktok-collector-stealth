@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import random
+import re
 import time
 from datetime import datetime
 from pathlib import Path
@@ -385,6 +386,30 @@ async def _repair_candidate_profile_and_hashtags(page, candidate, scraper=None):
             _setv(candidate, key, hashtags_text)
 
     return candidate
+
+
+_JP_CHAR_RE = re.compile(r"[ぁ-んァ-ヶ一-龥]")
+_REASON_CLAIMS_JP_HASHTAG_RE = re.compile(r"(ハッシュタグ|タグ).{0,12}日本語|日本語.{0,12}(ハッシュタグ|タグ)")
+
+
+def _ai_reason_hallucinates_jp_hashtag(cand_dict: dict, result: dict) -> str | None:
+    """
+    軽量モデル(gpt-4.1-nano 等)は「日本語のハッシュタグが含まれる」といった、
+    実データに存在しない根拠を幻覚して target=true を返すことがある。
+    (実例: hashtags='lifeonvideo momentsinmotion exploremore' で日本語ゼロなのに
+     reason='...日本語のハッシュタグも含まれているため...' と主張し採用されたケース)
+    reason がハッシュタグの日本語性を根拠に挙げているのに、実際の hashtags に
+    日本語文字が一切無ければ、その判定根拠は事実と矛盾しているとみなす。
+    """
+    if not result.get("target"):
+        return None
+    reason = str(result.get("reason", ""))
+    if not _REASON_CLAIMS_JP_HASHTAG_RE.search(reason):
+        return None
+    hashtags = str(cand_dict.get("hashtags", "") or "")
+    if _JP_CHAR_RE.search(hashtags):
+        return None
+    return f"AI理由と実データ不整合(hashtagsに日本語なしだがreasonは日本語ハッシュタグを主張): {reason[:100]}"
 
 
 class TikTokRunner:
@@ -1546,6 +1571,12 @@ class TikTokRunner:
             )
             if isinstance(result, dict) and "cute_score" in result:
                 result["cute_score"] = _clamp_ai_score_0_10(result.get("cute_score", ""))
+            _mismatch = _ai_reason_hallucinates_jp_hashtag(_cand_dict, result)
+            if _mismatch:
+                print(f"AI判定を無効化(理由とデータの不整合): {candidate.unique_id} / {_mismatch}", flush=True)
+                result = dict(result)
+                result["target"] = False
+                result["reason"] = _mismatch
         except Exception as e:
             self._notify_openai_quota_exceeded(e)
             reason = "AI未判定/保留: " + str(e)[:120]
